@@ -4,8 +4,33 @@
 
   Import Dom Prog.
 
+
   (** Small step semantics for the instruction set of the JVM *)
   Inductive step (p:Program) : State.t -> State.t -> Prop :=
+  | nop_step_ok : forall h m pc pc' l sf,
+
+    instructionAt m pc = Some Nop ->
+    next m pc = Some pc' ->
+
+    step p (St h (Fr m pc l) sf) (St h (Fr m pc' l) sf)
+
+  | const_step_ok : forall h m pc pc' l l' sf k rt v,
+
+    instructionAt m pc = Some (Const k rt v) ->
+    next m pc = Some pc' ->
+    -2^31 <= v < 2^31 ->
+    l' = LocalVar.update l rt Some (Num (I (Int.const v))) ->
+    step p (St h (Fr m pc l) sf) (St h (Fr m pc' l') sf)
+  
+  | move_step_ok : forall h m pc pc' l l' sf k rt rs v v',
+
+    instructionAt m pc = Some (Move k rt rs) ->
+    next m pc = Some pc' ->
+    v' = LocalVar.get l rs ->
+    l' = LocalVar.update l rt v' ->
+    step p (St h (Fr m pc l) sf) (St h (Fr m pc' l') sf)
+
+(* (*
  (** The current exception is caught in the current method *)
   | exception_caught : forall h m pc loc l sf pc',
 
@@ -21,7 +46,7 @@
 
     step p (StE h (FrE m pc loc l) ((Fr m' pc' s' l')::sf))
            (StE h (FrE m' pc' loc l') sf)
-
+*)
  (** <addlink>aconst_null</addlink>: Push [null] *)
   | aconst_null_step_ok : forall h m pc pc' s l sf,
 
@@ -593,6 +618,7 @@
     compat_ValKind_value k v ->
 
     step p (St h (Fr m pc (v::s) l) sf) (St h (Fr m pc' s l') sf)
+*)
 .
 
 Inductive step_closure_prefix_sf  (p:Program) : State.t -> State.t -> Prop :=

@@ -64,14 +64,16 @@ Module Type SEMANTIC_DOMAIN.
  Module Type LOCALVAR.
    Parameter t : Type.
    Parameter get : t-> Var -> option value.
-   Parameter update : t -> Var -> value -> t.
-   Parameter get_update_new : forall l x v, get (update l x v) x = Some v.
+   Parameter update : t -> Var -> option value -> t.
+   Parameter ret : Var.
+   Parameter ex : Var.
+   Parameter get_update_new : forall l x v, get (update l x v) x = v.
    Parameter get_update_old : forall l x y v,
      x<>y -> get (update l x v) y = get l y.
  End LOCALVAR.
  Declare Module LocalVar : LOCALVAR.
 
-
+(*
  (* Domain of operand stacks *) 
  Module Type OPERANDSTACK.
    Definition t : Set := list value.
@@ -90,7 +92,7 @@ Module Type SEMANTIC_DOMAIN.
    forall s n x, (Var_toN x < n)%nat ->
      LocalVar.get (stack2localvar s n) x = OperandStack.get_nth s (n-(Var_toN x)-1)%nat.
  (** %%nat is a coq command for the notation system *)
-
+*)
  Module Type HEAP.
    Parameter t : Type.
 
@@ -196,7 +198,8 @@ Module Type SEMANTIC_DOMAIN.
  (** Domain of frames *)
  Module Type FRAME.
    Inductive t : Type := 
-      make : Method -> PC -> OperandStack.t -> LocalVar.t -> t.
+      (*make : Method -> PC -> OperandStack.t -> LocalVar.t -> t.*)
+      make : Method -> PC -> LocalVar.t -> t.
  End FRAME.
  Declare Module Frame : FRAME.
 
@@ -224,7 +227,7 @@ Module Type SEMANTIC_DOMAIN.
      end.
    Definition get_m (s:t) : Method :=
      match s with
-       normal _ (Frame.make m _ _ _)_ => m
+       normal _ (Frame.make m _ _)_ => m
      | exception _ (ExceptionFrame.make m _ _ _) _ => m
      end.
  End STATE.
@@ -378,8 +381,3 @@ Module Type SEMANTIC_DOMAIN.
 
 
 End SEMANTIC_DOMAIN.
-
-
-
-
-    
