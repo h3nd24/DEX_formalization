@@ -24,6 +24,7 @@ Open Local Scope Z_scope.
   Parameter or : t -> t -> t.
   Parameter xor : t -> t -> t. 
   Parameter neg : t -> t.
+  Parameter not : t -> t.
   Parameter const : Z -> t.
 
  End NUMERIC.
@@ -148,6 +149,8 @@ Open Local Scope Z_scope.
   Definition xor (x y: t) : t := bitwise_binop xorb x y.
 
   Definition neg (x: t) := repr (- unsigned x).
+  Definition not (x: t) := repr ((- unsigned x) - 1).
+    (* assuming that neg is two's complement and not is one's complement *)
 
   Definition const : Z -> t := repr.
 

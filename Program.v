@@ -40,7 +40,7 @@ Module Type PROGRAM.
   Parameter Field : Set.
   Parameter Method : Type.
   Parameter BytecodeMethod : Type.
-  Parameter ExceptionHandler : Set.
+  (*Parameter ExceptionHandler : Set.*)
   Parameter ShortMethodSignature : Set.
   Parameter ShortFieldSignature :Set.
   Parameter PC : Set.
@@ -70,11 +70,11 @@ Module Type PROGRAM.
   (** Some constants *)
   Parameter javaLang : PackageName.
   Parameter object : ShortClassName.
-  Parameter throwable : ShortClassName.
+  (*Parameter throwable : ShortClassName.*)
 
   (** Native Exceptions *)
-  Parameter NullPointerException ArrayIndexOutOfBoundsException ArrayStoreException
-            NegativeArraySizeException ClassCastException ArithmeticException : ShortClassName.
+(*  Parameter NullPointerException ArrayIndexOutOfBoundsException ArrayStoreException
+            NegativeArraySizeException ClassCastException ArithmeticException : ShortClassName. *)
 
   (** visibility modifiers *)
   Inductive Visibility : Set :=
@@ -608,7 +608,7 @@ Module Type PROGRAM.
    .
 
   (** Operations on exception handlers *)
-  Module Type EXCEPTIONHANDLER_TYPE.
+(*  Module Type EXCEPTIONHANDLER_TYPE.
   (** class of the caught exception *)
     (** The constructor [None] of type option being used to implement [finally]. It
     matches any exception *)
@@ -618,7 +618,7 @@ Module Type PROGRAM.
     (** location of the handler code *) 
     Parameter handler : ExceptionHandler -> PC.
   End EXCEPTIONHANDLER_TYPE.
-  Declare Module EXCEPTIONHANDLER : EXCEPTIONHANDLER_TYPE.
+  Declare Module EXCEPTIONHANDLER : EXCEPTIONHANDLER_TYPE.*)
 
   (** Operations on bytecode methods *)
   Module Type BYTECODEMETHOD_TYPE.
@@ -628,7 +628,7 @@ Module Type PROGRAM.
     (* The list of exception is supposed to be ordered from the innermost to
        the outermost handler, otherwise the behavior might be unexpected 
        @see JVMS 3.10 *)
-    Parameter exceptionHandlers : BytecodeMethod -> list ExceptionHandler.
+    (*Parameter exceptionHandlers : BytecodeMethod -> list ExceptionHandler.*)
 
     (** max number of local variables *)
     Parameter max_locals : BytecodeMethod -> nat.
@@ -778,7 +778,7 @@ Module Type PROGRAM.
      isStatic p fs.
 
   Definition javaLangObject : ClassName := (javaLang,object).
-  Definition javaLangThrowable : ClassName := (javaLang,throwable).
+(*  Definition javaLangThrowable : ClassName := (javaLang,throwable). *)
 
   Inductive direct_subclass (p:Program) (c:Class) (s:Class) : Prop :=
     | direct_subclass1 : 
@@ -890,7 +890,7 @@ Module Type PROGRAM.
     | lookup_up : forall cn  msig, (forall meth, ~ lookup_here p cn msig meth) -> 
       forall super res , direct_subclass_name p cn super -> lookup p super msig res -> lookup p cn msig res.
 
-  Inductive handler_catch (p:Program) : ExceptionHandler -> PC -> ClassName -> Prop :=
+(*  Inductive handler_catch (p:Program) : ExceptionHandler -> PC -> ClassName -> Prop :=
   (* The current handler catches all the exceptions in its range *)
   | handler_catch_all : forall pc ex e,
     EXCEPTIONHANDLER.catchType ex = None ->
@@ -903,11 +903,11 @@ Module Type PROGRAM.
     EXCEPTIONHANDLER.isPCinRange ex pc = true ->
     subclass_name p cl2 cl1 ->
     handler_catch p ex pc cl2.
-
+*)
 
   (** Lookup in the given list of exception handlers if one of them catches
       the current exception *)
-
+(*
   Inductive lookup_handlers (p:Program) : list ExceptionHandler -> PC -> ClassName -> PC -> Prop :=
   (* The current handler catches the exception *)
   | lookup_handlers_hd_catchAll : forall pc ex exl e,
@@ -919,7 +919,7 @@ Module Type PROGRAM.
     ~ handler_catch p ex pc e ->
     lookup_handlers p exl pc e pc' ->
     lookup_handlers p (ex::exl) pc e pc'.
-
+*)
   (** Get the next pc *)
   Definition next (m:Method) (pc:PC) : option PC :=
     match METHOD.body m with

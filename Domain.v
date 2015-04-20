@@ -73,6 +73,8 @@ Module Type SEMANTIC_DOMAIN.
  End LOCALVAR.
  Declare Module LocalVar : LOCALVAR.
 
+ Parameter listvar2localvar : list Var -> LocalVar.t.
+
 (*
  (* Domain of operand stacks *) 
  Module Type OPERANDSTACK.
@@ -365,7 +367,7 @@ Module Type SEMANTIC_DOMAIN.
      continues in the next frame *)
   (* FIXME: Check that the object pointed by loc is an instance of Throwable? - gd *)
 
-  Inductive CaughtException (p:Program) : Method -> PC*Heap.t*Location -> PC -> Prop :=
+(*  Inductive CaughtException (p:Program) : Method -> PC*Heap.t*Location -> PC -> Prop :=
     CaughtException_def : forall m pc h loc bm pc' e,
       METHOD.body m = Some bm ->
       Heap.typeof h loc = Some (Heap.LocationObject e) ->
@@ -377,7 +379,7 @@ Module Type SEMANTIC_DOMAIN.
       METHOD.body m = Some bm ->
       Heap.typeof h loc = Some (Heap.LocationObject e) ->
       (forall pc', ~ lookup_handlers p (BYTECODEMETHOD.exceptionHandlers bm) pc e pc') ->
-      UnCaughtException p m (pc,h,loc).
+      UnCaughtException p m (pc,h,loc). *)
 
 
 End SEMANTIC_DOMAIN.
