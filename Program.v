@@ -586,7 +586,7 @@ Module Type PROGRAM.
    | Goto (o:OFFSET.t)
    | PackedSwitch (rt:Var) (firstKey:Z) (size:Z) (l:list OFFSET.t)
    | SparseSwitch (rt:Var) (size:Z) (l:list (Z * OFFSET.t))
-   | If (cmp:CompInt) (ra:Var) (rb:Var) (o:OFFSET.t)
+   | Ifcmp (cmp:CompInt) (ra:Var) (rb:Var) (o:OFFSET.t)
    | Ifz (cmp:CompInt) (r:Var) (o:OFFSET.t)
    | Aget (k:ArrayKind) (rt:Var) (ra:Var) (ri:Var)
    | Aput (k:ArrayKind) (rs:Var) (ra:Var) (ri:Var)
@@ -634,6 +634,8 @@ Module Type PROGRAM.
     Parameter max_locals : BytecodeMethod -> nat.
     (** max number of elements on the operand stack *)
     Parameter max_operand_stack_size : BytecodeMethod -> nat.
+    (* DEX for type system *)
+    Parameter locR : BytecodeMethod -> nat.
 
     Definition DefinedInstruction (bm:BytecodeMethod) (pc:PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
@@ -667,6 +669,11 @@ Module Type PROGRAM.
     Definition valid_stack_size (m:Method) (length:nat) : Prop :=
       forall bm, body m = Some bm ->
          length <= (BYTECODEMETHOD.max_operand_stack_size bm).
+
+    (* DEX additional for locR *)
+    Definition within_locR (m:Method) (x:Var) : Prop :=
+      forall bm, body m = Some bm ->
+         (Var_toN x) <= (BYTECODEMETHOD.locR bm).
 
     End METHOD_TYPE.
   Declare Module METHOD : METHOD_TYPE.

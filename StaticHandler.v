@@ -14,7 +14,7 @@ Module StaticHandler.
         if subclass_test c1 c2 then subclass_name p c1 c2
           else ~ subclass_name p c1 c2.
 
-    Fixpoint search_handler (pc:PC) (c:ClassName)
+(*    Fixpoint search_handler (pc:PC) (c:ClassName)
       (l:list ExceptionHandler) {struct l} : option ExceptionHandler :=
       match l with
         nil => None
@@ -108,7 +108,7 @@ Module StaticHandler.
       rewrite H in H3; discriminate.
       rewrite H in H3; discriminate.
     Qed.
-
+*)
   End subclass_test.
 
 End StaticHandler.
@@ -124,7 +124,7 @@ Module StaticHandlerProp.
       forall c1 c2,
         if subclass_test c1 c2 then subclass_name p c1 c2
           else ~ subclass_name p c1 c2.
-
+(*
     Lemma CaughtException_handler :
       forall m pc h loc pc' cn,
         Heap.typeof h loc = Some (Heap.LocationObject cn) ->
@@ -178,7 +178,7 @@ Module StaticHandlerProp.
       elim (H0 p0).
       eapply handler_CaughtException; eauto.
     Qed. 
-
+*)
   End subclass_test.
 
 End StaticHandlerProp.

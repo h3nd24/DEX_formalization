@@ -179,9 +179,9 @@
 
     step p (St h (Fr m pc l) sf) (St h (Fr m pc' l) sf) 
 
-  | if_step_jump : forall h m pc l sf va vb cmp ra rb o,
+  | ifcmp_step_jump : forall h m pc l sf va vb cmp ra rb o,
 
-    instructionAt m pc = Some (If cmp ra rb o) ->
+    instructionAt m pc = Some (Ifcmp cmp ra rb o) ->
     Some (Num (I va)) = LocalVar.get l ra ->
     Some (Num (I vb)) = LocalVar.get l rb ->
     SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -190,9 +190,9 @@
 
     step p (St h (Fr m pc l) sf) (St h (Fr m (OFFSET.jump pc o) l) sf)
 
-  | if_step_continue : forall h m pc pc' l sf va vb cmp ra rb o,
+  | ifcmp_step_continue : forall h m pc pc' l sf va vb cmp ra rb o,
     
-    instructionAt m pc = Some (If cmp ra rb o) ->
+    instructionAt m pc = Some (Ifcmp cmp ra rb o) ->
     Some (Num (I va)) = LocalVar.get l ra ->
     Some (Num (I vb)) = LocalVar.get l rb ->
     ~SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->

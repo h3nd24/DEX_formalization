@@ -5,6 +5,8 @@ Require Export step.
 Import StaticHandler.StaticHandler BigStep.BigStep Dom.Prog.
 
 Import Level.L.
+Import Dom.
+
 Open Scope type_scope.
 
   Section typing_rules.   (** Typing rules **)
@@ -15,20 +17,174 @@ Open Scope type_scope.
         if subclass_test c1 c2 then subclass_name p.(prog) c1 c2
           else ~ subclass_name p.(prog) c1 c2.
     Variable m : Method.
+    Definition method_signature := METHOD.signature m.
     Variable sgn : sign.
     Variable region : PC -> tag -> PC -> Prop.
     Variable se : PC -> L.t.
     Variable selift : PC -> tag -> L.t -> bool.
 
-    Notation handler := (handler subclass_test m).
+    (* Notation handler := (handler subclass_test m). *)
 
     Infix "<=" := L.leql (at level 70).
     Infix "<='" := L.leql' (at level 70).
     Infix "U'" := L.join' (at level 60, right associativity).
     Infix "U" := L.join (at level 60, right associativity).
 
-    Inductive texec : PC -> Instruction -> tag -> TypeStack -> option TypeStack -> Prop :=
-    | aconst_null : forall i st,
+    Inductive texec : PC -> Instruction -> tag -> TypeRegisters -> option TypeRegisters -> Prop :=
+    | nop : forall i rt,
+      texec i Nop None rt (Some rt)
+
+    | move_constrained : forall i (rt:TypeRegisters) k_rs (k:ValKind) (r:Var) (rs:Var),
+      In r (locR p method_signature) ->
+      Some k_rs = BinNatMap.get _ rt rs ->
+      se i <= sgn.(lvt) r ->
+      k_rs <= sgn.(lvt) r ->
+      texec i (Move k r rs) None rt 
+       (Some (BinNatMap.update _ rt r ((se i) U' k_rs)))
+
+    | move_unconstrained : forall i (rt:TypeRegisters) k_rs (k:ValKind) (r:Var) (rs:Var),
+      ~In r (locR p method_signature) ->
+      Some k_rs = BinNatMap.get _ rt rs ->
+      texec i (Move k r rs) None rt
+        (Some (BinNatMap.update _ rt r ((se i) U' k_rs)))
+
+    | moveResult_constrained : forall i (rt:TypeRegisters) k_res (k:ValKind) (r:Var),
+      In r (locR p method_signature) ->
+      Some k_res = BinNatMap.get _ rt LocalVar.ret ->
+      se i <= sgn.(lvt) r ->
+      k_res <= sgn.(lvt) r ->
+      texec i (MoveResult k r) None rt
+        (Some (BinNatMap.update _ rt r ((se i) U' k_res)))
+
+    | moveResult_unconstrained : forall i (rt:TypeRegisters) k_res (k:ValKind) (r:Var),
+      ~In r (locR p method_signature) ->
+      Some k_res = BinNatMap.get _ rt LocalVar.ret ->
+      texec i (MoveResult k r) None rt
+        (Some (BinNatMap.update _ rt r ((se i) U' k_res)))
+
+    | return_ : forall i (rt:TypeRegisters),
+      sgn.(resType) = None ->
+      texec i (Return) None rt None
+
+    | vReturn : forall i (rt:TypeRegisters) k_r kv (k:ValKind) (r:Var),
+      Some k_r = BinNatMap.get _ rt r ->
+      sgn.(resType) = Some kv ->
+      ((se i) U' k_r) <=' kv ->
+      texec i (VReturn k r) None rt None
+
+    | const : forall i (rt:TypeRegisters) (k:ValKind) (r:Var) (v:Z),
+      texec i (Const k r v) None rt (Some (BinNatMap.update _ rt r (L.Simple (se i))))
+    
+    | instanceOf : forall i (rt:TypeRegisters) k (r:Var) (ro:Var) (t:refType),
+      Some k = BinNatMap.get _ rt ro ->
+      (forall j, region i None j -> k <= se j) -> 
+      texec i (InstanceOf r ro t) None rt 
+        (Some (BinNatMap.update _ rt r (L.Simple ((se i) U k))))
+    
+    | arrayLength : forall i k ke (rt:TypeRegisters) (r:Var) (rs:Var),
+      Some (L.Array k ke) = BinNatMap.get _ rt rs ->
+      texec i (ArrayLength r rs) None rt
+        (Some (BinNatMap.update _ rt r (L.Simple k)))
+    
+    | new : forall i (rt:TypeRegisters) (r:Var) (t:refType),
+      texec i (New r t) None rt (Some (BinNatMap.update _ rt r (L.Simple (se i))))
+
+    | newArray : forall i (rt:TypeRegisters) k (r:Var) (rl:Var) (t:type),
+      Some k = BinNatMap.get _ rt rl ->
+      texec i (NewArray r rl t) None rt
+        (Some (BinNatMap.update _ rt r (L.Array k (newArT p (m,i)))))
+
+    | goto : forall i (rt:TypeRegisters) (o:OFFSET.t),
+      texec i (Goto o) None rt (Some rt)
+
+    | packedSwitch : forall i k (rt:TypeRegisters) (r:Var) (firstKey:Z) (size:Z) (l:list OFFSET.t),
+      Some k = BinNatMap.get _ rt r ->
+      (forall j, region i None j -> k <= se j) -> 
+      texec i (PackedSwitch r firstKey size l) None rt (Some (lift k rt))
+
+    | sparseSwitch : forall i k (rt:TypeRegisters) (r:Var) (size:Z) (l:list (Z * OFFSET.t)),
+      Some k = BinNatMap.get _ rt r ->
+      (forall j, region i None j -> k <= se j) -> 
+      texec i (SparseSwitch r size l) None rt (Some (lift k rt))
+    
+    | ifcmp : forall i k (rt:TypeRegisters) (cmp:CompInt) (ra:Var) (rb:Var) (o:OFFSET.t),
+      Some k = BinNatMap.get _ rt ra ->
+      (forall j, region i None j -> k <= se j) -> 
+      texec i (Ifcmp cmp ra rb o) None rt (Some (lift k rt))
+     
+    | ifz : forall i k (rt:TypeRegisters) (cmp:CompInt) (r:Var) (o:OFFSET.t),
+      Some k = BinNatMap.get _ rt r ->
+      (forall j, region i None j -> k <= se j) -> 
+      texec i (Ifz cmp r o) None rt (Some (lift k rt))
+
+    | aget : forall i ka kc ki (rt:TypeRegisters) 
+       (k:ArrayKind) (r:Var) (ra:Var) (ri:Var),
+      Some (L.Array ka kc) = BinNatMap.get _ rt ra ->
+      Some ki = BinNatMap.get _ rt ri ->
+      texec i (Aget k r ra ri) None rt 
+        (Some (BinNatMap.update _ rt r ((ka U ki) U' kc)))
+
+    | aput : forall i ks ka kc ki (rt:TypeRegisters)
+       (k:ArrayKind) (rs:Var) (ra:Var) (ri:Var),
+      Some ks = BinNatMap.get _ rt rs ->
+      Some (L.Array ka kc) = BinNatMap.get _ rt ra ->
+      Some ki = BinNatMap.get _ rt ri ->
+      ((ka U ki) U' ks) <=' kc ->
+      texec i (Aput k rs ra ri) None rt (Some rt)
+
+    | iget : forall i ko (rt:TypeRegisters) (k:ValKind) (r:Var) (ro:Var) (f:FieldSignature),
+      Some ko = BinNatMap.get _ rt ro ->
+      texec i (Iget k r ro f) None rt 
+        (Some (BinNatMap.update _ rt ro ((ko U (se i)) U' (ft p f))))
+
+    | iput : forall i ks ko (rt:TypeRegisters) (k:ValKind) (rs:Var) (ro:Var) (f:FieldSignature),
+      Some ks = BinNatMap.get _ rt rs ->
+      Some ko = BinNatMap.get _ rt ro ->
+      ((se i) U ko) U' ks <=' (ft p f) ->
+      texec i (Iput k rs ro f) None rt (Some rt)
+
+(*    | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
+    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
+(* TODO
+    | Invokevirtual (m:MethodSignature) (n:Z) (p:list Var)
+    | Invokesuper (m:MethodSignature) (n:Z) (p:list Var)
+    | Invokedirect (m:MethodSignature) (n:Z) (p:list Var)
+    | Invokestatic (m:MethodSignature) (n:Z) (p:list Var)
+    | Invokeinterface (m:MethodSignature) (n:Z) (p:list Var)
+*)
+    | ineg : forall i ks (rt:TypeRegisters) (r:Var) (rs:Var),
+      Some ks = BinNatMap.get _ rt rs ->
+      texec i (Ineg r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+
+    | inot : forall i ks (rt:TypeRegisters) (r:Var) (rs:Var),
+      Some ks = BinNatMap.get _ rt rs ->
+      texec i (Inot r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+
+    | i2b : forall i ks (rt:TypeRegisters) (r:Var) (rs:Var),
+      Some ks = BinNatMap.get _ rt rs ->
+      texec i (I2b r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+
+    | i2s : forall i ks (rt:TypeRegisters) (r:Var) (rs:Var),
+      Some ks = BinNatMap.get _ rt rs ->
+      texec i (I2s r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+
+    | ibinop : forall i ka kb (rt:TypeRegisters) (op:BinopInt) (r:Var) (ra:Var) (rb:Var),
+      Some ka = BinNatMap.get _ rt ra ->
+      Some kb = BinNatMap.get _ rt rb ->
+      texec i (Ibinop op r ra rb) None rt 
+       (Some (BinNatMap.update _ rt r (L.Simple ((ka U kb) U (se i)))))
+    
+    | ibinopConst : forall i ks (rt:TypeRegisters) (op:BinopInt) (r:Var) (rs:Var) (v:Z),
+      Some ks = BinNatMap.get _ rt rs ->
+      texec i (IbinopConst op r rs v) None rt 
+       (Some (BinNatMap.update _ rt r (L.Simple (ks U (se i)))))   
+    .
+
+
+    
+
+
+   | aconst_null : forall i st,
       texec i Aconst_null None st (Some (L.Simple (se i)::st))
     | arraylength : forall i k ke st,
       (forall j, region i None j -> k <= se j) -> 

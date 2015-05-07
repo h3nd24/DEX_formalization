@@ -26,13 +26,15 @@ Module Make <: PROGRAM.
   Lemma Var_toN_bij1 : forall v, N_toVar (Var_toN v) = v.
   Proof. exact nat_of_N_bij2. Qed.
   Lemma Var_toN_bij2 : forall n, Var_toN (N_toVar n) = n.
-  Proof. exact nat_of_N_bij1. Qed.
+  Proof. exact nat_of_N_bij1. Qed. 
 
   Definition PC : Set := N.
   Definition PC_eq := Neq. 
   Definition PC_eq_spec := Neq_spec.
   Lemma PC_eq_dec : eq_dec PC.
-  Proof. exact Var_eq_dec. Qed.
+  Proof. exact Var_eq_dec. 
+    (*intros x1 x2;assert (UU:= Neq_spec x1 x2);destruct (Neq x1 x2);auto.*)
+  Qed.
 
   Definition PackageName : Set := positive.
   Definition ShortClassName : Set := positive.
@@ -263,7 +265,7 @@ Module Make <: PROGRAM.
     | Aval
     | Ival.
 
-  Inductive Instruction : Set :=
+(*  Inductive Instruction : Set :=
    | Aconst_null
    | Arraylength 
    | Athrow
@@ -307,7 +309,42 @@ Module Make <: PROGRAM.
    | Vastore (k:ArrayKind)
    | Vload (k:ValKind) (x:Var)
    | Vreturn (k:ValKind)
-   | Vstore (k:ValKind) (x:Var).
+   | Vstore (k:ValKind) (x:Var).*)
+
+  Inductive Instruction : Set :=
+   | Nop
+   | Move (k:ValKind) (rt:Var) (rs:Var)
+   | MoveResult (k:ValKind) (rt:Var)
+   | Return
+   | VReturn (k:ValKind) (rt:Var)
+   | Const (k:ValKind) (rt:Var) (v:Z)
+   | InstanceOf (rt:Var) (r:Var) (t:refType)
+   | ArrayLength (rt:Var) (rs:Var)
+   | New (rt:Var) (t:refType)
+   | NewArray (rt:Var) (rl:Var) (t:type)
+   | Goto (o:OFFSET.t)
+   | PackedSwitch (rt:Var) (firstKey:Z) (size:Z) (l:list OFFSET.t)
+   | SparseSwitch (rt:Var) (size:Z) (l:list (Z * OFFSET.t))
+   | Ifcmp (cmp:CompInt) (ra:Var) (rb:Var) (o:OFFSET.t)
+   | Ifz (cmp:CompInt) (r:Var) (o:OFFSET.t)
+   | Aget (k:ArrayKind) (rt:Var) (ra:Var) (ri:Var)
+   | Aput (k:ArrayKind) (rs:Var) (ra:Var) (ri:Var)
+   | Iget (k:ValKind) (rt:Var) (ro:Var) (f:FieldSignature)
+   | Iput (k:ValKind) (rs:Var) (ro:Var) (f:FieldSignature)
+(*   | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
+   | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
+   | Invokevirtual (m:MethodSignature) (n:Z) (p:list Var)
+   | Invokesuper (m:MethodSignature) (n:Z) (p:list Var)
+   | Invokedirect (m:MethodSignature) (n:Z) (p:list Var)
+   | Invokestatic (m:MethodSignature) (n:Z) (p:list Var)
+   | Invokeinterface (m:MethodSignature) (n:Z) (p:list Var)
+   | Ineg (rt:Var) (rs:Var)
+   | Inot (rt:Var) (rs:Var)
+   | I2b (rt:Var) (rs:Var)
+   | I2s (rt:Var) (rs:Var)
+   | Ibinop (op:BinopInt) (rt:Var) (ra:Var) (rb:Var)
+   | IbinopConst (op:BinopInt) (rt:Var) (r:Var) (v:Z)
+   .
 
   Module FIELD.
     Inductive value : Set :=
@@ -375,7 +412,7 @@ Module Make <: PROGRAM.
     | UNDEF.
     Parameter initValue : Field ->  value.
   End FIELD_TYPE.
-
+(*
   Module EXCEPTIONHANDLER.
     Record t : Set := {
       catchType : option ClassName;
@@ -424,14 +461,16 @@ Module Make <: PROGRAM.
     Parameter isPCinRange : ExceptionHandler -> PC -> bool.
     Parameter handler : ExceptionHandler -> PC.
   End EXCEPTIONHANDLER_TYPE.
-   
+*)   
   Module BYTECODEMETHOD.
     Record t : Type := {
       firstAddress : PC;
       instr : MapN.t (Instruction*(option PC*list ClassName));
-      exceptionHandlers : list ExceptionHandler;
+      (*exceptionHandlers : list ExceptionHandler;*)
       max_locals : nat;
-      max_operand_stack_size : nat
+      max_operand_stack_size : nat;
+      (* DEX type system locR *)
+      locR : nat
     }.
     
     Definition instructionAt (bm:t) (pc:PC) : option Instruction :=
@@ -447,13 +486,13 @@ Module Make <: PROGRAM.
        end.
     Definition DefinedInstruction (bm:t) (pc:PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
-
+(*
     Definition throwableAt (bm:t) (pc:PC) : list ClassName := 
        match MapN.get _ bm.(instr) pc with
        | Some p => snd (snd p)
        | None => nil
        end.
-   
+*)   
   End BYTECODEMETHOD.
   Definition BytecodeMethod := BYTECODEMETHOD.t.
 
@@ -461,9 +500,11 @@ Module Make <: PROGRAM.
     Parameter firstAddress : BytecodeMethod -> PC.
     Parameter nextAddress : BytecodeMethod -> PC -> option PC.
     Parameter instructionAt : BytecodeMethod -> PC -> option Instruction.
-    Parameter exceptionHandlers : BytecodeMethod -> list ExceptionHandler.
+    (*Parameter exceptionHandlers : BytecodeMethod -> list ExceptionHandler.*)
     Parameter max_locals : BytecodeMethod -> nat.
     Parameter max_operand_stack_size : BytecodeMethod -> nat.
+    (* DEX type system locR *)
+    Parameter locR : BytecodeMethod -> nat.
 
     Definition DefinedInstruction (bm:BytecodeMethod) (pc:PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
@@ -514,6 +555,11 @@ Module Make <: PROGRAM.
     Definition valid_stack_size (m:t) (length:nat) : Prop :=
       forall bm, body m = Some bm ->
          (length <= (BYTECODEMETHOD.max_operand_stack_size bm))%nat.
+
+    (* DEX type system locR *)
+    Definition within_locR (m:t) (x:Var) : Prop :=
+      forall bm, body m = Some bm ->
+        ((Var_toN x) <= (BYTECODEMETHOD.locR bm))%nat.
   End METHOD.
   
   Definition Method := METHOD.t.
@@ -538,6 +584,11 @@ Module Make <: PROGRAM.
     Definition valid_stack_size (m:Method) (length:nat) : Prop :=
       forall bm, body m = Some bm ->
          (length <= (BYTECODEMETHOD.max_operand_stack_size bm))%nat.
+    (* DEX type system locR *)
+    Definition within_locR (m:Method) (x:Var) : Prop :=
+      forall bm, body m = Some bm ->
+        ((Var_toN x) <= (BYTECODEMETHOD.locR bm))%nat.
+
   End METHOD_TYPE.
 
   Module CLASS .
@@ -809,7 +860,7 @@ Module Make <: PROGRAM.
      isStatic p fs.
 
   Definition javaLangObject : ClassName := (javaLang,object).
-  Definition javaLangThrowable : ClassName := (javaLang,throwable).
+  (*Definition javaLangThrowable : ClassName := (javaLang,throwable).*)
 
   Inductive direct_subclass (p:Program) (c:Class) (s:Class) : Prop :=
     | direct_subclass1 : 
@@ -946,7 +997,7 @@ Module Make <: PROGRAM.
     | lookup_no_up : forall cn msig meth, lookup_here p cn msig meth -> lookup p cn msig (cn,meth)
     | lookup_up : forall cn  msig, (forall meth, ~ lookup_here p cn msig meth) -> 
       forall super res , direct_subclass_name p cn super -> lookup p super msig res -> lookup p cn msig res.
-
+(*
   Inductive handler_catch (p:Program) : ExceptionHandler -> PC -> ClassName -> Prop :=
   (* The current handler catches all the exceptions in its range *)
   | handler_catch_all : forall pc ex e,
@@ -976,7 +1027,7 @@ Module Make <: PROGRAM.
     ~ handler_catch p ex pc e ->
     lookup_handlers p exl pc e pc' ->
     lookup_handlers p (ex::exl) pc e pc'.
-
+*)
   (** Get the next pc *)
   Definition next (m:Method) (pc:PC) : option PC :=
     match METHOD.body m with
@@ -990,13 +1041,13 @@ Module Make <: PROGRAM.
       None => None
     | Some body => BYTECODEMETHOD.instructionAt body pc
     end.
-
+(*
   Definition throwableAt (m:Method) (pc:PC) : list ClassName := 
     match METHOD.body m with
       None => nil
     | Some body => BYTECODEMETHOD.throwableAt body pc
     end.
-
+*)
 
   Inductive implements (p:Program) : ClassName -> InterfaceName -> Prop :=
     | implements_def : forall i cl i', 

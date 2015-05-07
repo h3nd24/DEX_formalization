@@ -20,9 +20,9 @@
 
     instructionAt m pc = Some (Const k rt v) ->
     next m pc = Some pc' ->
-    -2^31 <= v < 2^31 ->
+    (-2^31 <= v < 2^31)%Z ->
     METHOD.valid_var m rt ->
-    l' = LocalVar.update l rt (Some (Num (I (Int.const v)))) ->
+    l' = LocalVar.update l rt (Num (I (Int.const v))) ->
 
     NormalStep p m (pc,(h, l)) (pc',(h, l'))
   
@@ -30,7 +30,7 @@
 
     instructionAt m pc = Some (Move k rt rs) ->
     next m pc = Some pc' ->
-    v = LocalVar.get l rs ->
+    Some v = LocalVar.get l rs ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rs ->
     l' = LocalVar.update l rt v ->
@@ -41,7 +41,7 @@
 
     instructionAt m pc = Some (MoveResult k rt) ->
     next m pc = Some pc' ->
-    v = LocalVar.get l LocalVar.ret ->
+    Some v = LocalVar.get l LocalVar.ret ->
     METHOD.valid_var m rt ->
     l' = LocalVar.update l rt v ->
 
@@ -56,7 +56,7 @@
     assign_compatible p h (Ref loc) (ReferenceType t) ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m r ->
-    l' = LocalVar.update l' rt (Some (Num (I (Int.const 1)))) ->
+    l' = LocalVar.update l' rt (Num (I (Int.const 1))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
  (** <addlink>instanceof</addlink>: with object == null *)
@@ -69,7 +69,7 @@
     (~ assign_compatible p h v (ReferenceType t) \/ v=Null) ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m r ->
-    l' = LocalVar.update l' rt (Some (Num (I (Int.const 0)))) ->
+    l' = LocalVar.update l' rt (Num (I (Int.const 0))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
   
@@ -82,7 +82,7 @@
     Heap.typeof h loc = Some (Heap.LocationArray length tp a) ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rs ->
-    l' = LocalVar.update l rt (Some (Num (I length))) ->
+    l' = LocalVar.update l rt (Num (I length)) ->
     
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -93,7 +93,7 @@
     next m pc = Some pc' ->
     Heap.new h p (Heap.LocationObject c) = Some (pair loc h') ->
     METHOD.valid_var m rt ->
-    l' = LocalVar.update l rt (Some (Ref loc)) ->
+    l' = LocalVar.update l rt (Ref loc) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h', l'))
 
@@ -105,10 +105,10 @@
     next m pc = Some pc' ->
     Heap.new h p (Heap.LocationArray i t (m,pc)) = Some (pair loc h_new) ->
     Some (Num (I i)) = LocalVar.get l rl ->
-    0 <= Int.toZ i ->
+    (0 <= Int.toZ i)%Z ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rl ->
-    l' = LocalVar.update l rt (Some (Ref loc)) ->
+    l' = LocalVar.update l rt (Ref loc) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h_new, l'))
 
@@ -122,9 +122,9 @@
     
     instructionAt m pc = Some (PackedSwitch r firstKey size list_offset) ->
     Some (Num (I v)) = LocalVar.get l r ->
-    firstKey <= Int.toZ v < firstKey + size ->
+    (firstKey <= Int.toZ v < firstKey + size)%Z ->
     Z_of_nat (length list_offset) = size ->
-    Z_of_nat n = (Int.toZ v) - firstKey ->
+    Z_of_nat n = ((Int.toZ v) - firstKey)%Z ->
     nth_error list_offset n = Some o ->
     METHOD.valid_var m r ->
     
@@ -135,7 +135,7 @@
     instructionAt m pc = Some (PackedSwitch r firstKey size list_offset) ->
     Some (Num (I v)) = LocalVar.get l r ->
     Z_of_nat (length list_offset) = size ->
-    Int.toZ v < firstKey \/ firstKey + size <= Int.toZ v ->
+    (Int.toZ v < firstKey \/ firstKey + size <= Int.toZ v)%Z ->
     next m pc = Some pc' ->
     METHOD.valid_var m r ->
 
@@ -163,9 +163,9 @@
 
     NormalStep p m (pc, (h, l)) (pc', (h, l))
 
-  | if_step_jump : forall h m pc l va vb cmp ra rb o,
+  | ifcmp_step_jump : forall h m pc l va vb cmp ra rb o,
 
-    instructionAt m pc = Some (If cmp ra rb o) ->
+    instructionAt m pc = Some (Ifcmp cmp ra rb o) ->
     Some (Num (I va)) = LocalVar.get l ra ->
     Some (Num (I vb)) = LocalVar.get l rb ->
     SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -174,9 +174,9 @@
     
     NormalStep p m (pc, (h, l)) ((OFFSET.jump pc o), (h, l))
 
-  | if_step_continue : forall h m pc pc' l va vb cmp ra rb o,
+  | ifcmp_step_continue : forall h m pc pc' l va vb cmp ra rb o,
     
-    instructionAt m pc = Some (If cmp ra rb o) ->
+    instructionAt m pc = Some (Ifcmp cmp ra rb o) ->
     Some (Num (I va)) = LocalVar.get l ra ->
     Some (Num (I vb)) = LocalVar.get l rb ->
     ~SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -213,13 +213,13 @@
     Heap.typeof h loc = Some (Heap.LocationArray length t a) ->
     compat_ArrayKind_type k t ->
     Some (Num (I i)) = LocalVar.get l ri ->
-    0 <= Int.toZ i < Int.toZ length ->
+    (0 <= Int.toZ i < Int.toZ length)%Z ->
     Heap.get h (Heap.ArrayElement loc (Int.toZ i)) = Some val ->
     compat_ArrayKind_value k val ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m ra ->
     METHOD.valid_var m ri ->
-    l' = LocalVar.update l rt (Some (conv_for_stack val)) -> 
+    l' = LocalVar.update l rt (conv_for_stack val) -> 
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -233,7 +233,7 @@
     Some val = LocalVar.get l rs ->
     assign_compatible p h val tp ->
     Some (Num (I i)) = LocalVar.get l ri ->
-    0 <= Int.toZ i < Int.toZ length ->
+    (0 <= Int.toZ i < Int.toZ length)%Z ->
     compat_ArrayKind_type k tp ->
     compat_ArrayKind_value k val ->
     METHOD.valid_var m rs ->
@@ -254,7 +254,7 @@
     Heap.get h (Heap.DynamicField loc f) = Some v ->    
     METHOD.valid_var m rt ->
     METHOD.valid_var m ro ->
-    l' = LocalVar.update l rt (Some v) ->
+    l' = LocalVar.update l rt v ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
   
@@ -288,7 +288,7 @@
     Some (Num (I v)) = LocalVar.get l rs ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rs ->
-    l' = LocalVar.update l rt (Some (Num (I (Int.neg v)))) ->
+    l' = LocalVar.update l rt (Num (I (Int.neg v))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -300,7 +300,7 @@
     Some (Num (I v)) = LocalVar.get l rs ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rs ->
-    l' = LocalVar.update l rt (Some (Num (I (Int.not v)))) ->
+    l' = LocalVar.update l rt (Num (I (Int.not v))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -312,7 +312,7 @@
     Some (Num (I v)) = LocalVar.get l rs ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rs ->
-    l' = LocalVar.update l rt (Some (Num (I (b2i (i2b v))))) ->
+    l' = LocalVar.update l rt (Num (I (b2i (i2b v)))) ->
     
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -324,7 +324,7 @@
     Some (Num (I v)) = LocalVar.get l rs ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m rs ->
-    l' = LocalVar.update l rt (Some (Num (I (s2i (i2s v))))) ->
+    l' = LocalVar.update l rt (Num (I (s2i (i2s v)))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -338,7 +338,7 @@
     METHOD.valid_var m rt ->
     METHOD.valid_var m ra ->
     METHOD.valid_var m rb ->
-    l' = LocalVar.update l rt (Some (Num (I (SemBinopInt op va vb)))) ->
+    l' = LocalVar.update l rt (Num (I (SemBinopInt op va vb))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 
@@ -350,7 +350,7 @@
     Some (Num (I va)) = LocalVar.get l r ->
     METHOD.valid_var m rt ->
     METHOD.valid_var m r ->
-    l' = LocalVar.update l rt (Some (Num (I (SemBinopInt op va (Int.const v))))) ->
+    l' = LocalVar.update l rt (Num (I (SemBinopInt op va (Int.const v)))) ->
 
     NormalStep p m (pc, (h, l)) (pc', (h, l'))
 .
@@ -486,7 +486,7 @@
     METHOD.body M = Some bM ->
     METHOD.isStatic M = true ->
     
-    CallStep p m (pc,(h, l)) (M, (listvar2localvar args))
+    CallStep p m (pc,(h, l)) (M, (listvar2localvar l (length args) args))
 
   | invokevirtual : forall h m pc l mid M args loc bM n,
 
@@ -498,7 +498,7 @@
     METHOD.body M = Some bM ->
     METHOD.isStatic M = false ->
  
-    CallStep p m (pc,(h, l)) (M,(listvar2localvar args))
+    CallStep p m (pc,(h, l)) (M,(listvar2localvar l (length args) args))
   .
 
   Inductive ReturnStep (p:Program) : Method -> IntraNormalState -> ReturnState -> Prop :=
@@ -535,7 +535,7 @@
   | call_and_return_value : forall m pc h l m' l' bm' h'' v pc' l'',
       next m pc = Some pc' -> 
       METHOD.body m' = Some bm' ->
-      l'' = LocalVar.update l LocalVar.ret (Some v) ->
+      l'' = LocalVar.update l LocalVar.ret v ->
       call_and_return
                  m
                  (pc, (h, l))
@@ -587,7 +587,7 @@
      l1' = LocalVar.update l1 LocalVar.ret ov ->
      exec_call p m
         (pc1,(h1, l1))
-        (h2,Normal ov)
+        (h2,Normal (Some ov))
         m2
         (BYTECODEMETHOD.firstAddress bm2, (h1, l2))
         (inl _ (pc1',(h2, l1')))

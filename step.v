@@ -9,269 +9,123 @@ Import StaticHandler.StaticHandler BigStep.Dom Prog.
     Variable subclass_test : ClassName -> ClassName -> bool.
     Variable m : Method.
 
-    Definition handler := handler subclass_test m.
+    (* DEX Definition handler := handler subclass_test m.*)
 
     Inductive step : PC -> Instruction -> tag -> option PC -> Prop :=
-    | aconst_null : forall i j,
-      next m i = Some j ->
-      step i Aconst_null None (Some j)
-    | arraylength : forall i j,
-      next m i = Some j ->
-      step i Arraylength None (Some j)
-    | arraylength_np_caught : forall i t,
-      In np (throwableAt m i) ->
-      handler i np = Some t ->
-      step i Arraylength (Some np) (Some t)
-    | arraylength_np_uncaught : forall i,
-      In np (throwableAt m i) ->
-      handler i np = None ->
-      step i Arraylength (Some np) None
-    | athrow_caught : forall e i t,
-      In e (throwableAt m i) ->
-      handler i e = Some t ->
-      step i Athrow (Some e) (Some t)
-    | athrow_uncaught : forall e i,
-      In e (throwableAt m i) ->
-      handler i e = None ->
-      step i Athrow (Some e) None
-    | checkcast1 : forall i t j,
-      next m i = Some j ->
-      step i (Checkcast t) None (Some j)
-    | checkcast_caught : forall i t te,
-      In cc (throwableAt m i) ->
-      handler i cc = Some te ->
-      step i (Checkcast t) (Some cc) (Some te)
-    | checkcast_uncaught : forall i t,
-      In cc (throwableAt m i) ->
-      handler i cc = None ->
-      step i (Checkcast t) (Some cc) None
-    | const : forall i t z j,
-      next m i = Some j ->
-      step i (Const t z) None (Some j)
-    | dup : forall i j,
-      next m i = Some j ->
-      step i Dup None (Some j)
-    | dup_x1 : forall i j,
-      next m i = Some j ->
-      step i Dup_x1 None (Some j)
-    | dup_x2 : forall i j,
-      next m i = Some j ->
-      step i Dup_x2 None (Some j)
-    | dup2 : forall i j,
-      next m i = Some j ->
-      step i Dup2 None (Some j)
-    | dup2_x1 : forall i j,
-      next m i = Some j ->
-      step i Dup2_x1 None (Some j)
-    | dup2_x2 : forall i j,
-      next m i = Some j ->
-      step i Dup2_x2 None (Some j)
-    | getfield : forall i f j,
-      next m i = Some j ->
-      step i (Getfield f) None (Some j)
-    | getfield_np_caught : forall i t f,
-      In np (throwableAt m i) ->
-      handler i np = Some t ->
-      step i (Getfield f) (Some np) (Some t)
-    | getfield_np_uncaught : forall i f,
-      In np (throwableAt m i) ->
-      handler i np = None ->
-      step i (Getfield f) (Some np) None
-    | goto : forall i o,
-      step i (Goto o) None (Some (OFFSET.jump i o))
-    | i2b : forall i j,
-      next m i = Some j ->
-      step i I2b None (Some j)
-    | i2s : forall i j,
-      next m i = Some j ->
-      step i I2s None (Some j)
-    | ibinop : forall i op j,
-      next m i = Some j ->
-      step i (Ibinop op) None (Some j)
-    | ibinop_ae_caught : forall i t op,
-      In ae (throwableAt m i) ->
-      op = DivInt \/ op = RemInt ->
-      handler i ae = Some t ->
-      step i (Ibinop op) (Some ae) (Some t)
-    | ibinop_ae_uncaught : forall i op,
-      In ae (throwableAt m i) ->
-      op = DivInt \/ op = RemInt ->
-      handler i ae = None ->
-      step i (Ibinop op) (Some ae) None
-    | if_acmp : forall i cmp o j,
-      next m i = Some j \/ j = OFFSET.jump i o ->
-      step i (If_acmp cmp o) None (Some j)
-    | if_icmp : forall i cmp o j,
-      next m i = Some j \/ j = OFFSET.jump i o ->
-      step i (If_icmp cmp o) None (Some j)
-    | ifeq : forall i cmp o j,
-      next m i = Some j \/ j = OFFSET.jump i o ->
-      step i (If0 cmp o) None (Some j)
-    | ifnull : forall i cmp o j,
-      next m i = Some j \/ j = OFFSET.jump i o ->
-      step i (Ifnull cmp o) None (Some j)
-    | iinc : forall i x c j,
-      next m i = Some j ->
-      step i (Iinc x c) None (Some j)
-    | ineg : forall i j,
-      next m i = Some j ->
-      step i Ineg None (Some j)
-    | instanceof : forall i t j,
-      next m i = Some j ->
-      step i (Instanceof t) None (Some j)
-    | invokestatic : forall i mid j,
-      next m i = Some j ->
-      step i (Invokestatic mid) None (Some j)
-    | invokestatic_caught : forall i mid t e,
-      In e (throwableBy p (snd mid)) -> 
-      handler i e = Some t ->
-      step i (Invokestatic mid) (Some e) (Some t)
-    | invokestatic_uncaught : forall i mid e,
-      In e (throwableBy p (snd mid)) -> 
-      handler i e = None ->
-      step i (Invokestatic mid) (Some e) None
-    | invokevirtual : forall i mid j,
-      next m i = Some j ->
-      step i (Invokevirtual mid) None (Some j)
-    | invokevirtual_caught : forall i mid t e,
-      In e ((throwableAt m i)++throwableBy p (snd mid)) -> 
-      handler i e = Some t ->
-      step i (Invokevirtual mid) (Some e) (Some t)
-    | invokevirtual_uncaught : forall i mid e,
-      In e ((throwableAt m i)++throwableBy p (snd mid)) -> 
-      handler i e = None ->
-      step i (Invokevirtual mid) (Some e) None
-    | lookupswitch : forall i d l o,
-      In o (d::@map _ _ (@snd _ _) l) ->
-      step i (Lookupswitch d l) None (Some (OFFSET.jump i o))
-    | new : forall i c j,
-      next m i = Some j ->
-      step i (New c) None (Some j)
-    | newarray : forall i t j,
-      next m i = Some j ->
-      step i (Newarray t) None (Some j)
-    | newarray_nase_caught : forall i t te,
-      In nase (throwableAt m i) ->
-      handler i nase = Some te ->
-      step i (Newarray t) (Some nase) (Some te)
-    | newarray_nase_uncaught : forall i t,
-      In nase (throwableAt m i) ->
-      handler i nase = None ->
-      step i (Newarray t) (Some nase) None
     | nop : forall i j,
       next m i = Some j ->
       step i Nop None (Some j)
-    | pop : forall i j,
+    | move : forall i j (k:ValKind) (rt:Var) (rs:Var),
       next m i = Some j ->
-      step i Pop None (Some j)
-    | pop2 : forall i j,
+      step i (Move k rt rs) None (Some j)
+    | moveResult : forall i j (k:ValKind) (rt:Var),
       next m i = Some j ->
-      step i Pop2 None (Some j)
-    | putfield : forall i f j,
-      next m i = Some j ->
-      step i (Putfield f) None (Some j)
-    | putfield_np_caught : forall i t f,
-      In np (throwableAt m i) ->
-      handler i np = Some t ->
-      step i (Putfield f) (Some np) (Some t)
-    | putfield_np_uncaught : forall i f,
-      In np (throwableAt m i) ->
-      handler i np = None ->
-      step i (Putfield f) (Some np) None
-    | return_ : forall i,
+      step i (MoveResult k rt) None (Some j)
+    | return_s : forall i,
       step i Return None None
-    | swap : forall i j,
+    | vReturn : forall i (k:ValKind) (rt:Var),
+      step i (VReturn k rt) None None
+    | const : forall i j (k:ValKind) (rt:Var) (v:Z),
       next m i = Some j ->
-      step i Swap None (Some j)
-    | tableswitch : forall i d lo hi l o,
-      In o (d::l) ->
-      step i (Tableswitch d lo hi l) None (Some (OFFSET.jump i o))
-    | vaload : forall i t j,
+      step i (Const k rt v) None (Some j)
+    | instanceOf : forall i j (rt:Var) (r:Var) (t:refType),
       next m i = Some j ->
-      step i (Vaload t)  None (Some j)
-    | vaload_np_caught : forall i t te,
-      In np (throwableAt m i) ->
-      handler i np = Some te ->
-      step i (Vaload t) (Some np) (Some te)
-    | vaload_np_uncaught : forall i t,
-      In np (throwableAt m i) ->
-      handler i np = None ->
-      step i (Vaload t) (Some np) None
-    | vaload_iob_caught : forall i te t,
-      In iob (throwableAt m i) ->
-      handler i iob = Some te ->
-      step i (Vaload t) (Some iob) (Some te)
-    | vaload_iob_uncaught : forall i t,
-      In iob (throwableAt m i) ->
-      handler i iob = None ->
-      step i (Vaload t) (Some iob) None
-    | vastore : forall i t j,
+      step i (InstanceOf rt r t) None (Some j)
+    | arrayLength : forall i j (rt:Var) (rs:Var),
       next m i = Some j ->
-      step i (Vastore t) None (Some j)
-    | vastore_np_caught : forall i t te,
-      In np (throwableAt m i) ->
-      handler i np = Some te ->
-      step i (Vastore t) (Some np) (Some te)
-    | vastore_np_uncaught : forall i t,
-      In np (throwableAt m i) ->
-      handler i np = None ->
-      step i (Vastore t) (Some np) None
-    | vastore_ase_caught : forall i t te,
-      In ase (throwableAt m i) ->
-      handler i ase = Some te ->
-      step i (Vastore t) (Some ase) (Some te)
-    | vastore_ase_uncaught : forall i t,
-      In ase (throwableAt m i) ->
-      handler i ase = None ->
-      step i (Vastore t) (Some ase) None
-    | vastore_iob_caught : forall i t te,
-      In iob (throwableAt m i) ->
-      handler i iob = Some te ->
-      step i (Vastore t) (Some iob) (Some te)
-    | vastore_iob_uncaught : forall i t,
-      In iob (throwableAt m i) ->
-      handler i iob = None ->
-      step i (Vastore t) (Some iob) None
-    | vload : forall i t x j,
+      step i (ArrayLength rt rs) None (Some j)
+    | new : forall i j (rt:Var) (t:refType),
       next m i = Some j ->
-      step i (Vload t x) None (Some j)
-    | vstore : forall i t x j,
+      step i (New rt t) None (Some j) 
+    | newArray : forall i j (rt:Var) (rl:Var) (t:type),
       next m i = Some j ->
-      step i (Vstore t x) None (Some j)
-    | vreturn : forall i x,
-      step i (Vreturn x) None None.
+      step i (NewArray rt rl t) None (Some j)
+    | goto : forall i (o:OFFSET.t),
+      step i (Goto o) None (Some (OFFSET.jump i o))
+(* still experimental for PackedSwitch in that the next instruction is
+   defined as the difference between i and j *)
+(*    | packedSwitch : forall i j (rt:Var) (firstKey:Z) (size:Z) (l:list OFFSET.t),
+      (* next m i = Some j \/ In o ((j - i)::l) -> *)
+      next m i = Some j \/ In j (@map _ _ (OFFSET.jump i) l) ->
+      step i (PackedSwitch rt firstKey size l) None (Some j)
+    | sparseSwitch : forall i j (rt:Var) (size:Z) (l:list (Z * OFFSET.t)),
+      next m i = Some j \/ In j (@map _ _ (OFFSET.jump i) (@map _ _ (@snd _ _) l)) ->
+      step i (SparseSwitch rt size l) None (Some j) *)
+    | ifcmp : forall i j (cmp:CompInt) (ra:Var) (rb:Var) (o:OFFSET.t),
+      next m i = Some j \/ j = OFFSET.jump i o ->
+      step i (Ifcmp cmp ra rb o) None (Some j)
+    | ifz : forall i j (cmp:CompInt) (r:Var) (o:OFFSET.t),
+      next m i = Some j \/ j = OFFSET.jump i o ->
+      step i (Ifz cmp r o) None (Some j)
+    | aget : forall i j (k:ArrayKind) (rt:Var) (ra:Var) (ri:Var),
+      next m i = Some j ->
+      step i (Aget k rt ra ri) None (Some j)
+    | aput : forall i j (k:ArrayKind) (rs:Var) (ra:Var) (ri:Var),
+      next m i = Some j ->
+      step i (Aput k rs ra ri) None (Some j)
+    | iget : forall i j (k:ValKind) (rt:Var) (ro:Var) (f:FieldSignature),
+      next m i = Some j ->
+      step i (Iget k rt ro f) None (Some j)
+    | iput : forall i j (k:ValKind) (rs:Var) (ro:Var) (f:FieldSignature),
+      next m i = Some j ->
+      step i (Iput k rs ro f) None (Some j)
+(*    
+    | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
+    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) 
+*)
+    | invokevirtual : forall i j (m0:MethodSignature) (n:Z) (p:list Var),
+      next m i = Some j ->
+      step i (Invokevirtual m0 n p) None (Some j)
+    | invokesuper : forall i j (m0:MethodSignature) (n:Z) (p:list Var),
+      next m i = Some j ->
+      step i (Invokesuper m0 n p) None (Some j)
+    | invokedirect : forall i j (m0:MethodSignature) (n:Z) (p:list Var),
+      next m i = Some j ->
+      step i (Invokedirect m0 n p) None (Some j)
+    | invokestatic : forall i j (m0:MethodSignature) (n:Z) (p:list Var),
+      next m i = Some j ->
+      step i (Invokestatic m0 n p) None (Some j)
+    | invokeinterface : forall i j (m0:MethodSignature) (n:Z) (p:list Var),
+      next m i = Some j ->
+      step i (Invokeinterface m0 n p) None (Some j)
+    | ineg : forall i j (rt:Var) (rs:Var),
+      next m i = Some j ->
+      step i (Ineg rt rs) None (Some j)
+    | inot : forall i j (rt:Var) (rs:Var),
+      next m i = Some j ->
+      step i (Inot rt rs) None (Some j)
+    | i2b : forall i j (rt:Var) (rs:Var),
+      next m i = Some j ->
+      step i (I2b rt rs) None (Some j)
+    | i2s : forall i j (rt:Var) (rs:Var),
+      next m i = Some j ->
+      step i (I2s rt rs) None (Some j)
+    | ibinop : forall i j (op:BinopInt) (rt:Var) (ra:Var) (rb:Var),
+      next m i = Some j ->
+      step i (Ibinop op rt ra rb) None (Some j)
+    | ibinopConst : forall i j (op:BinopInt) (rt:Var) (r:Var) (v:Z),
+      next m i = Some j ->
+      step i (IbinopConst op rt r v) None (Some j)
+    | packedSwitch : forall i j d (rt:Var) (firstKey:Z) (size:Z) (l:list OFFSET.t),
+      (next m i = Some d /\ d = OFFSET.jump i j) \/ In j l ->
+      step i (PackedSwitch rt firstKey size l) None (Some (OFFSET.jump i j))
+    | sparseSwitch : forall i j d (rt:Var) (size:Z) (l:list (Z * OFFSET.t)),
+      (next m i = Some d /\ d = OFFSET.jump i j) \/ 
+        In j (@map _ _ (@snd _ _) l) ->
+      step i (SparseSwitch rt size l) None (Some (OFFSET.jump i j))
+.
 
     Definition get_steps (i:PC) (ins:Instruction) (next:option PC): list (tag * option PC) := 
       match ins with
-        | Arraylength => (None,next)::(map (fun e => (Some e,handler i e)) (throwableAt m i))
-        | Athrow => map (fun e => (Some e,handler i e)) (throwableAt m i)
-        | Checkcast _ => (None,next)::(Some cc,handler i cc)::nil
-        | Getfield _ => (None,next)::(map (fun e => (Some e,handler i e)) (throwableAt m i))
-        | Ibinop op => (None,next)::
-          (match op with
-             | DivInt =>map (fun e => (Some e,handler i e)) (throwableAt m i)
-             | RemInt => map (fun e => (Some e,handler i e)) (throwableAt m i)
-             | _ => nil
-           end)
-        | Invokestatic mid => 
-          (None,next)::(map (fun e => (Some e,handler i e)) ((throwableAt m i)++throwableBy p (snd mid)))
-        | Invokevirtual mid =>
-          (None,next)::(map (fun e => (Some e,handler i e)) ((throwableAt m i)++throwableBy p (snd mid)))
-        | Lookupswitch d l =>
-          map (fun o => (None,Some (OFFSET.jump i o))) (d::@map _ _ (@snd _ _) l)
-        | Newarray _ =>  (None,next)::(map (fun e => (Some e,handler i e)) (throwableAt m i))
-        | Putfield _ => (None,next)::(map (fun e => (Some e,handler i e)) (throwableAt m i))
+        | SparseSwitch r size l =>
+          (None,next) :: map (fun o => (None,Some (OFFSET.jump i o))) (@map _ _ (@snd _ _) l)
+        | PackedSwitch r firstKey size l =>
+          (None,next) :: map (fun o => (None,Some (OFFSET.jump i o))) (l)
         | Return => (None,None)::nil
-        | Tableswitch d lo hi l =>
-          map (fun o => (None,Some (OFFSET.jump i o))) (d::l) 
-        | Vaload _ => (None,next)::(map (fun e => (Some e,handler i e)) (throwableAt m i))
-        | Vastore _ => (None,next)::(map (fun e => (Some e,handler i e)) (throwableAt m i))
-        | Vreturn _ => (None,None)::nil
+        | VReturn k rt => (None,None)::nil
         | Goto o => (None,Some (OFFSET.jump i o))::nil
-        | If_acmp cmp o => (None,next)::(None,Some (OFFSET.jump i o))::nil
-        | If_icmp cmp o => (None,next)::(None,Some (OFFSET.jump i o))::nil
-        | If0 cmp o => (None,next)::(None,Some (OFFSET.jump i o))::nil
-        | Ifnull cmp o => (None,next)::(None,Some (OFFSET.jump i o))::nil
+        | Ifcmp cmp ra rb o => (None,next)::(None,Some (OFFSET.jump i o))::nil
+        | Ifz cmp r o => (None,next)::(None,Some (OFFSET.jump i o))::nil
         | _ => (None,next)::nil
       end.
 
@@ -280,49 +134,27 @@ Import StaticHandler.StaticHandler BigStep.Dom Prog.
         In (tau,oj) (get_steps i ins (next m i)).
     Proof.
       intros.
-      inversion_clear H; simpl get_steps; try rewrite H0; auto with datatypes;
-      try match goal with
-        [ id : handler _ _ = ?x |- _ ] => 
-        pattern x at 1; rewrite <- id
-          end;
-      try (
-        repeat ((left; reflexivity)||right);
-          try match goal with
-                [ |- In (_,_) (map ?F _) ] => 
-                apply in_map with (f:=F); try assumption;
-                  apply in_or_app; auto
-              end; fail).
-      right;
-      try match goal with
-      [ |- In (_,_) (map ?F _) ] => 
-      apply in_map with (f:=F); try assumption
-      end.
-      destruct H1; subst; simpl; auto with datatypes;
-      try match goal with
-      [ |- In (_,_) (map ?F _) ] => 
-            apply in_map with (f:=F); try assumption
-      end.
-      right; destruct H1; subst; simpl; auto with datatypes;
-      try match goal with
-      [ |- In (_,_) (map ?F _) ] => 
-            apply in_map with (f:=F); try assumption
-      end.
-      destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
-      destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
-      destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
-      destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
-      destruct H0; subst.
-      left; reflexivity.
-      right; match goal with
-      [ |- In (_,_) (map ?F _) ] => 
-      apply in_map with (f:=F); try assumption
-      end.
-      destruct H0; subst.
-      left; reflexivity.
-      right; match goal with
-      [ |- In (_,_) (map ?F _) ] => 
-      apply in_map with (f:=F); try assumption
-      end.
+      inversion_clear H; simpl get_steps; try rewrite H0;
+      auto with datatypes;
+      (* ifcmp and ifz cases *)
+        try (destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes;
+        right; subst; left; reflexivity).
+      (* PackedSwitch case *)
+        (* default case : next instruction *)
+        destruct H0. left. inversion H. rewrite <- H1. rewrite H0. reflexivity.
+        (* other successors case *)
+        right. try match goal with
+          [ |- In (_,_) (map ?F _) ] => 
+          apply in_map with (f:=F); try assumption
+        end.
+      (* SparseSwitch case *)
+        (* default case : next instruction *)
+        destruct H0. left. inversion H. rewrite <- H1. rewrite H0. reflexivity.
+        (* other successors case *)
+        right. try match goal with
+          [ |- In (_,_) (map ?F _) ] => 
+          apply in_map with (f:=F); try assumption
+        end.
     Qed.
 
   Section for_all_steps.

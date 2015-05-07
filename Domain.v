@@ -64,16 +64,27 @@ Module Type SEMANTIC_DOMAIN.
  Module Type LOCALVAR.
    Parameter t : Type.
    Parameter get : t-> Var -> option value.
-   Parameter update : t -> Var -> option value -> t.
+   Parameter update : t -> Var -> value -> t.
    Parameter ret : Var.
    Parameter ex : Var.
-   Parameter get_update_new : forall l x v, get (update l x v) x = v.
+   Parameter get_update_new : forall l x v, get (update l x v) x = Some v.
    Parameter get_update_old : forall l x y v,
      x<>y -> get (update l x v) y = get l y.
  End LOCALVAR.
  Declare Module LocalVar : LOCALVAR.
 
- Parameter listvar2localvar : list Var -> LocalVar.t.
+ Parameter listvar2localvar : LocalVar.t -> nat -> list Var -> LocalVar.t.
+
+(* 290415 - Some Notes
+- According to verified DEX bytecode, every registers have
+  to have a value before used. This means we can safely assume
+  that we don't need the update to be option anymore because
+  the only possible case where it updates empty value is when
+  the source is empty, which has been taken care by the assumption
+- The special register ret and ex are assigned the number
+  65536 and 65537 respectively (in binary) because we know
+  that the maximum number of registers is 65535.
+*)
 
 (*
  (* Domain of operand stacks *) 

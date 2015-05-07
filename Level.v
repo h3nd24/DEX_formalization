@@ -200,7 +200,18 @@ Proof.
   intros x y; generalize (L.leql_t_spec x y); case (L.leql_t x y); auto.
 Qed.
 
-Definition lift (k:L.t) (st:list L.t') : list L.t' := map (L.join' k) st.
+
+(*Definition lift (k:L.t) (st:list L.t') : list L.t' := map (L.join' k) st.*)
+Fixpoint lift_rec (k:L.t) (keys:list N) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
+  match keys with
+    nil => rt
+    | h :: t => 
+        let new_rt := BinNatMap.update _ rt h (L.Simple k) in
+          lift_rec (k) (t) (new_rt)
+  end.
+
+Definition lift (k:L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
+  let keys := BinNatMap.dom _ rt in lift_rec (k) (keys) (rt).
 
 Inductive leql'_opt : option L.t' -> option L.t' -> Prop :=
 | leql'_opt_none : leql'_opt None None
@@ -219,10 +230,18 @@ Definition join_op' (k:L.t) (ok:option L.t) : L.t :=
     | Some k' => (L.join k k')
   end.
 
+(*
 Definition olift (ok:option L.t) (st:list L.t') : list L.t' :=
   match ok with
     None => st
     | Some k => lift k st
+  end.
+*)
+
+Definition olift (ok:option L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
+  match ok with
+    None => rt
+    | Some k => lift k rt
   end.
 
 Fixpoint join_list (A:Type) (r:A->L.t) (l:list A) {struct l}: L.t :=

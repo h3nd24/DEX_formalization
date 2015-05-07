@@ -93,7 +93,6 @@ Proof.
   simpl.  rewrite Ppred_succ. trivial.
 Qed.
 
-
 Definition Npred x :=
  match x with
  | N0 => N0

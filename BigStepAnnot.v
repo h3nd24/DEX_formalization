@@ -17,7 +17,7 @@ Import BigStep.BigStep StaticHandler.StaticHandler Dom Prog.
 
   Set Implicit Arguments.
   Section instr.
-  Variable throwableAt : Method -> PC -> list ClassName.
+(*  Variable throwableAt : Method -> PC -> list ClassName.
   Variable throwableBy : ShortMethodSignature -> list ClassName.
 
   Inductive ExceptionStep (p:Program) : Method -> IntraNormalState -> IntraExceptionState -> Prop :=
@@ -37,41 +37,46 @@ Import BigStep.BigStep StaticHandler.StaticHandler Dom Prog.
     In (javaLang,e) (throwableAt m pc) -> (* Specific hypothesis here *)
 
     ExceptionStep p m (pc,(h,s,l)) (h',loc).
-
+*)
   Inductive exec_intra (p:Program) (m:Method) : option ClassName -> IntraNormalState -> IntraNormalState -> Prop :=
   | exec_intra_normal : forall s1 s2,
     NormalStep p m s1 s2 ->
     exec_intra p m None s1 s2
-  | exec_exception : forall pc1 h1 h2 loc2 s1 l1 pc' e,
+(*  | exec_exception : forall pc1 h1 h2 loc2 s1 l1 pc' e,
     ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
     CaughtException p m (pc1,h2,loc2) pc' ->
     Heap.typeof h2 loc2 = Some (Heap.LocationObject e) ->
-    exec_intra p m (Some e) (pc1,(h1,s1,l1)) (pc',(h2,Ref loc2::OperandStack.empty,l1)).
+    exec_intra p m (Some e) (pc1,(h1,s1,l1)) (pc',(h2,Ref loc2::OperandStack.empty,l1))
+*)
+.
 
   Inductive exec_return (p:Program) (m:Method) : option ClassName -> IntraNormalState -> ReturnState -> Prop :=
   | exec_return_normal : forall s h ov,
      ReturnStep p m s (h,Normal ov) ->
      exec_return p m None s (h,Normal ov)
-  | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1 e,
+(*  | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1 e,
      ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
      UnCaughtException  p m (pc1,h2,loc2) ->
      Heap.typeof h2 loc2 = Some (Heap.LocationObject e) ->
-     exec_return p m (Some e) (pc1,(h1,s1,l1)) (h2,Exception loc2).
+     exec_return p m (Some e) (pc1,(h1,s1,l1)) (h2,Exception loc2)
+*)
+.
 
   Inductive exec_call (p:Program)  (m:Method) : option ClassName ->
    IntraNormalState -> ReturnState -> Method  -> IntraNormalState -> IntraNormalState + ReturnState  -> Prop :=
- | exec_call_normal : forall m2 pc1 pc1' h1 s1 l1 os l2 h2 bm2 ov,
-     CallStep p m (pc1,(h1,s1,l1 )) (m2,(os,l2)) ->
+ | exec_call_normal : forall m2 pc1 pc1' h1 l1 l1' l2 h2 bm2 ov,
+     CallStep p m (pc1,(h1, l1 )) (m2,l2) ->
      METHOD.body m2 = Some bm2 ->
      next m pc1 = Some pc1' ->
-     compat_op ov (METHODSIGNATURE.result (METHOD.signature m2)) ->
+     compat_op (Some ov) (METHODSIGNATURE.result (METHOD.signature m2)) ->
+     l1' = LocalVar.update l1 LocalVar.ret ov ->
      exec_call p m None
-        (pc1,(h1,s1,l1))
-        (h2,Normal ov)
+        (pc1,(h1, l1))
+        (h2,Normal (Some ov))
         m2
-        (BYTECODEMETHOD.firstAddress bm2,(h1,OperandStack.empty,l2))
-        (inl _ (pc1',(h2,cons_option ov os,l1)))
-
+        (BYTECODEMETHOD.firstAddress bm2,(h1, l2))
+        (inl _ (pc1',(h2, l1)))
+(*
  | exec_call_caught : forall m2 pc1 pc1' h1 s1 l1 os l2 h2 loc bm2 cn,
      CallStep p m (pc1,(h1,s1,l1 )) (m2,(os,l2)) ->
      METHOD.body m2 = Some bm2 ->
@@ -99,7 +104,9 @@ Import BigStep.BigStep StaticHandler.StaticHandler Dom Prog.
        (h2,Exception loc)
        m2
        (BYTECODEMETHOD.firstAddress bm2,(h1,OperandStack.empty,l2))
-       (inr _ (h2,Exception loc)).
+       (inr _ (h2,Exception loc))
+*)
+.
 
  Inductive IntraStep (p:Program) : 
     Method -> IntraNormalState -> IntraNormalState + ReturnState -> Prop :=
