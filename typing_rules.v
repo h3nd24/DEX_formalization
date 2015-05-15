@@ -145,11 +145,34 @@ Open Scope type_scope.
 
 (*    | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
     | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
-(* TODO
-    | Invokevirtual (m:MethodSignature) (n:Z) (p:list Var)
+
+    | invokevirtual : forall i ko (rt:TypeRegisters) (m:MethodSignature) (n:Z) (par:list Var),
+      length par = length (METHODSIGNATURE.parameters (snd m)) ->
+      compat_type_rt_lvt (virtual_signature p (snd m) ko) (rt) (par) (n) ->
+      ko <= (virtual_signature p (snd m) ko).(heapEffect) -> 
+      sgn.(heapEffect) <= (virtual_signature p (snd m) ko).(heapEffect) ->
+      (* DEX *) (se i) <= (virtual_signature p (snd m) ko).(heapEffect) ->
+      compat_op (METHODSIGNATURE.result (snd m)) (virtual_signature p (snd m) ko).(resType) -> 
+      texec i (Invokevirtual m n p) None rt
+      (Some (BinNatMap.update _ rt (BinNatMap.get _ rt LocalVar.ret)
+            (join_op (ko U (se i)) (virtual_signature p (snd m) ko).(resType)) ))
+(*
     | Invokesuper (m:MethodSignature) (n:Z) (p:list Var)
     | Invokedirect (m:MethodSignature) (n:Z) (p:list Var)
-    | Invokestatic (m:MethodSignature) (n:Z) (p:list Var)
+*)
+    | invokestatic : forall i (rt:TypeRegisters) (m:MethodSignature) (n:Z) (p:list Var),
+      length p = length (METHODSIGNATURE.parameters (snd mid)) ->
+      compat_type_st_lvt (static_signature p (snd mid)) (st1++st2) (length st1) ->
+      se i <= (static_signature p (snd mid)).(heapEffect) -> 
+      (forall j, region i None j -> 
+        join_list (static_signature p (snd mid)).(resExceptionType) (throwableBy p (snd mid)) <= se j) ->
+      compat_op (METHODSIGNATURE.result (snd mid)) (static_signature p (snd mid)).(resType) ->
+      sgn.(heapEffect) <= (static_signature p (snd mid)).(heapEffect) -> 
+      texec i (Invokestatic mid) None 
+      (st1++st2)
+      (Some (lift (join_list (static_signature p (snd mid)).(resExceptionType) (throwableBy p (snd mid))) 
+        (cons_option (join_op (se i) (static_signature p (snd mid)).(resType)) st2)))
+(*
     | Invokeinterface (m:MethodSignature) (n:Z) (p:list Var)
 *)
     | ineg : forall i ks (rt:TypeRegisters) (r:Var) (rs:Var),

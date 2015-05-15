@@ -75,6 +75,12 @@ Definition compat_type_st_lvt (s:sign) (st:TypeStack) (n:nat) : Prop :=
     L.leql' k (lvt s x).
 *)
 
+Definition compat_type_rt_lvt (s:sign) (rt:TypeRegisters) 
+  (p:list Var) (n:nat) : Prop :=
+  forall x, ((Var_toN x)<n)%nat ->
+    exists r k, nth_error p (Var_toN x) = Some r /\ BinNatMap.get _ rt r = Some k /\
+    L.leql' k (lvt s x).
+
 (* DEX
 Definition elift m pc k st :=
   match throwableAt m pc with
