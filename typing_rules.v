@@ -148,30 +148,27 @@ Open Scope type_scope.
 
     | invokevirtual : forall i ko (rt:TypeRegisters) (m:MethodSignature) (n:Z) (par:list Var),
       length par = length (METHODSIGNATURE.parameters (snd m)) ->
-      compat_type_rt_lvt (virtual_signature p (snd m) ko) (rt) (par) (n) ->
+      compat_type_rt_lvt (virtual_signature p (snd m) ko) (rt) (par) (Z.to_nat n) ->
       ko <= (virtual_signature p (snd m) ko).(heapEffect) -> 
       sgn.(heapEffect) <= (virtual_signature p (snd m) ko).(heapEffect) ->
       (* DEX *) (se i) <= (virtual_signature p (snd m) ko).(heapEffect) ->
       compat_op (METHODSIGNATURE.result (snd m)) (virtual_signature p (snd m) ko).(resType) -> 
-      texec i (Invokevirtual m n p) None rt
-      (Some (BinNatMap.update _ rt (BinNatMap.get _ rt LocalVar.ret)
+      texec i (Invokevirtual m n par) None rt
+      (Some (update_op rt LocalVar.ret
             (join_op (ko U (se i)) (virtual_signature p (snd m) ko).(resType)) ))
 (*
     | Invokesuper (m:MethodSignature) (n:Z) (p:list Var)
     | Invokedirect (m:MethodSignature) (n:Z) (p:list Var)
 *)
-    | invokestatic : forall i (rt:TypeRegisters) (m:MethodSignature) (n:Z) (p:list Var),
-      length p = length (METHODSIGNATURE.parameters (snd mid)) ->
-      compat_type_st_lvt (static_signature p (snd mid)) (st1++st2) (length st1) ->
-      se i <= (static_signature p (snd mid)).(heapEffect) -> 
-      (forall j, region i None j -> 
-        join_list (static_signature p (snd mid)).(resExceptionType) (throwableBy p (snd mid)) <= se j) ->
-      compat_op (METHODSIGNATURE.result (snd mid)) (static_signature p (snd mid)).(resType) ->
-      sgn.(heapEffect) <= (static_signature p (snd mid)).(heapEffect) -> 
-      texec i (Invokestatic mid) None 
-      (st1++st2)
-      (Some (lift (join_list (static_signature p (snd mid)).(resExceptionType) (throwableBy p (snd mid))) 
-        (cons_option (join_op (se i) (static_signature p (snd mid)).(resType)) st2)))
+    | invokestatic : forall i (rt:TypeRegisters) (m:MethodSignature) (n:Z) (par:list Var),
+      length par = length (METHODSIGNATURE.parameters (snd m)) ->
+      compat_type_rt_lvt (static_signature p (snd m)) (rt) (par) (Z.to_nat n) ->
+      se i <= (static_signature p (snd m)).(heapEffect) -> 
+      sgn.(heapEffect) <= (static_signature p (snd m)).(heapEffect) ->
+      compat_op (METHODSIGNATURE.result (snd m)) (static_signature p (snd m)).(resType) -> 
+      texec i (Invokestatic m n par) None rt
+      (Some (update_op rt LocalVar.ret
+            (join_op (se i) (static_signature p (snd m)).(resType)) ))
 (*
     | Invokeinterface (m:MethodSignature) (n:Z) (p:list Var)
 *)
@@ -203,10 +200,7 @@ Open Scope type_scope.
        (Some (BinNatMap.update _ rt r (L.Simple (ks U (se i)))))   
     .
 
-
-    
-
-
+(*
    | aconst_null : forall i st,
       texec i Aconst_null None st (Some (L.Simple (se i)::st))
     | arraylength : forall i k ke st,
@@ -503,9 +497,10 @@ Open Scope type_scope.
       sgn.(resType) = Some kv ->
       L.leql' k kv ->      
       texec i (Vreturn x) None (k::st) None.
-
+*)
+(* Not needed for now 
     Section S.
-      Variable S : PC -> TypeStack.
+      Variable S : PC -> TypeRegisters.
 
     Definition tsub_next (i:PC) st : bool :=
       match next m i with
@@ -513,12 +508,13 @@ Open Scope type_scope.
         | None => false
       end.
 
+(* DEX
     Definition exception_test (i:PC) (e:ClassName) (k:L.t) : bool :=
       match handler i e with
         | Some t => tsub (L.Simple k::nil) (S t)
         | None => L.leql_t k (sgn.(resExceptionType) e)
       end.
-
+*)
     Fixpoint in_test (e:ClassName) (l:list ClassName) : bool :=
       match l with
         | nil => false
@@ -546,6 +542,7 @@ Open Scope type_scope.
           rewrite (In_in_test_true e l) in id2; [idtac|assumption]
       end.
 
+(* DEX
     Definition exception_test' (i:PC) (e:ClassName) (k:L.t) : bool :=
       if in_test e (throwableAt m i) then
         match handler i e with
@@ -553,6 +550,7 @@ Open Scope type_scope.
           | None => L.leql_t k (sgn.(resExceptionType) e)
         end
         else true.
+*)
 
     Fixpoint tcompat_type_st_lvt_aux (s:sign) (st:TypeStack) (n0 n:nat) {struct n} : bool :=
       match n with (* could be optimised *)
@@ -1159,6 +1157,7 @@ replace_leql.
      (* vaload *)
    Qed.
  End S.
+*)
   End typing_rules.
 
 

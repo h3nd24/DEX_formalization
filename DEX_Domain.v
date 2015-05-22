@@ -10,17 +10,17 @@
 
  @author David Pichardie, ...  *)
 
-Require Export Program.
+Require Export DEX_Program.
 Require Export Numeric.
 Require Export List.
 Open Scope Z_scope.
 
 (** All semantic domains and basic operation are encapsulated in a module signature *)
 
-Module Type SEMANTIC_DOMAIN.
+Module Type DEX_SEMANTIC_DOMAIN.
 
  (** We depend on the choices done for program data structures *)
- Declare Module Prog : PROGRAM. Import Prog.
+ Declare Module DEX_Prog : DEX_PROGRAM. Import DEX_Prog.
 
  Declare Module Byte  : NUMERIC with Definition power := 7%nat.
  Declare Module Short : NUMERIC with Definition power := 15%nat.
@@ -33,47 +33,46 @@ Module Type SEMANTIC_DOMAIN.
  Parameter i2s : Int.t -> Short.t.
  Parameter i2bool : Int.t -> Byte.t.
 
- Inductive num : Set :=
-   | I : Int.t -> num
-   | B : Byte.t -> num
-   | Sh : Short.t -> num.
+ Inductive DEX_num : Set :=
+   | I : Int.t -> DEX_num
+   | B : Byte.t -> DEX_num
+   | Sh : Short.t -> DEX_num.
  
  (** Location is the domain of adresses in the heap *)
- Parameter Location : Set.
- Parameter Location_dec : forall loc1 loc2:Location,{loc1=loc2}+{~loc1=loc2}.
+ Parameter DEX_Location : Set.
+ Parameter DEX_Location_dec : forall loc1 loc2:DEX_Location,{loc1=loc2}+{~loc1=loc2}.
 
- Inductive value : Set :=
-   | Num : num -> value
-   | Ref: Location -> value
-   | Null : value.
+ Inductive DEX_value : Set :=
+   | Num : DEX_num -> DEX_value
+   | Ref: DEX_Location -> DEX_value
+   | Null : DEX_value.
 
- Definition init_value (t:type) : value :=
+ Definition init_value (t:DEX_type) : DEX_value :=
     match t with
-     | ReferenceType _ => Null
-     | PrimitiveType _ => Num (I (Int.const 0))
+     | DEX_ReferenceType _ => Null
+     | DEX_PrimitiveType _ => Num (I (Int.const 0))
     end.
 
- Definition init_field_value (f:Field) : value :=
-   match FIELD.initValue f with
-    | FIELD.Int z => Num (I (Int.const z))
-    | FIELD.NULL => Null
-    | FIELD.UNDEF => init_value (FIELDSIGNATURE.type (FIELD.signature f))
+ Definition init_field_value (f:DEX_Field) : DEX_value :=
+   match DEX_FIELD.initValue f with
+    | DEX_FIELD.Int z => Num (I (Int.const z))
+    | DEX_FIELD.NULL => Null
+    | DEX_FIELD.UNDEF => init_value (DEX_FIELDSIGNATURE.type (DEX_FIELD.signature f))
   end.
  
  (** Domain of local variables *)
- Module Type LOCALVAR.
+ Module Type DEX_REGISTERS.
    Parameter t : Type.
-   Parameter get : t-> Var -> option value.
-   Parameter update : t -> Var -> value -> t.
-   Parameter ret : Var.
-   Parameter ex : Var.
+   Parameter get : t-> DEX_Reg -> option DEX_value.
+   Parameter update : t -> DEX_Reg -> DEX_value -> t.
+   Parameter ret : DEX_Reg.
    Parameter get_update_new : forall l x v, get (update l x v) x = Some v.
    Parameter get_update_old : forall l x y v,
      x<>y -> get (update l x v) y = get l y.
- End LOCALVAR.
- Declare Module LocalVar : LOCALVAR.
+ End DEX_REGISTERS.
+ Declare Module DEX_Registers : DEX_REGISTERS.
 
- Parameter listvar2localvar : LocalVar.t -> nat -> list Var -> LocalVar.t.
+ Parameter listreg2regs : DEX_Registers.t -> nat -> list DEX_Reg -> DEX_Registers.t.
 
 (* 290415 - Some Notes
 - According to verified DEX bytecode, every registers have
@@ -106,29 +105,29 @@ Module Type SEMANTIC_DOMAIN.
      LocalVar.get (stack2localvar s n) x = OperandStack.get_nth s (n-(Var_toN x)-1)%nat.
  (** %%nat is a coq command for the notation system *)
 *)
- Module Type HEAP.
+ Module Type DEX_HEAP.
    Parameter t : Type.
 
-   Inductive AdressingMode : Set :=
-     | StaticField : FieldSignature -> AdressingMode
-     | DynamicField : Location -> FieldSignature -> AdressingMode
-     | ArrayElement : Location -> Z -> AdressingMode.
+   Inductive DEX_AdressingMode : Set :=
+     | StaticField : DEX_FieldSignature -> DEX_AdressingMode
+     | DynamicField : DEX_Location -> DEX_FieldSignature -> DEX_AdressingMode
+     | ArrayElement : DEX_Location -> Z -> DEX_AdressingMode.
 
-   Inductive LocationType : Type :=
-     | LocationObject : ClassName -> LocationType  
-     | LocationArray : Int.t -> type -> Method*PC -> LocationType.
+   Inductive DEX_LocationType : Type :=
+     | LocationObject : DEX_ClassName -> DEX_LocationType  
+     | LocationArray : Int.t -> DEX_type -> DEX_Method*DEX_PC -> DEX_LocationType.
    (** (LocationArray length element_type) *)
 
-   Parameter get : t -> AdressingMode -> option value.
-   Parameter update : t -> AdressingMode -> value -> t.
-   Parameter typeof : t -> Location -> option LocationType.   
+   Parameter get : t -> DEX_AdressingMode -> option DEX_value.
+   Parameter update : t -> DEX_AdressingMode -> DEX_value -> t.
+   Parameter typeof : t -> DEX_Location -> option DEX_LocationType.   
      (** typeof h loc = None -> no object, no array allocated at location loc *)
-   Parameter new : t -> Program -> LocationType -> option (Location * t).
+   Parameter new : t -> DEX_Program -> DEX_LocationType -> option (DEX_Location * t).
      (** program is required to compute the size of the allocated element, i.e. to know
         the Class associated with a ClassName  *)
 
    (** Compatibility between a heap and an adress *)
-   Inductive Compat (h:t) : AdressingMode -> Prop :=
+   Inductive Compat (h:t) : DEX_AdressingMode -> Prop :=
      | CompatStatic : forall f,
          Compat h (StaticField f)
      | CompatObject : forall cn loc f,
@@ -146,47 +145,47 @@ Module Type SEMANTIC_DOMAIN.
    Parameter typeof_update_same : forall h loc am v,
      typeof (update h am v) loc = typeof h loc.
 
-   Parameter new_fresh_location : forall (h:t) (p:Program) (lt:LocationType) (loc:Location) (h':t),
+   Parameter new_fresh_location : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) (loc:DEX_Location) (h':t),
      new h p lt = Some (loc,h') ->
      typeof h loc = None.
 
-   Parameter new_typeof : forall (h:t) (p:Program) (lt:LocationType) (loc:Location) (h':t),
+   Parameter new_typeof : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) (loc:DEX_Location) (h':t),
      new h p lt = Some (loc,h') ->
      typeof h' loc = Some lt.
 
-   Parameter new_typeof_old : forall (h:t) (p:Program) (lt:LocationType) (loc loc':Location) (h':t),
+   Parameter new_typeof_old : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) (loc loc':DEX_Location) (h':t),
      new h p lt = Some (loc,h') ->
      loc <> loc' ->
      typeof h' loc' = typeof h loc'.
 
-   Parameter new_defined_object_field : forall (h:t) (p:Program) (cn:ClassName) (fs:FieldSignature) (f:Field) (loc:Location) (h':t),
+   Parameter new_defined_object_field : forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (fs:DEX_FieldSignature) (f:DEX_Field) (loc:DEX_Location) (h':t),
      new h p (LocationObject cn) = Some (loc,h') ->
      is_defined_field p cn fs f ->
      get h' (DynamicField loc fs) = Some (init_field_value f).
 
-   Parameter new_undefined_object_field : forall (h:t) (p:Program) (cn:ClassName) (fs:FieldSignature) (loc:Location) (h':t),
+   Parameter new_undefined_object_field : forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (fs:DEX_FieldSignature) (loc:DEX_Location) (h':t),
      new h p (LocationObject cn) = Some (loc,h') ->
      ~ defined_field p cn fs ->
      get h' (DynamicField loc fs) = None.
  
   Parameter new_object_no_change : 
-     forall (h:t) (p:Program) (cn:ClassName) (loc:Location) (h':t) (am:AdressingMode),
+     forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (loc:DEX_Location) (h':t) (am:DEX_AdressingMode),
      new h p (LocationObject cn) = Some (loc,h') ->
-     (forall (fs:FieldSignature), am <> (DynamicField loc fs)) ->
+     (forall (fs:DEX_FieldSignature), am <> (DynamicField loc fs)) ->
      get h' am = get h am.
 
-  Parameter new_valid_array_index : forall (h:t) (p:Program) (length:Int.t) (tp:type) a (i:Z) (loc:Location) (h':t),
+  Parameter new_valid_array_index : forall (h:t) (p:DEX_Program) (length:Int.t) (tp:DEX_type) a (i:Z) (loc:DEX_Location) (h':t),
      new h p (LocationArray length tp a) = Some (loc,h') ->
      0 <= i < Int.toZ length ->
      get h' (ArrayElement loc i) = Some (init_value tp).
 
-  Parameter new_unvalid_array_index : forall (h:t) (p:Program) (length:Int.t) (tp:type) a (i:Z) (loc:Location) (h':t),
+  Parameter new_unvalid_array_index : forall (h:t) (p:DEX_Program) (length:Int.t) (tp:DEX_type) a (i:Z) (loc:DEX_Location) (h':t),
      new h p (LocationArray length tp a) = Some (loc,h') ->
      ~ 0 <= i < Int.toZ length ->
      get h' (ArrayElement loc i) = None.
 
   Parameter new_array_no_change : 
-     forall (h:t) (p:Program) (length:Int.t) (tp:type) a (loc:Location) (h':t) (am:AdressingMode),
+     forall (h:t) (p:DEX_Program) (length:Int.t) (tp:DEX_type) a (loc:DEX_Location) (h':t) (am:DEX_AdressingMode),
      new h p (LocationArray length tp a) = Some (loc,h') ->
      (forall (i:Z), am <> (ArrayElement loc i)) ->
      get h' am = get h am.
@@ -201,83 +200,83 @@ Module Type SEMANTIC_DOMAIN.
      exists v, get h (StaticField fs) = None.
 *)
 
- End HEAP.
- Declare Module Heap : HEAP.
+ End DEX_HEAP.
+ Declare Module DEX_Heap : DEX_HEAP.
 
-  Inductive ReturnVal : Set :=
-   | Normal : option value -> ReturnVal
-   | Exception : Location -> ReturnVal.
+  Inductive DEX_ReturnVal : Set :=
+   | Normal : option DEX_value -> DEX_ReturnVal
+   (* DEX | Exception : Location -> ReturnVal *).
 
  (** Domain of frames *)
- Module Type FRAME.
+ Module Type DEX_FRAME.
    Inductive t : Type := 
       (*make : Method -> PC -> OperandStack.t -> LocalVar.t -> t.*)
-      make : Method -> PC -> LocalVar.t -> t.
- End FRAME.
- Declare Module Frame : FRAME.
+      make : DEX_Method -> DEX_PC -> DEX_Registers.t -> t.
+ End DEX_FRAME.
+ Declare Module DEX_Frame : DEX_FRAME.
 
  (** Domain of call stacks *)
- Module Type CALLSTACK.
-   Definition t : Type := list Frame.t.
- End CALLSTACK.
- Declare Module CallStack : CALLSTACK.
-
+ Module Type DEX_CALLSTACK.
+   Definition t : Type := list DEX_Frame.t.
+ End DEX_CALLSTACK.
+ Declare Module DEX_CallStack : DEX_CALLSTACK.
+(* DEX
  Module Type EXCEPTION_FRAME.
    Inductive t : Type := 
       make : Method -> PC -> Location -> LocalVar.t -> t.
  End EXCEPTION_FRAME.
  Declare Module ExceptionFrame : EXCEPTION_FRAME.
-
+*)
  (** Domain of states *)
- Module Type STATE.
+ Module Type DEX_STATE.
    Inductive t : Type := 
-      normal : Heap.t -> Frame.t -> CallStack.t -> t
-    | exception : Heap.t -> ExceptionFrame.t -> CallStack.t -> t.
-   Definition get_sf (s:t) : CallStack.t :=
+      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t
+    (* DEX | exception : Heap.t -> ExceptionFrame.t -> DEX_CallStack.t -> t *).
+   Definition get_sf (s:t) : DEX_CallStack.t :=
      match s with
        normal _ _ sf => sf
-     | exception _ _ sf => sf
+     (* | exception _ _ sf => sf *)
      end.
-   Definition get_m (s:t) : Method :=
+   Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal _ (Frame.make m _ _)_ => m
-     | exception _ (ExceptionFrame.make m _ _ _) _ => m
+       normal _ (DEX_Frame.make m _ _)_ => m
+     (* | exception _ (ExceptionFrame.make m _ _ _) _ => m *)
      end.
- End STATE.
- Declare Module State : STATE.
+ End DEX_STATE.
+ Declare Module DEX_State : DEX_STATE.
  
  (** Some notations *)
- Notation St := State.normal.
- Notation StE := State.exception.
- Notation Fr := Frame.make.
- Notation FrE := ExceptionFrame.make.
+ Notation St := DEX_State.normal.
+ (* DEX Notation StE := DEX_State.exception. *)
+ Notation Fr := DEX_Frame.make.
+ (* DEX Notation FrE := DEX_ExceptionFrame.make. *)
 
   (** compatibility between ArrayKind and type *) 
-  Inductive compat_ArrayKind_type : ArrayKind -> type -> Prop :=
+  Inductive compat_ArrayKind_type : DEX_ArrayKind -> DEX_type -> Prop :=
     | compat_ArrayKind_type_ref : forall rt,
-        compat_ArrayKind_type Aarray (ReferenceType rt)
+        compat_ArrayKind_type Aarray (DEX_ReferenceType rt)
     | compat_ArrayKind_type_int : 
-        compat_ArrayKind_type Iarray (PrimitiveType INT)
+        compat_ArrayKind_type Iarray (DEX_PrimitiveType DEX_INT)
     | compat_ArrayKind_type_byte : 
-        compat_ArrayKind_type Barray (PrimitiveType BYTE)
+        compat_ArrayKind_type Barray (DEX_PrimitiveType DEX_BYTE)
     | compat_ArrayKind_type_bool : 
-        compat_ArrayKind_type Barray (PrimitiveType BOOLEAN)
+        compat_ArrayKind_type Barray (DEX_PrimitiveType DEX_BOOLEAN)
     | compat_ArrayKind_type_short : 
-        compat_ArrayKind_type Sarray (PrimitiveType SHORT).
+        compat_ArrayKind_type Sarray (DEX_PrimitiveType DEX_SHORT).
 
-  Inductive isReference : value -> Prop :=
+  Inductive isReference : DEX_value -> Prop :=
   | isReference_null : isReference Null
   | isReference_ref : forall loc, isReference (Ref loc).
 
   (** compatibility between ValKind and value *) 
-  Inductive compat_ValKind_value : ValKind -> value -> Prop :=
+  Inductive compat_ValKind_value : DEX_ValKind -> DEX_value -> Prop :=
     | compat_ValKind_value_ref : forall v,
         isReference v -> compat_ValKind_value Aval v
     | compat_ValKind_value_int : forall n,
         compat_ValKind_value Ival (Num (I n)).
 
   (** compatibility between ArrayKind and value *) 
-  Inductive compat_ArrayKind_value : ArrayKind -> value -> Prop :=
+  Inductive compat_ArrayKind_value : DEX_ArrayKind -> DEX_value -> Prop :=
     | compat_ArrayKind_value_ref : forall v,
         isReference v -> compat_ArrayKind_value Aarray v
     | compat_ArrayKind_value_int : forall n,
@@ -288,7 +287,7 @@ Module Type SEMANTIC_DOMAIN.
         compat_ArrayKind_value Sarray (Num (Sh n)).
 
   (* convert a value to be pushed on the stack *)
-  Definition conv_for_stack (v:value) : value :=
+  Definition conv_for_stack (v:DEX_value) : DEX_value :=
     match v with
     | Num (B b) => Num (I (b2i b))
     | Num (Sh s) => Num (I (s2i s))
@@ -296,46 +295,47 @@ Module Type SEMANTIC_DOMAIN.
     end.
 
   (* convert a value to be store in an array *)
-  Definition conv_for_array (v:value) (t:type) : value :=
+  Definition conv_for_array (v:DEX_value) (t:DEX_type) : DEX_value :=
     match v with
     | Ref loc => v
     | Num (I i) =>
        match t with
-         ReferenceType _ => v (* impossible case *)
-       | PrimitiveType INT => v
-       | PrimitiveType BOOLEAN => Num (B (i2bool i))
-       | PrimitiveType BYTE => Num (B (i2b i))
-       | PrimitiveType SHORT => Num (Sh (i2s i))         
+         DEX_ReferenceType _ => v (* impossible case *)
+       | DEX_PrimitiveType DEX_INT => v
+       | DEX_PrimitiveType DEX_BOOLEAN => Num (B (i2bool i))
+       | DEX_PrimitiveType DEX_BYTE => Num (B (i2b i))
+       | DEX_PrimitiveType DEX_SHORT => Num (Sh (i2s i))         
        end
     | _ => v (* impossible case *)
     end.
 
   (** [assign_compatible_num source target] holds if a numeric value [source] can be 
     assigned to a variable of type [target]. This point is not clear in the JVM spec. *)
-  Inductive assign_compatible_num : num -> primitiveType -> Prop :=
-   | assign_compatible_int_int : forall i, assign_compatible_num (I i) INT
-   | assign_compatible_short_int : forall sh, assign_compatible_num (Sh sh) INT
-   | assign_compatible_byte_int : forall b, assign_compatible_num (B b) INT
-   | assign_compatible_short_short : forall sh, assign_compatible_num (Sh sh) SHORT
-   | assign_compatible_byte_byte : forall b, assign_compatible_num (B b) BYTE
-   | assign_compatible_byte_boolean : forall b, assign_compatible_num (B b) BOOLEAN.
+  Inductive assign_compatible_num : DEX_num -> DEX_primitiveType -> Prop :=
+   | assign_compatible_int_int : forall i, assign_compatible_num (I i) DEX_INT
+   | assign_compatible_short_int : forall sh, assign_compatible_num (Sh sh) DEX_INT
+   | assign_compatible_byte_int : forall b, assign_compatible_num (B b) DEX_INT
+   | assign_compatible_short_short : forall sh, assign_compatible_num (Sh sh) DEX_SHORT
+   | assign_compatible_byte_byte : forall b, assign_compatible_num (B b) DEX_BYTE
+   | assign_compatible_byte_boolean : forall b, assign_compatible_num (B b) DEX_BOOLEAN.
 
   (** [assign_compatible h source target] holds if a value [source] can be 
     assigned to a variable of type [target] *)
-  Inductive assign_compatible (p:Program) (h:Heap.t) : value -> type -> Prop :=
-   | assign_compatible_null : forall t, assign_compatible p h Null (ReferenceType t)
-   | assign_compatible_ref_object_val : forall (loc:Location) (t:refType) (cn:ClassName), 
-       Heap.typeof h loc = Some (Heap.LocationObject cn) ->
-       compat_refType p (ClassType cn) t ->
-       assign_compatible p h (Ref loc) (ReferenceType t)
-   | assign_compatible_ref_array_val : forall (loc:Location) (t:refType) (length:Int.t) (tp:type) a, 
-       Heap.typeof h loc = Some (Heap.LocationArray length tp a) ->
-       compat_refType p (ArrayType tp) t ->
-       assign_compatible p h (Ref loc) (ReferenceType t)
-   | assign_compatible_num_val : forall (n:num) (t:primitiveType),
-       assign_compatible_num n t -> assign_compatible p h (Num n) (PrimitiveType t).
+  Inductive assign_compatible (p:DEX_Program) (h:DEX_Heap.t) : DEX_value -> DEX_type -> Prop :=
+   | assign_compatible_null : forall t, assign_compatible p h Null (DEX_ReferenceType t)
+   | assign_compatible_ref_object_val : forall (loc:DEX_Location) (t:DEX_refType) (cn:DEX_ClassName), 
+       DEX_Heap.typeof h loc = Some (DEX_Heap.LocationObject cn) ->
+       compat_refType p (DEX_ClassType cn) t ->
+       assign_compatible p h (Ref loc) (DEX_ReferenceType t)
+   | assign_compatible_ref_array_val : forall (loc:DEX_Location) (t:DEX_refType) (length:Int.t) (tp:DEX_type) a, 
+       DEX_Heap.typeof h loc = Some (DEX_Heap.LocationArray length tp a) ->
+       compat_refType p (DEX_ArrayType tp) t ->
+       assign_compatible p h (Ref loc) (DEX_ReferenceType t)
+   | assign_compatible_num_val : forall (n:DEX_num) (t:DEX_primitiveType),
+       assign_compatible_num n t -> assign_compatible p h (Num n) (DEX_PrimitiveType t).
 
-  Inductive SemCompRef : CompRef -> value -> value -> Prop :=
+(* DEX
+  Inductive SemCompRef : CompRef -> DEX_value -> DEX_value -> Prop :=
   | SemCompRef_eq : forall v1 v2,
        isReference v1 -> isReference v2 -> v1 = v2 ->
      (****************************************************)
@@ -344,8 +344,9 @@ Module Type SEMANTIC_DOMAIN.
        isReference v1 -> isReference v2 -> v1 <> v2 ->
      (****************************************************)
           SemCompRef NeRef v1 v2.
+*)
 
-  Definition SemCompInt (cmp:CompInt) (z1 z2: Z) : Prop :=
+  Definition SemCompInt (cmp:DEX_CompInt) (z1 z2: Z) : Prop :=
     match cmp with
       EqInt =>  z1=z2
     | NeInt => z1<>z2
@@ -355,7 +356,7 @@ Module Type SEMANTIC_DOMAIN.
     | GeInt => z1>=z2
     end.
 
-  Definition SemBinopInt (op:BinopInt) (i1 i2:Int.t) : Int.t :=
+  Definition SemBinopInt (op:DEX_BinopInt) (i1 i2:Int.t) : Int.t :=
     match op with 
     | AddInt => Int.add i1 i2
     | AndInt => Int.and i1 i2
@@ -393,4 +394,4 @@ Module Type SEMANTIC_DOMAIN.
       UnCaughtException p m (pc,h,loc). *)
 
 
-End SEMANTIC_DOMAIN.
+End DEX_SEMANTIC_DOMAIN.

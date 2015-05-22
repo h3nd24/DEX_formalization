@@ -30,46 +30,46 @@ Implicit Arguments distinct.
 
 (** Main module for representing a DEX program *)
 
-Module Type PROGRAM.
+Module Type DEX_PROGRAM.
 
   (** Main types to be manipulated by the API *)
-  Parameter Program :Type.
-  Parameter Class : Type.
-  Parameter Interface : Type. (*- They are collapsed to class with a special access flag *)
-  Parameter Var : Set. (* In DEX, registers are indexed by natural number *)
-  Parameter Field : Set.
-  Parameter Method : Type.
-  Parameter BytecodeMethod : Type.
+  Parameter DEX_Program :Type.
+  Parameter DEX_Class : Type.
+  Parameter DEX_Interface : Type. (*- They are collapsed to class with a special access flag *)
+  Parameter DEX_Reg : Set. (* In DEX, registers are indexed by natural number *)
+  Parameter DEX_Field : Set.
+  Parameter DEX_Method : Type.
+  Parameter DEX_BytecodeMethod : Type.
   (*Parameter ExceptionHandler : Set.*)
-  Parameter ShortMethodSignature : Set.
-  Parameter ShortFieldSignature :Set.
-  Parameter PC : Set.
+  Parameter DEX_ShortMethodSignature : Set.
+  Parameter DEX_ShortFieldSignature :Set.
+  Parameter DEX_PC : Set.
 
  (** Variables are indexed by integers *)
-  Parameter Var_toN : Var -> nat.
-  Parameter N_toVar : nat -> Var.
-  Parameter Var_toN_bij1 : forall v, N_toVar (Var_toN v) = v.
-  Parameter Var_toN_bij2 : forall n, Var_toN (N_toVar n) = n.
+  Parameter Reg_toN : DEX_Reg -> nat.
+  Parameter N_toReg : nat -> DEX_Reg.
+  Parameter Reg_toN_bij1 : forall v, N_toReg (Reg_toN v) = v.
+  Parameter Reg_toN_bij2 : forall n, Reg_toN (N_toReg n) = n.
 
 
   (** Handling of qualified names *)
-  Parameter PackageName : Set.
-  Parameter ShortClassName : Set.
-  Parameter ShortMethodName : Set.
-  Parameter ShortFieldName : Set.
+  Parameter DEX_PackageName : Set.
+  Parameter DEX_ShortClassName : Set.
+  Parameter DEX_ShortMethodName : Set.
+  Parameter DEX_ShortFieldName : Set.
 
   (**For example the qualified name [java.lang.String] of the class [String],
       is decomposed into [java.lang] for the package name and [String] for the
        short name.  *)
-  Definition ClassName := PackageName * ShortClassName.
-  Definition InterfaceName := PackageName * ShortClassName.
-  Definition MethodName := ClassName * ShortMethodName.
-  Definition FieldName := ClassName * ShortFieldName.
-  Definition MethodSignature := ClassName * ShortMethodSignature.
-  Definition FieldSignature := ClassName * ShortFieldSignature.
+  Definition DEX_ClassName := DEX_PackageName * DEX_ShortClassName.
+  Definition DEX_InterfaceName := DEX_PackageName * DEX_ShortClassName.
+  Definition DEX_MethodName := DEX_ClassName * DEX_ShortMethodName.
+  Definition DEX_FieldName := DEX_ClassName * DEX_ShortFieldName.
+  Definition DEX_MethodSignature := DEX_ClassName * DEX_ShortMethodSignature.
+  Definition DEX_FieldSignature := DEX_ClassName * DEX_ShortFieldSignature.
   (** Some constants *)
-  Parameter javaLang : PackageName.
-  Parameter object : ShortClassName.
+  Parameter javaLang : DEX_PackageName.
+  Parameter object : DEX_ShortClassName.
   (*Parameter throwable : ShortClassName.*)
 
   (** Native Exceptions *)
@@ -77,70 +77,70 @@ Module Type PROGRAM.
             NegativeArraySizeException ClassCastException ArithmeticException : ShortClassName. *)
 
   (** visibility modifiers *)
-  Inductive Visibility : Set :=
+  Inductive DEX_Visibility : Set :=
     Package | Protected | Private | Public.
 
-  Inductive type : Set :=
-      | ReferenceType (rt : refType)
-      | PrimitiveType (pt: primitiveType)
-  with refType :Set := 
-      | ArrayType (typ:type) 
-      | ClassType  (ct:ClassName)
-      | InterfaceType (it:InterfaceName)
-  with  primitiveType : Set := 
-      | BOOLEAN  | BYTE | SHORT | INT.
+  Inductive DEX_type : Set :=
+      | DEX_ReferenceType (rt : DEX_refType)
+      | DEX_PrimitiveType (pt: DEX_primitiveType)
+  with DEX_refType :Set := 
+      | DEX_ArrayType (typ:DEX_type) 
+      | DEX_ClassType  (ct:DEX_ClassName)
+      | DEX_InterfaceType (it:DEX_InterfaceName)
+  with  DEX_primitiveType : Set := 
+      | DEX_BOOLEAN  | DEX_BYTE | DEX_SHORT | DEX_INT.
       (* + Int64, Float,Double *)
       (* + ReturnAddressType subroutines *)
 
  
-  Inductive CompInt : Set := EqInt | NeInt | LtInt | LeInt | GtInt | GeInt.
-  Inductive CompRef : Set := EqRef | NeRef.
+  Inductive DEX_CompInt : Set := EqInt | NeInt | LtInt | LeInt | GtInt | GeInt.
+  (* Inductive CompRef : Set := EqRef | NeRef. *)
 
-  Inductive BinopInt : Set := AddInt | AndInt | DivInt | MulInt | OrInt | RemInt 
+  Inductive DEX_BinopInt : Set := AddInt | AndInt | DivInt | MulInt | OrInt | RemInt 
                             | ShlInt | ShrInt | SubInt | UshrInt | XorInt.
 
   (* Type information used for Vaload and Saload *)
-  Inductive ArrayKind : Set :=
+  Inductive DEX_ArrayKind : Set :=
     | Aarray
     | Iarray
     | Barray
     | Sarray.
     
   (* Type information used for Vload, Vstore and Vreturn *)
-  Inductive ValKind : Set :=
+  Inductive DEX_ValKind : Set :=
     | Aval
     | Ival.
 
 
-  Module Type OFFSET_TYPE.
+  Module Type DEX_OFFSET_TYPE.
     (* The type of address offsets *)
     Parameter t : Set.
      (** Jumps are defined in terms of offsets with respect to the current address. **)
-    Parameter jump : PC -> t -> PC.
-  End OFFSET_TYPE.
-  Declare Module OFFSET : OFFSET_TYPE.
+    Parameter jump : DEX_PC -> t -> DEX_PC.
+  End DEX_OFFSET_TYPE.
+  Declare Module DEX_OFFSET : DEX_OFFSET_TYPE.
 
   (** Operations on the signatures of fields *)
-  Module Type FIELDSIGNATURE_TYPE.
-    Parameter name : ShortFieldSignature -> ShortFieldName.
-    Parameter type : ShortFieldSignature -> type.
-    Parameter eq_dec : forall f1 f2:ShortFieldSignature, f1=f2 \/ ~f1=f2.
-  End FIELDSIGNATURE_TYPE.
-  Declare Module FIELDSIGNATURE : FIELDSIGNATURE_TYPE.
+  Module Type DEX_FIELDSIGNATURE_TYPE.
+    Parameter name : DEX_ShortFieldSignature -> DEX_ShortFieldName.
+    Parameter type : DEX_ShortFieldSignature -> DEX_type.
+    Parameter eq_dec : forall f1 f2:DEX_ShortFieldSignature, f1=f2 \/ ~f1=f2.
+  End DEX_FIELDSIGNATURE_TYPE.
+  Declare Module DEX_FIELDSIGNATURE : DEX_FIELDSIGNATURE_TYPE.
 
   (** Content of a method signature *)
-  Module Type METHODSIGNATURE_TYPE.
+  Module Type DEX_METHODSIGNATURE_TYPE.
     (* The method name *)
-    Parameter name : ShortMethodSignature -> ShortMethodName.
+    Parameter name : DEX_ShortMethodSignature -> DEX_ShortMethodName.
     (** Java types for parameters values *)
-    Parameter parameters : ShortMethodSignature -> list type.
+    Parameter parameters : DEX_ShortMethodSignature -> list DEX_type.
     (** Java type for return value, the constructor [None] of type option being used for the [Void] type *)
-    Parameter result : ShortMethodSignature -> option type.
+    Parameter result : DEX_ShortMethodSignature -> option DEX_type.
 
     Parameter eq_dec : 
-      forall mid1 mid2:ShortMethodSignature, mid1=mid2 \/ ~mid1=mid2.
-  End METHODSIGNATURE_TYPE.
-  Declare Module METHODSIGNATURE : METHODSIGNATURE_TYPE.
+      forall mid1 mid2:DEX_ShortMethodSignature, mid1=mid2 \/ ~mid1=mid2.
+  End DEX_METHODSIGNATURE_TYPE.
+  Declare Module DEX_METHODSIGNATURE : DEX_METHODSIGNATURE_TYPE.
 
     (** Parser translation :
 
@@ -572,39 +572,39 @@ Module Type PROGRAM.
    *)
 
 
-  Inductive Instruction : Set :=
+  Inductive DEX_Instruction : Set :=
    | Nop
-   | Move (k:ValKind) (rt:Var) (rs:Var)
-   | MoveResult (k:ValKind) (rt:Var)
+   | Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
+   | MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
    | Return
-   | VReturn (k:ValKind) (rt:Var)
-   | Const (k:ValKind) (rt:Var) (v:Z)
-   | InstanceOf (rt:Var) (r:Var) (t:refType)
-   | ArrayLength (rt:Var) (rs:Var)
-   | New (rt:Var) (t:refType)
-   | NewArray (rt:Var) (rl:Var) (t:type)
-   | Goto (o:OFFSET.t)
-   | PackedSwitch (rt:Var) (firstKey:Z) (size:Z) (l:list OFFSET.t)
-   | SparseSwitch (rt:Var) (size:Z) (l:list (Z * OFFSET.t))
-   | Ifcmp (cmp:CompInt) (ra:Var) (rb:Var) (o:OFFSET.t)
-   | Ifz (cmp:CompInt) (r:Var) (o:OFFSET.t)
-   | Aget (k:ArrayKind) (rt:Var) (ra:Var) (ri:Var)
-   | Aput (k:ArrayKind) (rs:Var) (ra:Var) (ri:Var)
-   | Iget (k:ValKind) (rt:Var) (ro:Var) (f:FieldSignature)
-   | Iput (k:ValKind) (rs:Var) (ro:Var) (f:FieldSignature)
+   | VReturn (k:DEX_ValKind) (rt:DEX_Reg)
+   | Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
+   | InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
+   | ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
+   | New (rt:DEX_Reg) (t:DEX_refType)
+   | NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
+   | Goto (o:DEX_OFFSET.t)
+   | PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:Z) (l:list DEX_OFFSET.t)
+   | SparseSwitch (rt:DEX_Reg) (size:Z) (l:list (Z * DEX_OFFSET.t))
+   | Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
+   | Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
+   | Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
+   | Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
+   | Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+   | Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
 (*   | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
-   | Invokevirtual (m:MethodSignature) (n:Z) (p:list Var)
-   | Invokesuper (m:MethodSignature) (n:Z) (p:list Var)
-   | Invokedirect (m:MethodSignature) (n:Z) (p:list Var)
-   | Invokestatic (m:MethodSignature) (n:Z) (p:list Var)
-   | Invokeinterface (m:MethodSignature) (n:Z) (p:list Var)
-   | Ineg (rt:Var) (rs:Var)
-   | Inot (rt:Var) (rs:Var)
-   | I2b (rt:Var) (rs:Var)
-   | I2s (rt:Var) (rs:Var)
-   | Ibinop (op:BinopInt) (rt:Var) (ra:Var) (rb:Var)
-   | IbinopConst (op:BinopInt) (rt:Var) (r:Var) (v:Z)
+   | Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | Ineg (rt:DEX_Reg) (rs:DEX_Reg)
+   | Inot (rt:DEX_Reg) (rs:DEX_Reg)
+   | I2b (rt:DEX_Reg) (rs:DEX_Reg)
+   | I2s (rt:DEX_Reg) (rs:DEX_Reg)
+   | Ibinop (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg)
+   | IbinopConst (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z)
    .
 
   (** Operations on exception handlers *)
@@ -621,70 +621,71 @@ Module Type PROGRAM.
   Declare Module EXCEPTIONHANDLER : EXCEPTIONHANDLER_TYPE.*)
 
   (** Operations on bytecode methods *)
-  Module Type BYTECODEMETHOD_TYPE.
-    Parameter firstAddress : BytecodeMethod -> PC.
-    Parameter nextAddress : BytecodeMethod -> PC -> option PC.
-    Parameter instructionAt : BytecodeMethod -> PC -> option Instruction.
+  Module Type DEX_BYTECODEMETHOD_TYPE.
+    Parameter firstAddress : DEX_BytecodeMethod -> DEX_PC.
+    Parameter nextAddress : DEX_BytecodeMethod -> DEX_PC -> option DEX_PC.
+    Parameter instructionAt : DEX_BytecodeMethod -> DEX_PC -> option DEX_Instruction.
     (* The list of exception is supposed to be ordered from the innermost to
        the outermost handler, otherwise the behavior might be unexpected 
        @see JVMS 3.10 *)
     (*Parameter exceptionHandlers : BytecodeMethod -> list ExceptionHandler.*)
 
     (** max number of local variables *)
-    Parameter max_locals : BytecodeMethod -> nat.
+    Parameter max_locals : DEX_BytecodeMethod -> nat.
     (** max number of elements on the operand stack *)
-    Parameter max_operand_stack_size : BytecodeMethod -> nat.
+    Parameter max_operand_stack_size : DEX_BytecodeMethod -> nat.
     (* DEX for type system *)
-    Parameter locR : BytecodeMethod -> nat.
+    Parameter locR : DEX_BytecodeMethod -> nat.
 
-    Definition DefinedInstruction (bm:BytecodeMethod) (pc:PC) : Prop :=
+    Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
    
-  End BYTECODEMETHOD_TYPE.
-  Declare Module BYTECODEMETHOD : BYTECODEMETHOD_TYPE.
+  End DEX_BYTECODEMETHOD_TYPE.
+  Declare Module DEX_BYTECODEMETHOD : DEX_BYTECODEMETHOD_TYPE.
  
   (** Content of a method *)
-  Module Type METHOD_TYPE.
+  Module Type DEX_METHOD_TYPE.
 
-    Parameter signature : Method -> ShortMethodSignature.
+    Parameter signature : DEX_Method -> DEX_ShortMethodSignature.
     (** A method that is not abstract has an empty method body *)
-    Parameter body : Method -> option BytecodeMethod.
+    Parameter body : DEX_Method -> option DEX_BytecodeMethod.
 
     (* modifiers *)
-    Parameter isFinal : Method -> bool.
-    Parameter isStatic : Method -> bool.
-    Parameter isNative : Method -> bool.
-    Definition isAbstract (m : Method) : bool :=
+    Parameter isFinal : DEX_Method -> bool.
+    Parameter isStatic : DEX_Method -> bool.
+    Parameter isNative : DEX_Method -> bool.
+    Definition isAbstract (m : DEX_Method) : bool :=
       match body m with
         None => true
       | Some _ => false
     end.
 
-    Parameter visibility : Method -> Visibility.
+    Parameter visibility : DEX_Method -> DEX_Visibility.
 
-    Definition valid_var (m:Method) (x:Var) : Prop :=
+    Definition valid_reg (m:DEX_Method) (x:DEX_Reg) : Prop :=
       forall bm, body m = Some bm ->
-         (Var_toN x) <= (BYTECODEMETHOD.max_locals bm).
-
+         (Reg_toN x) <= (DEX_BYTECODEMETHOD.max_locals bm).
+(*
     Definition valid_stack_size (m:Method) (length:nat) : Prop :=
       forall bm, body m = Some bm ->
          length <= (BYTECODEMETHOD.max_operand_stack_size bm).
+*)
 
     (* DEX additional for locR *)
-    Definition within_locR (m:Method) (x:Var) : Prop :=
+    Definition within_locR (m:DEX_Method) (x:DEX_Reg) : Prop :=
       forall bm, body m = Some bm ->
-         (Var_toN x) <= (BYTECODEMETHOD.locR bm).
+         (Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm).
 
-    End METHOD_TYPE.
-  Declare Module METHOD : METHOD_TYPE.
+    End DEX_METHOD_TYPE.
+  Declare Module DEX_METHOD : DEX_METHOD_TYPE.
 
   (** Operations on fields *)
-  Module Type FIELD_TYPE.
-    Parameter signature : Field -> ShortFieldSignature.    
-    Parameter isFinal : Field -> bool.
-    Parameter isStatic : Field -> bool.
+  Module Type DEX_FIELD_TYPE.
+    Parameter signature : DEX_Field -> DEX_ShortFieldSignature.    
+    Parameter isFinal : DEX_Field -> bool.
+    Parameter isStatic : DEX_Field -> bool.
 
-    Parameter visibility : Field -> Visibility.
+    Parameter visibility : DEX_Field -> DEX_Visibility.
 
     Inductive value : Set :=
       | Int (v:Z) (* Numeric value *)
@@ -693,83 +694,83 @@ Module Type PROGRAM.
       | UNDEF (* default value *).
 
     (** Initial (default) value. Must be compatible with the type of the field. *)
-    Parameter initValue : Field ->  value.
+    Parameter initValue : DEX_Field ->  value.
 
-  End FIELD_TYPE.
-  Declare Module FIELD : FIELD_TYPE.
+  End DEX_FIELD_TYPE.
+  Declare Module DEX_FIELD : DEX_FIELD_TYPE.
 
   (** Content of a Java class *)
-  Module Type CLASS_TYPE.
+  Module Type DEX_CLASS_TYPE.
 
-    Parameter name : Class -> ClassName.
+    Parameter name : DEX_Class -> DEX_ClassName.
     (** direct superclass *)
     (** All the classes have a superClass except [java.lang.Object]. (see [Wf.v]) *)
-    Parameter superClass : Class -> option ClassName.
+    Parameter superClass : DEX_Class -> option DEX_ClassName.
     (** list of implemented interfaces *)
-    Parameter superInterfaces : Class -> list InterfaceName.
+    Parameter superInterfaces : DEX_Class -> list DEX_InterfaceName.
 
-    Parameter field : Class -> ShortFieldName -> option Field.
+    Parameter field : DEX_Class -> DEX_ShortFieldName -> option DEX_Field.
 
-    Parameter definedFields : Class -> list Field.
+    Parameter definedFields : DEX_Class -> list DEX_Field.
     Parameter in_definedFields_field_some : forall c f,
       In f (definedFields c) ->
-      field c (FIELDSIGNATURE.name (FIELD.signature f)) = Some f.
+      field c (DEX_FIELDSIGNATURE.name (DEX_FIELD.signature f)) = Some f.
     Parameter field_some_in_definedFields : forall c f sfn,
       field c sfn = Some f -> In f (definedFields c).
 
-    Parameter method : Class -> ShortMethodSignature -> option Method.
+    Parameter method : DEX_Class -> DEX_ShortMethodSignature -> option DEX_Method.
     Parameter method_signature_prop : forall cl mid m,
-      method cl mid = Some m -> mid = METHOD.signature m.
+      method cl mid = Some m -> mid = DEX_METHOD.signature m.
     
-    Definition defined_Method (cl:Class) (m:Method) :=
-      method cl (METHOD.signature m) = Some m.
+    Definition defined_Method (cl:DEX_Class) (m:DEX_Method) :=
+      method cl (DEX_METHOD.signature m) = Some m.
     
     (* modifiers *)
-    Parameter isFinal : Class -> bool.
-    Parameter isPublic : Class -> bool.
-    Parameter isAbstract : Class -> bool.
+    Parameter isFinal : DEX_Class -> bool.
+    Parameter isPublic : DEX_Class -> bool.
+    Parameter isAbstract : DEX_Class -> bool.
 
-  End CLASS_TYPE.
-  Declare Module CLASS : CLASS_TYPE.
+  End DEX_CLASS_TYPE.
+  Declare Module DEX_CLASS : DEX_CLASS_TYPE.
 
   (** Content of a Java interface *)
-  Module Type INTERFACE_TYPE.
+  Module Type DEX_INTERFACE_TYPE.
 
-    Parameter name : Interface -> InterfaceName. 
+    Parameter name : DEX_Interface -> DEX_InterfaceName. 
 
-    Parameter superInterfaces : Interface -> list InterfaceName.
+    Parameter superInterfaces : DEX_Interface -> list DEX_InterfaceName.
 
-    Parameter field : Interface -> ShortFieldName -> option Field.
+    Parameter field : DEX_Interface -> DEX_ShortFieldName -> option DEX_Field.
 
-    Parameter method : Interface -> ShortMethodSignature -> option Method.
+    Parameter method : DEX_Interface -> DEX_ShortMethodSignature -> option DEX_Method.
 
    (* modifiers *)
-    Parameter isFinal : Interface -> bool.
-    Parameter isPublic : Interface -> bool.
-    Parameter isAbstract : Interface -> bool.
-  End INTERFACE_TYPE.
-  Declare Module INTERFACE : INTERFACE_TYPE.
+    Parameter isFinal : DEX_Interface -> bool.
+    Parameter isPublic : DEX_Interface -> bool.
+    Parameter isAbstract : DEX_Interface -> bool.
+  End DEX_INTERFACE_TYPE.
+  Declare Module DEX_INTERFACE : DEX_INTERFACE_TYPE.
 
   (** Content of a Java Program *)
-  Module Type PROG_TYPE.
+  Module Type DEX_PROG_TYPE.
     (** accessor to a class from its qualified name *)
-    Parameter class : Program -> ClassName -> option Class.
-    Definition defined_Class (p:Program) (cl:Class) :=
-      class p (CLASS.name cl) = Some cl.
+    Parameter class : DEX_Program -> DEX_ClassName -> option DEX_Class.
+    Definition defined_Class (p:DEX_Program) (cl:DEX_Class) :=
+      class p (DEX_CLASS.name cl) = Some cl.
 
     Parameter name_class_invariant1 : forall p cn cl,
-      class p cn = Some cl -> cn = CLASS.name cl.
+      class p cn = Some cl -> cn = DEX_CLASS.name cl.
 
     (** accessor to an interface from its qualified name *)
-    Parameter interface : Program -> InterfaceName -> option Interface.
-    Definition defined_Interface (p:Program) (i:Interface) :=
-      interface p (INTERFACE.name i) = Some i.
+    Parameter interface : DEX_Program -> DEX_InterfaceName -> option DEX_Interface.
+    Definition defined_Interface (p:DEX_Program) (i:DEX_Interface) :=
+      interface p (DEX_INTERFACE.name i) = Some i.
 
     Parameter name_interface_invariant1 : forall p cn cl,
-      interface p cn = Some cl -> cn = INTERFACE.name cl.
+      interface p cn = Some cl -> cn = DEX_INTERFACE.name cl.
 
-  End PROG_TYPE.
-  Declare Module PROG : PROG_TYPE.
+  End DEX_PROG_TYPE.
+  Declare Module DEX_PROG : DEX_PROG_TYPE.
 
 (**  
       Definitions on programs 
@@ -777,122 +778,122 @@ Module Type PROGRAM.
   *)
 
 
-  Inductive isStatic (p:Program) (fs: FieldSignature) : Prop :=
-    isStatic_field : forall (cn:ClassName) (cl:Class) (f:Field),
-     PROG.class p (fst fs) = Some cl ->
-     CLASS.field cl (FIELDSIGNATURE.name (snd fs)) = Some f ->
-     FIELD.isStatic f = true ->
+  Inductive isStatic (p:DEX_Program) (fs: DEX_FieldSignature) : Prop :=
+    isStatic_field : forall (cn:DEX_ClassName) (cl:DEX_Class) (f:DEX_Field),
+     DEX_PROG.class p (fst fs) = Some cl ->
+     DEX_CLASS.field cl (DEX_FIELDSIGNATURE.name (snd fs)) = Some f ->
+     DEX_FIELD.isStatic f = true ->
      isStatic p fs.
 
-  Definition javaLangObject : ClassName := (javaLang,object).
+  Definition javaLangObject : DEX_ClassName := (javaLang,object).
 (*  Definition javaLangThrowable : ClassName := (javaLang,throwable). *)
 
-  Inductive direct_subclass (p:Program) (c:Class) (s:Class) : Prop :=
+  Inductive direct_subclass (p:DEX_Program) (c:DEX_Class) (s:DEX_Class) : Prop :=
     | direct_subclass1 : 
-        PROG.defined_Class p c -> 
-        PROG.defined_Class p s ->
-        CLASS.superClass c = Some (CLASS.name s) -> 
+        DEX_PROG.defined_Class p c -> 
+        DEX_PROG.defined_Class p s ->
+        DEX_CLASS.superClass c = Some (DEX_CLASS.name s) -> 
         direct_subclass p c s.
 
   (** [subclass] is the reflexive transitive closure of the [direct_subclass] relation 
     (defined over the classes of the program) *)
-  Definition subclass (p:Program) : Class -> Class -> Prop :=
-    clos_refl_trans Class (direct_subclass p).
+  Definition subclass (p:DEX_Program) : DEX_Class -> DEX_Class -> Prop :=
+    clos_refl_trans DEX_Class (direct_subclass p).
 
-  Inductive subclass_name (p:Program) : ClassName -> ClassName -> Prop :=
+  Inductive subclass_name (p:DEX_Program) : DEX_ClassName -> DEX_ClassName -> Prop :=
     | subclass_name1 : forall c1 c2, 
        subclass p c1 c2 -> 
-       subclass_name p (CLASS.name c1) (CLASS.name c2).
+       subclass_name p (DEX_CLASS.name c1) (DEX_CLASS.name c2).
 
-  Inductive direct_subclass_name (p:Program) : ClassName -> ClassName -> Prop :=
+  Inductive direct_subclass_name (p:DEX_Program) : DEX_ClassName -> DEX_ClassName -> Prop :=
     | direct_subclass_name1 : forall c s,
        direct_subclass p c s ->
-       direct_subclass_name p (CLASS.name c) (CLASS.name s).
+       direct_subclass_name p (DEX_CLASS.name c) (DEX_CLASS.name s).
 
   (** Similar definitions for interfaces *)
-  Inductive direct_subinterface (p:Program) (c:Interface) (s:Interface) : Prop :=
+  Inductive direct_subinterface (p:DEX_Program) (c:DEX_Interface) (s:DEX_Interface) : Prop :=
     | direct_subinterface1 : 
-      PROG.defined_Interface p c -> 
-      PROG.defined_Interface p s ->
-      In (INTERFACE.name s) (INTERFACE.superInterfaces c) -> 
+      DEX_PROG.defined_Interface p c -> 
+      DEX_PROG.defined_Interface p s ->
+      In (DEX_INTERFACE.name s) (DEX_INTERFACE.superInterfaces c) -> 
       direct_subinterface p c s.
 
   (** [subinterface] is the reflexive transitive closure of the [direct_subinterface] 
       relation (defined over the interfaces of the program) *)
-  Definition subinterface (p:Program) : Interface -> Interface -> Prop :=
-    clos_refl_trans Interface (direct_subinterface p).
+  Definition subinterface (p:DEX_Program) : DEX_Interface -> DEX_Interface -> Prop :=
+    clos_refl_trans DEX_Interface (direct_subinterface p).
 
-  Inductive subinterface_name (p:Program) : InterfaceName -> InterfaceName -> Prop :=
+  Inductive subinterface_name (p:DEX_Program) : DEX_InterfaceName -> DEX_InterfaceName -> Prop :=
     | subinterface_name1 : forall c1 c2, 
        subinterface p c1 c2 -> 
-       subinterface_name p (INTERFACE.name c1) (INTERFACE.name c2).
+       subinterface_name p (DEX_INTERFACE.name c1) (DEX_INTERFACE.name c2).
 
-  Inductive direct_subinterface_name (p:Program) : InterfaceName -> InterfaceName -> Prop :=
+  Inductive direct_subinterface_name (p:DEX_Program) : DEX_InterfaceName -> DEX_InterfaceName -> Prop :=
     | direct_subinterface_name1 : forall c s,
        direct_subinterface p c s ->
-       direct_subinterface_name p (INTERFACE.name c) (INTERFACE.name s).
+       direct_subinterface_name p (DEX_INTERFACE.name c) (DEX_INTERFACE.name s).
 
-  Inductive class_declares_field (p:Program) (cn:ClassName) (fd:ShortFieldSignature) : Field -> Prop :=
+  Inductive class_declares_field (p:DEX_Program) (cn:DEX_ClassName) (fd:DEX_ShortFieldSignature) : DEX_Field -> Prop :=
     | class_decl_field : forall cl f, 
-      PROG.class p cn = Some cl -> 
-      CLASS.field cl (FIELDSIGNATURE.name fd) = Some f -> 
+      DEX_PROG.class p cn = Some cl -> 
+      DEX_CLASS.field cl (DEX_FIELDSIGNATURE.name fd) = Some f -> 
       class_declares_field p cn fd f.
 
-  Inductive interface_declares_field (p:Program) (cn:InterfaceName) (fd:ShortFieldSignature) : Field -> Prop :=
+  Inductive interface_declares_field (p:DEX_Program) (cn:DEX_InterfaceName) (fd:DEX_ShortFieldSignature) : DEX_Field -> Prop :=
     | interface_decl_field : forall cl f, 
-      PROG.interface p cn = Some cl -> 
-      INTERFACE.field cl (FIELDSIGNATURE.name fd) = Some f -> 
+      DEX_PROG.interface p cn = Some cl -> 
+      DEX_INTERFACE.field cl (DEX_FIELDSIGNATURE.name fd) = Some f -> 
       interface_declares_field p cn fd f.
 
   (** [defined_field p c fd] holds if the class [c] declares or inherits a field 
       of signature [fd] *)
-  Inductive is_defined_field (p:Program) : ClassName -> FieldSignature -> Field -> Prop :=
+  Inductive is_defined_field (p:DEX_Program) : DEX_ClassName -> DEX_FieldSignature -> DEX_Field -> Prop :=
     | def_class_field : forall cn fd cn' f,
         subclass_name p cn cn' -> 
         class_declares_field p cn' fd f -> 
         is_defined_field p cn (cn',fd) f
     | def_interface_field : forall cn fd cl i1 i' f, 
-        PROG.class p cn = Some cl -> 
-        In i1 (CLASS.superInterfaces cl) ->
+        DEX_PROG.class p cn = Some cl -> 
+        In i1 (DEX_CLASS.superInterfaces cl) ->
         subinterface_name p i1 i' -> 
         interface_declares_field p i' fd f -> 
         is_defined_field p cn (i',fd) f.
 
-  Definition defined_field (p:Program) (cn:ClassName) (fs:FieldSignature) : Prop :=
+  Definition defined_field (p:DEX_Program) (cn:DEX_ClassName) (fs:DEX_FieldSignature) : Prop :=
     exists f, is_defined_field p cn fs f.
 
-  Definition findMethod (p:Program) (msig: MethodSignature) : option Method :=
+  Definition findMethod (p:DEX_Program) (msig: DEX_MethodSignature) : option DEX_Method :=
     let (cn,smsig) := msig in
-      match PROG.class p cn with
+      match DEX_PROG.class p cn with
 	| None => None
-	| Some cl => CLASS.method cl smsig 
+	| Some cl => DEX_CLASS.method cl smsig 
       end.
 
-  Definition findField (p:Program) (fd: FieldSignature) : option Field :=
+  Definition findField (p:DEX_Program) (fd: DEX_FieldSignature) : option DEX_Field :=
     let (cn,sfs) := fd in   
-      match PROG.class p cn with
+      match DEX_PROG.class p cn with
 	| None => None
-	| Some cl => CLASS.field cl (FIELDSIGNATURE.name sfs)
+	| Some cl => DEX_CLASS.field cl (DEX_FIELDSIGNATURE.name sfs)
       end.
     
 
-  Definition methodPackage (mname: MethodName) : PackageName :=  fst (fst mname).
+  Definition methodPackage (mname: DEX_MethodName) : DEX_PackageName :=  fst (fst mname).
 
   (* Relations [check_visibility,check_signature,overrides] are needed
   to define the method [lookup] algorithm **)
 
-  Inductive check_visibility : Visibility -> PackageName -> PackageName ->  Prop :=
+  Inductive check_visibility : DEX_Visibility -> DEX_PackageName -> DEX_PackageName ->  Prop :=
     | check_public :  forall p1 p2, check_visibility Public p1 p2
     | check_protected :forall p1 p2, check_visibility Protected p1 p2
     | check_package :forall p, check_visibility Package p p.
 	  
-  Inductive lookup_here (p:Program) : ClassName ->  ShortMethodSignature -> Method -> Prop :=
+  Inductive lookup_here (p:DEX_Program) : DEX_ClassName ->  DEX_ShortMethodSignature -> DEX_Method -> Prop :=
     | lookup_here_c : forall cn msig meth, 
        findMethod p (cn,msig) = Some meth -> 
        lookup_here p cn msig meth.
 
 
-  Inductive lookup (p:Program) : ClassName -> ShortMethodSignature -> (ClassName*Method) -> Prop :=
+  Inductive lookup (p:DEX_Program) : DEX_ClassName -> DEX_ShortMethodSignature -> (DEX_ClassName*DEX_Method) -> Prop :=
     | lookup_no_up : forall cn msig meth, lookup_here p cn msig meth -> lookup p cn msig (cn,meth)
     | lookup_up : forall cn  msig, (forall meth, ~ lookup_here p cn msig meth) -> 
       forall super res , direct_subclass_name p cn super -> lookup p super msig res -> lookup p cn msig res.
@@ -928,64 +929,64 @@ Module Type PROGRAM.
     lookup_handlers p (ex::exl) pc e pc'.
 *)
   (** Get the next pc *)
-  Definition next (m:Method) (pc:PC) : option PC :=
-    match METHOD.body m with
+  Definition next (m:DEX_Method) (pc:DEX_PC) : option DEX_PC :=
+    match DEX_METHOD.body m with
       None => None
-    | Some body => BYTECODEMETHOD.nextAddress body pc
+    | Some body => DEX_BYTECODEMETHOD.nextAddress body pc
     end.
 
   (** Get the instruction at the given pc *)
-  Definition instructionAt (m:Method) (pc:PC) : option Instruction :=
-    match METHOD.body m with
+  Definition instructionAt (m:DEX_Method) (pc:DEX_PC) : option DEX_Instruction :=
+    match DEX_METHOD.body m with
       None => None
-    | Some body => BYTECODEMETHOD.instructionAt body pc
+    | Some body => DEX_BYTECODEMETHOD.instructionAt body pc
     end.
 
-  Inductive implements (p:Program) : ClassName -> InterfaceName -> Prop :=
+  Inductive implements (p:DEX_Program) : DEX_ClassName -> DEX_InterfaceName -> Prop :=
     | implements_def : forall i cl i', 
-           PROG.defined_Interface p i -> 
-           PROG.defined_Class p cl ->
-           In (INTERFACE.name i) (CLASS.superInterfaces cl) ->
-           subinterface_name p (INTERFACE.name i) i' ->
-           implements p (CLASS.name cl) i'.
+           DEX_PROG.defined_Interface p i -> 
+           DEX_PROG.defined_Class p cl ->
+           In (DEX_INTERFACE.name i) (DEX_CLASS.superInterfaces cl) ->
+           subinterface_name p (DEX_INTERFACE.name i) i' ->
+           implements p (DEX_CLASS.name cl) i'.
 
   (** [compat_refType source target] holds if a reference value of type [source] can be 
     assigned to a reference variable of type [target]. See 
     #<a href=http://java.sun.com/docs/books/vmspec/2nd-edition/html/Concepts.doc.html##19674>assignment conversion rules</a># *)
 
-  Inductive compat_refType (p:Program) : refType -> refType -> Prop :=
+  Inductive compat_refType (p:DEX_Program) : DEX_refType -> DEX_refType -> Prop :=
    | compat_refType_class_class : forall clS clT,
        subclass_name p clS clT ->
-       compat_refType p (ClassType clS) (ClassType clT)
+       compat_refType p (DEX_ClassType clS) (DEX_ClassType clT)
    | compat_refType_class_interface : forall clS clT,
        implements p clS clT ->
-       compat_refType p (ClassType clS) (ClassType clT)
+       compat_refType p (DEX_ClassType clS) (DEX_ClassType clT)
    | compat_refType_interface_class : forall clS,
-       PROG.defined_Interface p clS ->
-       compat_refType p (ClassType (INTERFACE.name clS)) (ClassType javaLangObject)
+       DEX_PROG.defined_Interface p clS ->
+       compat_refType p (DEX_ClassType (DEX_INTERFACE.name clS)) (DEX_ClassType javaLangObject)
    | compat_refType_interface_interface : forall clS clT,
-       PROG.defined_Interface p clS ->
+       DEX_PROG.defined_Interface p clS ->
        subinterface p clS clT ->
-       compat_refType p (ClassType (INTERFACE.name clS)) (ClassType (INTERFACE.name clT))
+       compat_refType p (DEX_ClassType (DEX_INTERFACE.name clS)) (DEX_ClassType (DEX_INTERFACE.name clT))
    | compat_refType_array_class : forall tpS,       
-       compat_refType p (ArrayType tpS) (ClassType javaLangObject)
+       compat_refType p (DEX_ArrayType tpS) (DEX_ClassType javaLangObject)
    (* FIXME: array_interface : T must be either Cloneable or java.io.Serializable? - dp *)
    | compat_refType_array_array_primitive_type : forall t,       
-       compat_refType p (ArrayType (PrimitiveType t)) (ArrayType (PrimitiveType t))
+       compat_refType p (DEX_ArrayType (DEX_PrimitiveType t)) (DEX_ArrayType (DEX_PrimitiveType t))
    | compat_refType_array_array_reference_type : forall tpS tpT,       
        compat_refType p tpS tpT ->
-       compat_refType p (ArrayType (ReferenceType tpS)) (ArrayType (ReferenceType tpT)).
+       compat_refType p (DEX_ArrayType (DEX_ReferenceType tpS)) (DEX_ArrayType (DEX_ReferenceType tpT)).
 
 
   (** Extra tools for implementation *)
-  Parameter PC_eq : PC -> PC -> bool.
-  Parameter PC_eq_spec : forall p q:PC, if PC_eq p q then p=q else p<>q.
-  Parameter PC_eq_dec : forall pc1 pc2:PC, pc1=pc2 \/ ~pc1=pc2.
+  Parameter PC_eq : DEX_PC -> DEX_PC -> bool.
+  Parameter PC_eq_spec : forall p q:DEX_PC, if PC_eq p q then p=q else p<>q.
+  Parameter PC_eq_dec : forall pc1 pc2:DEX_PC, pc1=pc2 \/ ~pc1=pc2.
   
-  Parameter Var_eq_dec : forall x1 x2:Var, x1=x2 \/ ~x1=x2. 
-  Parameter ClassName_eq_dec : forall c1 c2:ClassName, c1=c2 \/ ~c1=c2.
+  Parameter Reg_eq_dec : forall x1 x2:DEX_Reg, x1=x2 \/ ~x1=x2. 
+  Parameter ClassName_eq_dec : forall c1 c2:DEX_ClassName, c1=c2 \/ ~c1=c2.
 
-End PROGRAM.
+End DEX_PROGRAM.
     
    
 (* 

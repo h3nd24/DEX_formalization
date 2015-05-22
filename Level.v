@@ -201,7 +201,8 @@ Proof.
 Qed.
 
 
-(*Definition lift (k:L.t) (st:list L.t') : list L.t' := map (L.join' k) st.*)
+Definition lift_st (k:L.t) (st:list L.t') : list L.t' := map (L.join' k) st.
+
 Fixpoint lift_rec (k:L.t) (keys:list N) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
   match keys with
     nil => rt
@@ -210,7 +211,7 @@ Fixpoint lift_rec (k:L.t) (keys:list N) (rt:BinNatMap.t L.t') : BinNatMap.t L.t'
           lift_rec (k) (t) (new_rt)
   end.
 
-Definition lift (k:L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
+Definition lift_rt (k:L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
   let keys := BinNatMap.dom _ rt in lift_rec (k) (keys) (rt).
 
 Inductive leql'_opt : option L.t' -> option L.t' -> Prop :=
@@ -230,15 +231,13 @@ Definition join_op' (k:L.t) (ok:option L.t) : L.t :=
     | Some k' => (L.join k k')
   end.
 
-(*
-Definition olift (ok:option L.t) (st:list L.t') : list L.t' :=
+Definition olift_st (ok:option L.t) (st:list L.t') : list L.t' :=
   match ok with
     None => st
     | Some k => lift k st
   end.
-*)
 
-Definition olift (ok:option L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
+Definition olift_rt (ok:option L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
   match ok with
     None => rt
     | Some k => lift k rt
@@ -289,9 +288,26 @@ Proof.
 Qed.
 
 
-Fixpoint tsub (l1 l2:list L.t') {struct l1} : bool :=
+Fixpoint tsub_st (l1 l2:list L.t') {struct l1} : bool :=
   match l1,l2 with
     | nil,nil => true
     | k1::q1,k2::q2 => (leql'_test k1 k2) && (tsub q1 q2)
     | _,_ => false
   end.
+
+Definition tsub_element (rt1 rt2 : BinNatMap.t L.t') (reg : N) : bool :=
+  match BinNatMap.get _ rt1 reg, BinNatMap.get _ rt2 reg with
+    | None, None => true
+    | Some k1, Some k2 => (leql'_test k1 k2)
+    | None, Some k2 => false
+    | Some k1, None => true
+  end.
+
+Fixpoint tsub_rec (rt1 rt2 : BinNatMap.t L.t') (regs : list N) {struct regs} : bool :=
+  match regs with
+    | nil => true
+    | reg :: t => (tsub_element (rt1) (rt2) (reg)) && (tsub_rec (rt1) (rt2) (t))
+  end.
+
+Definition tsub_rt (rt1 rt2 : BinNatMap.t L.t') : bool :=
+  let keys := BinNatMap.dom _ rt2 in tsub_rec (rt1) (rt2) (keys).

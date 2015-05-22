@@ -21,13 +21,21 @@ Definition default_signature : sign :=
     L.bot.    
 
 
-Record ExtendedProgram : Type := extP {
-  prog :> Program;
-  newArT : Method * PC -> L.t';
-  static_signature : ShortMethodSignature -> sign;
-  virtual_signature : ShortMethodSignature -> L.t -> sign;
-  ft : FieldSignature -> L.t';
-  locR : ShortMethodSignature -> list Var
+Record DEX_ExtendedProgram : Type := DEX_extP {
+  DEX_prog :> DEX_Program;
+  DEX_newArT : DEX_Method * PC -> L.t';
+  DEX_static_signature : DEX_ShortMethodSignature -> sign;
+  DEX_virtual_signature : DEX_ShortMethodSignature -> L.t -> sign;
+  DEX_ft : DEX_FieldSignature -> L.t';
+  locR : DEX_ShortMethodSignature -> list Var
+}.
+
+Record JVM_ExtendedProgram : Type := JVM_extP {
+  JVM_prog :> JVM_Program;
+  JVM_newArT : JVM_Method * PC -> L.t';
+  JVM_static_signature : JVM_ShortMethodSignature -> sign;
+  JVM_virtual_signature : JVM_ShortMethodSignature -> L.t -> sign;
+  JVM_ft : JVM_FieldSignature -> L.t';
 }.
 
 (* DEX
@@ -45,11 +53,9 @@ Definition  virtual_signature (p:ExtendedProgram) mid (k:L.t) : sign :=
   static_signature p mid.
 *)
 
-(* DEX
 Definition well_formed_lookupswitch m := forall pc def l i o1 o2,
   instructionAt m pc = Some (Lookupswitch def l) ->
   In (i, o1) l -> In (i, o2) l -> o1=o2.
-*)
 
 (* DEX
 Definition np := (javaLang,NullPointerException).
@@ -62,18 +68,23 @@ Definition ase := (javaLang,ArrayStoreException).
 
 Definition tag := option ClassName.
 
-(* DEX
+
 Definition TypeStack := list L.t'.
-*)
+
 Module VarMap := BinNatMap.
 Definition TypeRegisters := VarMap.t L.t'.
+Definition update_op (rt:TypeRegisters) (key:VarMap.key) (k:option L.t') :=
+  match k with
+    | Some v => BinNatMap.update _ rt key v
+    | None => rt
+  end.
 
-(* DEX
+
 Definition compat_type_st_lvt (s:sign) (st:TypeStack) (n:nat) : Prop :=
   forall x, ((Var_toN x)<n)%nat -> exists k,
     nth_error st (n-(Var_toN x)-1)%nat = Some k /\
     L.leql' k (lvt s x).
-*)
+
 
 Definition compat_type_rt_lvt (s:sign) (rt:TypeRegisters) 
   (p:list Var) (n:nat) : Prop :=
