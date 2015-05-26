@@ -234,13 +234,13 @@ Definition join_op' (k:L.t) (ok:option L.t) : L.t :=
 Definition olift_st (ok:option L.t) (st:list L.t') : list L.t' :=
   match ok with
     None => st
-    | Some k => lift k st
+    | Some k => lift_st k st
   end.
 
 Definition olift_rt (ok:option L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
   match ok with
     None => rt
-    | Some k => lift k rt
+    | Some k => lift_rt k rt
   end.
 
 Fixpoint join_list (A:Type) (r:A->L.t) (l:list A) {struct l}: L.t :=
@@ -291,7 +291,7 @@ Qed.
 Fixpoint tsub_st (l1 l2:list L.t') {struct l1} : bool :=
   match l1,l2 with
     | nil,nil => true
-    | k1::q1,k2::q2 => (leql'_test k1 k2) && (tsub q1 q2)
+    | k1::q1,k2::q2 => (leql'_test k1 k2) && (tsub_st q1 q2)
     | _,_ => false
   end.
 

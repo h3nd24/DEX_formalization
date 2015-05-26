@@ -3,39 +3,52 @@ Require Export LoadBicolano.
 Require Export Level.
 Require Export Axioms.
 
-Import BigStep.BigStep.Dom.Prog.
+Import DEX_BigStep.DEX_BigStep.DEX_Dom.DEX_Prog.
+Import JVM_BigStep.JVM_BigStep.JVM_Dom.JVM_Prog.
 
-
-Record sign : Set := make_sign {
-  lvt : Var -> L.t';
-  resType : option L.t';
+Record DEX_sign : Set := make_DEX_sign {
+  DEX_lvt : DEX_Reg -> L.t';
+  DEX_resType : option L.t';
   (* DEX resExceptionType : ClassName -> L.t;*)
-  heapEffect : L.t
+  DEX_heapEffect : L.t
 }.
 
-Definition default_signature : sign :=
-  make_sign
+Record JVM_sign : Set := make_JVM_sign {
+  JVM_lvt : JVM_Var -> L.t';
+  JVM_resType : option L.t';
+  (* DEX resExceptionType : ClassName -> L.t;*)
+  JVM_heapEffect : L.t
+}.
+
+Definition DEX_default_signature : DEX_sign :=
+  make_DEX_sign
     (fun _ => L.Simple L.bot)
     None
     (* DEX (fun _ => L.bot) *)
     L.bot.    
 
+Definition JVM_default_signature : JVM_sign :=
+  make_JVM_sign
+    (fun _ => L.Simple L.bot)
+    None
+    (* DEX (fun _ => L.bot) *)
+    L.bot. 
 
 Record DEX_ExtendedProgram : Type := DEX_extP {
   DEX_prog :> DEX_Program;
-  DEX_newArT : DEX_Method * PC -> L.t';
-  DEX_static_signature : DEX_ShortMethodSignature -> sign;
-  DEX_virtual_signature : DEX_ShortMethodSignature -> L.t -> sign;
+  DEX_newArT : DEX_Method * DEX_PC -> L.t';
+  DEX_static_signature : DEX_ShortMethodSignature -> DEX_sign;
+  DEX_virtual_signature : DEX_ShortMethodSignature -> L.t -> DEX_sign;
   DEX_ft : DEX_FieldSignature -> L.t';
-  locR : DEX_ShortMethodSignature -> list Var
+  locR : DEX_ShortMethodSignature -> list DEX_Reg
 }.
 
 Record JVM_ExtendedProgram : Type := JVM_extP {
   JVM_prog :> JVM_Program;
-  JVM_newArT : JVM_Method * PC -> L.t';
-  JVM_static_signature : JVM_ShortMethodSignature -> sign;
-  JVM_virtual_signature : JVM_ShortMethodSignature -> L.t -> sign;
-  JVM_ft : JVM_FieldSignature -> L.t';
+  JVM_newArT : JVM_Method * JVM_PC -> L.t';
+  JVM_static_signature : JVM_ShortMethodSignature -> JVM_sign;
+  JVM_virtual_signature : JVM_ShortMethodSignature -> L.t -> JVM_sign;
+  JVM_ft : JVM_FieldSignature -> L.t'
 }.
 
 (* DEX
@@ -66,7 +79,8 @@ Definition iob := (javaLang,ArrayIndexOutOfBoundsException).
 Definition ase := (javaLang,ArrayStoreException).
 *)
 
-Definition tag := option ClassName.
+Definition DEX_tag := option DEX_ClassName.
+Definition JVM_tag := option JVM_ClassName.
 
 
 Definition TypeStack := list L.t'.
@@ -80,17 +94,17 @@ Definition update_op (rt:TypeRegisters) (key:VarMap.key) (k:option L.t') :=
   end.
 
 
-Definition compat_type_st_lvt (s:sign) (st:TypeStack) (n:nat) : Prop :=
+Definition compat_type_st_lvt (s:JVM_sign) (st:TypeStack) (n:nat) : Prop :=
   forall x, ((Var_toN x)<n)%nat -> exists k,
     nth_error st (n-(Var_toN x)-1)%nat = Some k /\
-    L.leql' k (lvt s x).
+    L.leql' k (JVM_lvt s x).
 
 
-Definition compat_type_rt_lvt (s:sign) (rt:TypeRegisters) 
-  (p:list Var) (n:nat) : Prop :=
-  forall x, ((Var_toN x)<n)%nat ->
-    exists r k, nth_error p (Var_toN x) = Some r /\ BinNatMap.get _ rt r = Some k /\
-    L.leql' k (lvt s x).
+Definition compat_type_rt_lvt (s:DEX_sign) (rt:TypeRegisters) 
+  (p:list DEX_Reg) (n:nat) : Prop :=
+  forall x, ((Reg_toN x)<n)%nat ->
+    exists r k, nth_error p (Reg_toN x) = Some r /\ BinNatMap.get _ rt r = Some k /\
+    L.leql' k (DEX_lvt s x).
 
 (* DEX
 Definition elift m pc k st :=
