@@ -22,6 +22,7 @@ Open Scope type_scope.
     Variable region : DEX_PC -> DEX_tag -> DEX_PC -> Prop.
     Variable se : DEX_PC -> L.t.
     Variable selift : DEX_PC -> DEX_tag -> L.t -> bool.
+    Variable ret : DEX_Reg.
 
     (* Notation handler := (handler subclass_test m). *)
 
@@ -38,7 +39,7 @@ Open Scope type_scope.
       In r (locR p method_signature) ->
       Some k_rs = BinNatMap.get _ rt rs ->
       se i <= sgn.(DEX_lvt) r ->
-      k_rs <= sgn.(DEX_lvt) r ->
+      k_rs <=' sgn.(DEX_lvt) r ->
       texec i (Move k r rs) None rt 
        (Some (BinNatMap.update _ rt r ((se i) U' k_rs)))
 
@@ -69,7 +70,7 @@ Open Scope type_scope.
     | vReturn : forall i (rt:TypeRegisters) k_r kv (k:DEX_ValKind) (r:DEX_Reg),
       Some k_r = BinNatMap.get _ rt r ->
       sgn.(DEX_resType) = Some kv ->
-      ((se i) U' k_r) <=' kv ->
+      (* DEX probably later ((se i) U' k_r) <=' kv -> *)
       texec i (VReturn k r) None rt None
 
     | const : forall i (rt:TypeRegisters) (k:DEX_ValKind) (r:DEX_Reg) (v:Z),
@@ -107,10 +108,11 @@ Open Scope type_scope.
       (forall j, region i None j -> k <= se j) -> 
       texec i (SparseSwitch r size l) None rt (Some (lift_rt k rt))
     
-    | ifcmp : forall i k (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
-      Some k = BinNatMap.get _ rt ra ->
-      (forall j, region i None j -> k <= se j) -> 
-      texec i (Ifcmp cmp ra rb o) None rt (Some (lift_rt k rt))
+    | ifcmp : forall i ka kb (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
+      Some ka = BinNatMap.get _ rt ra ->
+      Some kb = BinNatMap.get _ rt rb ->
+      (forall j, region i None j -> (ka U kb) <= se j) -> 
+      texec i (Ifcmp cmp ra rb o) None rt (Some (lift_rt (ka U kb) rt))
      
     | ifz : forall i k (rt:TypeRegisters) (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
       Some k = BinNatMap.get _ rt r ->
@@ -130,23 +132,27 @@ Open Scope type_scope.
       Some (L.Array ka kc) = BinNatMap.get _ rt ra ->
       Some ki = BinNatMap.get _ rt ri ->
       ((ka U ki) U' ks) <=' kc ->
+      L.leql (DEX_heapEffect sgn) kc ->
       texec i (Aput k rs ra ri) None rt (Some rt)
 
     | iget : forall i ko (rt:TypeRegisters) (k:DEX_ValKind) (r:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature),
       Some ko = BinNatMap.get _ rt ro ->
       texec i (Iget k r ro f) None rt 
-        (Some (BinNatMap.update _ rt ro ((ko U (se i)) U' (DEX_ft p f))))
+        (Some (BinNatMap.update _ rt r ((ko U (se i)) U' (DEX_ft p f))))
 
     | iput : forall i ks ko (rt:TypeRegisters) (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature),
       Some ks = BinNatMap.get _ rt rs ->
       Some ko = BinNatMap.get _ rt ro ->
       ((se i) U ko) U' ks <=' (DEX_ft p f) ->
+      sgn.(DEX_heapEffect) <= (DEX_ft p f) ->
       texec i (Iput k rs ro f) None rt (Some rt)
 
 (*    | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
     | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
 
-    | invokevirtual : forall i ko (rt:TypeRegisters) (m:DEX_MethodSignature) (n:Z) (par:list DEX_Reg),
+    | invokevirtual : forall i ro ko (rt:TypeRegisters) (m:DEX_MethodSignature) (n:Z) (par:list DEX_Reg),
+      Some ro = hd_error par ->
+      Some ko = BinNatMap.get _ rt ro ->
       length par = length (DEX_METHODSIGNATURE.parameters (snd m)) ->
       compat_type_rt_lvt (DEX_virtual_signature p (snd m) ko) (rt) (par) (Z.to_nat n) ->
       ko <= (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect) -> 
@@ -368,196 +374,210 @@ Open Scope type_scope.
         L.leql' k (lvt s x).
 *)
 
-   Definition tcheck (i:DEX_PC) (ins:DEX_Instruction) : bool :=
-      match ins,S i with
-        | Aconst_null,   st1 => 
-          tsub_next i (L.Simple (se i)::st1)
-        | Arraylength,   (L.Array k ke::st) =>
-          (selift i None k) &&
-          (tsub_next i (L.Simple k::(elift m i k st))) &&
-          for_all _
-            (fun e => (selift i (Some e) k) && (exception_test i e k))
-            (throwableAt m i)
-        | Athrow,        (L.Simple k::st) =>
-          for_all _
-            (fun e => (selift i (Some e) k) && (exception_test i e k))
-            (throwableAt m i)
-        | Checkcast _,   k::st =>
-          (selift i None k) &&
-          (tsub_next i (k::elift m i k st)) &&
-          for_all _
-            (fun e => (selift i (Some e) k) && (exception_test i e k))
-            (throwableAt m i)
-        | Const _ _,       st =>
-          tsub_next i (L.Simple (se i)::st) 
-        | Dup,             k::st =>
-          tsub_next i (k::k::st)
-        | Dup_x1,          k1::k2::st =>
-          tsub_next i (k1::k2::k1::st) 
-        | Dup_x2,          k1::k2::k3::st =>
-          tsub_next i (k1::k2::k3::k1::st) 
-        | Dup2,            k1::k2::st =>
-          tsub_next i (k1::k2::k1::k2::st) 
-        | Dup2_x1,         k1::k2::k3::st =>
-          tsub_next i (k1::k2::k3::k1::k2::st) 
-        | Dup2_x2,         k1::k2::k3::k4::st =>
-          tsub_next i (k1::k2::k3::k4::k1::k2::st) 
-        | Getfield f,      L.Simple k::st =>
-          (selift i None k) &&
-          (tsub_next i ((k U' (ft p f))::(elift m i k st))) &&
-          for_all _
-            (fun e => (selift i (Some e) k) && (exception_test i e k))
-            (throwableAt m i)
-        | Goto o,          st =>
-          tsub st (S (OFFSET.jump i o)) 
-        | I2b,             L.Simple k::st =>
-          tsub_next i (L.Simple k::st) 
-        | I2s,             L.Simple k::st =>
-          tsub_next i (L.Simple k::st) 
-        | Ibinop DivInt,       L.Simple k1::L.Simple k2::st =>
-          (selift i None k1) &&
-          (tsub_next i (L.Simple (L.join k1 k2)::(elift m i k1 st))) &&
-          for_all _
-            (fun e => (selift i (Some e) k1) && (exception_test i e k1))
-            (throwableAt m i)
-        | Ibinop RemInt,       L.Simple k1::L.Simple k2::st =>
-          (selift i None k1) &&
-          (tsub_next i (L.Simple (L.join k1 k2)::(elift m i k1 st))) &&
-          for_all _
-            (fun e => (selift i (Some e) k1) && (exception_test i e k1))
-            (throwableAt m i)
-        | Ibinop _,       L.Simple k1::L.Simple k2::st =>
-          tsub_next i (L.Simple (L.join k1 k2)::st)
-        | If_acmp _ o,    L.Simple k1::L.Simple k2::st =>
-          (selift i None (L.join k1 k2)) &&
-          (tsub_next i (lift (L.join k1 k2) st)) &&
-          (tsub (lift (L.join k1 k2) st) (S (OFFSET.jump i o)))
-        | If_icmp _ o,    L.Simple k1::L.Simple k2::st =>
-          (selift i None (L.join k1 k2)) &&
-          (tsub_next i (lift (L.join k1 k2) st)) &&
-          (tsub (lift (L.join k1 k2) st) (S (OFFSET.jump i o)))
-        | If0 _ o,        L.Simple k::st =>
-          (selift i None k) &&
-          (tsub_next i (lift k st)) &&
-          (tsub (lift k st) (S (OFFSET.jump i o)))
-        | Ifnull _ o,        k::st =>
-          (selift i None k) &&
-          (tsub_next i (lift k st)) &&
-          (tsub (lift k st) (S (OFFSET.jump i o)))
-        | Iinc x c,         st =>
-          (L.leql_t (se i) (sgn.(lvt) x)) &&
-          (tsub_next i st)
-        | Ineg,             k::st =>
-          tsub_next i (k::st)
-        | Instanceof _,     k::st =>
-          (selift i None k) &&
-          (tsub_next i (k::st))
-        | Invokestatic mid, st =>
-          let n := length (METHODSIGNATURE.parameters (snd mid)) in
-          let sgn' := (static_signature p (snd mid)) in 
-          let ke' := (join_list sgn'.(resExceptionType) (throwableBy p (snd mid))) in
-            le_nat_test n (length st) &&
-            (tcompat_type_st_lvt (static_signature p (snd mid)) st n) &&
-            (L.leql_t (se i) sgn'.(heapEffect)) &&
-            (selift i None ke') &&
-            for_all _
-              (fun e => (selift i (Some e) (sgn'.(resExceptionType) e) &&
-                        (exception_test i e (L.join (se i) (sgn'.(resExceptionType) e)))) &&
-                        (L.leql_t (se i) (sgn.(resExceptionType) e))) 
-              (throwableBy p (snd mid)) &&
-            (tcompat_op (METHODSIGNATURE.result (snd mid)) sgn'.(resType)) &&
-            (L.leql_t sgn.(heapEffect) sgn'.(heapEffect)) && 
-            tsub_next i (lift ke' (cons_option (join_op (se i) sgn'.(resType)) (pop_n n st)))
-        | Invokevirtual mid, st =>
-          let n := length (METHODSIGNATURE.parameters (snd mid)) in
-            match pop_n n st with
-              | (L.Simple k1)::st2 =>
-                le_nat_test (Datatypes.S n) (length st) &&
-                (tcompat_type_st_lvt (virtual_signature p (snd mid) k1) st (Datatypes.S n)) &&
-                (L.leql_t k1 (virtual_signature p (snd mid) k1).(heapEffect)) &&
-                (selift i None (L.join (join_list (virtual_signature p (snd mid) k1).(resExceptionType) (throwableBy p (snd mid))) k1)) &&
-                (for_all _
-                  (fun cn => 
-                    (selift i (Some cn) (L.join ((virtual_signature p (snd mid) k1).(resExceptionType) cn) k1)) &&
-                    (exception_test i cn (L.Simple (L.join k1 ((virtual_signature p (snd mid) k1).(resExceptionType) cn)))) &&
-                    (L.leql_t k1 (sgn.(resExceptionType) cn)) &&
-                    (L.leql_t ((virtual_signature p (snd mid) k1).(resExceptionType) cn) (sgn.(resExceptionType) cn)))
-                  (throwableAt m i ++ throwableBy p (snd mid))) &&
-                (tcompat_op (METHODSIGNATURE.result (snd mid)) (virtual_signature p (snd mid) k1).(resType)) &&
-                (L.leql_t sgn.(heapEffect) (virtual_signature p (snd mid) k1).(heapEffect)) &&
-                tsub_next i (lift k1 (lift (join_list (virtual_signature p (snd mid) k1).(resExceptionType) (throwableBy p (snd mid))) 
-                  (cons_option (join_op k1 (virtual_signature p (snd mid) k1).(resType)) st2)))
-              | _ => false
-            end
-        | Lookupswitch d l, L.Simple k::st =>
-          (selift i None k) &&
-          (for_all _
-            (fun o => tsub (lift k st) (S (OFFSET.jump i o)))
-            (d::@map _ _ (@snd _ _) l)) &&
-          tsub_next i (lift k st)
-        | New c, st =>
-          tsub_next i (L.Simple (se i)::st)
-        | Newarray t, (L.Simple k::st) =>
-          (selift i None k) &&
-          tsub_next i (L.Array k (newArT p (m,i))::elift m i k st) &&
-          for_all _
-            (fun e => (selift i (Some e) k) && (exception_test i e k))
-            (throwableAt m i)
-        | Nop, st => tsub_next i st
-        | Pop, k::st => tsub_next i  st
-        | Pop2, k1::k2::st => tsub_next i st
-        | Putfield f, (k1::L.Simple k2::st) =>
-          leql'_test k1 (ft p f) &&
-          L.leql_t k2 (ft p f) &&
-          L.leql_t (se i) (ft p f) &&
-          L.leql_t sgn.(heapEffect) (ft p f) &&
-          selift i None k2 &&
-          tsub_next i (elift m i k2 st) &&
-          for_all _
-            (fun e => (selift i (Some e) k2) && (exception_test i e k2))
-            (throwableAt m i)
-        | Return, st =>
-          match sgn.(resType) with
+   Lemma Reg_eq_dec : forall x y : DEX_Reg, {x=y} + {x<>y}.
+   Proof.
+    repeat decide equality.
+   Qed.
+
+   Definition DEX_tcheck (i:DEX_PC) (ins:DEX_Instruction) : bool :=
+      match ins, RT i with
+        | Nop, rt1 =>
+          tsub_next i rt1
+
+        | Move _ r rs, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some k_rs =>
+                (if in_dec Reg_eq_dec r (locR p method_signature) then
+                   L.leql_t (se i) (sgn.(DEX_lvt) r) &&
+                   leql'_test k_rs (sgn.(DEX_lvt) r)
+                   else true) && 
+                tsub_next i (BinNatMap.update _ rt1 r (L.join' (se i) (k_rs)))
+            | None => false
+          end
+        
+        | MoveResult _ r, rt1 =>
+          (if in_dec Reg_eq_dec r (locR p method_signature) then
+             match BinNatMap.get _ rt1 ret with
+               | Some k_rs =>
+                   L.leql_t (se i) (sgn.(DEX_lvt) r) &&
+                   leql'_test k_rs (sgn.(DEX_lvt) r)
+               | None => false
+             end
+          else true)
+          &&
+          tsub_next i (BinNatMap.update _ rt1 r (L.join' (se i) (sgn.(DEX_lvt) ret)))
+
+        | Return, rt1 =>
+          match sgn.(DEX_resType) with
             | None => true
             | _ => false
           end
-        | Swap, k1::k2::st => tsub_next i (k2::k1::st)
-        | Tableswitch d lo hi l, L.Simple k::st =>
-          (selift i None k) &&
-          (tsub_next i (lift k st)) &&
-          (for_all _
-            (fun o => tsub (lift k st) (S (OFFSET.jump i o)))
-            (d::l))          
-        | Vaload t, L.Simple k1::L.Array k2 ke::st =>
-          (selift i None k2) &&
-          (selift i None (L.join k1 k2)) &&
-          (tsub_next i (L.join' (L.join k1 k2) ke::elift m i (L.join k1 k2) st)) &&
-          (selift i (Some np) k2) && (exception_test' i np k2) &&
-          (selift i (Some iob) (k1 U k2)) && (exception_test' i iob (k1 U k2)) 
-        | Vastore t, kv::L.Simple ki::L.Array ka ke::st =>
-          (leql'_test kv ke) &&
-          (L.leql_t ki ke) &&
-          (L.leql_t ka ke) &&
-          (selift i None ka) &&
-          (selift i None (L.join ki ka)) &&
-          (selift i None ke) &&
-          (L.leql_t (heapEffect sgn) ke) &&
-          (tsub_next i (elift m i ke st)) &&
-          (selift i (Some np) ka) && (exception_test' i np ka) &&
-          (selift i (Some ase) (L.join kv (L.join ki ka))) && (exception_test' i ase (L.join kv (L.join ki ka))) && 
-          (selift i (Some iob) (L.join ki ka)) && (exception_test' i iob (L.join ki ka)) 
-        | Vload t x, st =>
-          tsub_next i (L.join' (se i) (sgn.(lvt) x)::st)
-        | Vstore t x, k::st =>
-          L.leql_t (se i) (sgn.(lvt) x) &&
-          leql'_test k (sgn.(lvt) x) &&
-          tsub_next i st
-        | Vreturn x, k::st =>
-          match sgn.(resType) with
+
+        | VReturn _ r, rt1 =>          
+          match sgn.(DEX_resType) with
             | None => false
-            | Some kv => leql'_test k kv 
+            | Some kv => 
+              match BinNatMap.get _ rt1 r with
+                | None => false
+                | Some k => leql'_test k kv 
+              end
           end
-        | _,_ => false      end.
+
+        | Const _ r _, rt1 =>
+          tsub_next i (BinNatMap.update _ rt1 r (L.Simple (se i)))
+
+        | InstanceOf r ro _, rt1 =>
+          match BinNatMap.get _ rt1 ro with
+            | None => false
+            | Some k =>
+                (selift i None k) &&
+                (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U k))))
+          end
+
+        | ArrayLength r rs, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some (L.Array k ke) =>
+                (tsub_next i (BinNatMap.update _ rt1 r (L.Simple k)))
+            | _ => false
+          end
+
+        | New r _, rt1 =>
+          tsub_next i (BinNatMap.update _ rt1 r (L.Simple (se i)))
+
+        | NewArray r rl _, rt1 =>
+          match BinNatMap.get _ rt1 rl with
+            | None => false
+            | Some k =>
+                tsub_next i (BinNatMap.update _ rt1 r (L.Array k (DEX_newArT p (m,i))))
+          end
+
+        | Goto _, rt1 => tsub_next i rt1
+
+        | PackedSwitch r _ _ _, rt1 =>
+          match BinNatMap.get _ rt1 r with
+            | None => false
+            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1))
+          end
+   
+        | SparseSwitch r _ _, rt1 =>
+          match BinNatMap.get _ rt1 r with
+            | None => false
+            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1))
+          end
+      
+        | Ifcmp _ ra rb _, rt1 =>
+          match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 rb with
+            | Some ka, Some kb =>
+                (selift i None (ka U kb)) && (tsub_next i (lift_rt (ka U kb) rt1))
+            | _, _ => false
+          end
+
+        | Ifz _ r _, rt1 =>
+          match BinNatMap.get _ rt1 r with
+            | Some k => 
+                (selift i None k) && (tsub_next i (lift_rt k rt1))
+            | None => false
+          end        
+
+        | Aget _ r ra ri, rt1 =>
+          match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 ri with
+            | Some (L.Array ka kc), Some ki =>
+                tsub_next i (BinNatMap.update _ rt1 r ((ka U ki) U' kc))
+            | _, _ => false
+          end
+
+        | Aput _ rs ra ri, rt1 =>
+          match BinNatMap.get _ rt1 rs, BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 ri with
+            | Some ks, Some (L.Array ka kc), Some ki =>
+                (leql'_test ks kc) &&
+                (L.leql_t ki kc) &&
+                (L.leql_t ka kc) &&
+                (L.leql_t (DEX_heapEffect sgn) kc) &&
+                (tsub_next i rt1)
+            | _, _, _ => false
+          end
+
+        | Iget _ r ro f, rt1 =>
+          match BinNatMap.get _ rt1 ro with
+            | Some ko =>
+               (tsub_next i (BinNatMap.update _ rt1 r ((ko U (se i)) U' (DEX_ft p f))) )
+            | None => false
+          end
+
+        | Iput _ rs ro f, rt1 =>
+          match BinNatMap.get _ rt1 rs, BinNatMap.get _ rt1 ro with
+            | Some ks, Some ko =>
+               leql'_test (((se i) U ko) U' ks) (DEX_ft p f) &&
+               L.leql_t sgn.(DEX_heapEffect) (DEX_ft p f) &&
+               (tsub_next i rt1)
+            | _, _ => false
+          end        
+
+(*    | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
+    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
+
+        | Invokevirtual m n (ro::par), rt1 =>
+          match BinNatMap.get _ rt1 ro with
+            | Some ko =>
+              (le_nat_test (S (Z.to_nat n)) (length par)) &&
+              (tcompat_type_rt_lvt (DEX_virtual_signature p (snd m) ko) (rt1) (par) (Z.to_nat n)) &&
+              (L.leql_t ko (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect)) &&
+              (L.leql_t sgn.(DEX_heapEffect) (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect)) &&
+              (L.leql_t (se i) (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect)) &&
+              (tcompat_op (DEX_METHODSIGNATURE.result (snd m)) (DEX_virtual_signature p (snd m) ko).(DEX_resType)) &&
+              (tsub_next i (update_op rt1 ret 
+                           (join_op (ko U (se i)) (DEX_virtual_signature p (snd m) ko).(DEX_resType))) )
+            | None => false    
+          end
+
+        | Invokestatic m n par, rt1 =>
+            (le_nat_test (S (Z.to_nat n)) (length par)) &&
+            (tcompat_type_rt_lvt (DEX_static_signature p (snd m)) (rt1) (par) (Z.to_nat n)) &&
+            (L.leql_t sgn.(DEX_heapEffect) (DEX_static_signature p (snd m)).(DEX_heapEffect)) &&
+            (L.leql_t (se i) (DEX_static_signature p (snd m)).(DEX_heapEffect)) &&
+            (tcompat_op (DEX_METHODSIGNATURE.result (snd m)) (DEX_static_signature p (snd m)).(DEX_resType)) &&
+            (tsub_next i (update_op rt1 ret 
+                         (join_op (se i) (DEX_static_signature p (snd m)).(DEX_resType))) )
+
+        | Ineg r rs, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+            | None => false
+          end   
+
+        | Inot r rs, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+            | None => false
+          end   
+
+        | I2b r rs, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+            | None => false
+          end
+
+        | I2s r rs, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+            | None => false
+          end   
+
+        | Ibinop _ r ra rb, rt1 =>
+          match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 rb with
+            | Some ka, Some kb => 
+               (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((ka U kb) U (se i)))) )
+            | _, _ => false
+          end   
+
+        | IbinopConst _ r rs _, rt1 =>
+          match BinNatMap.get _ rt1 rs with
+            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+            | None => false
+          end   
+
+        | _, _ => false
+      end.
 
    Ltac flatten_bool :=
      repeat match goal with
@@ -598,17 +618,17 @@ Open Scope type_scope.
        generalize (for_all_true _ _ _ id1 _ id2);
          clear id1; intros id1
      end.
-
+(* DEX
    Ltac replace_handler :=
      repeat match goal with
        [ id1 : StaticHandler.handler ?s ?m ?i ?e = _,
          id2 : context[StaticHandler.handler ?s ?m ?i ?e] |- _ ] =>
        rewrite id1 in id2
      end.
-
+*)
    Ltac flatten :=
      flatten_bool; try replace_for_all; flatten_bool;
-       replace_handler; replace_selift; clean_in_test; replace_leql.
+       (* DEX replace_handler; *) replace_selift; clean_in_test; replace_leql.
 
    Lemma length_le_app_form : forall (A:Set) n (l:list A),
      (n<= length l)%nat -> exists l1, exists l2,
@@ -636,138 +656,52 @@ Open Scope type_scope.
          | [ _ : context[match ?x with nil => _ | _ :: _ => _ end] |- _] => destruct x
          | [ _ : context[match ?x with L.Simple _ => _ | L.Array _ _ => _ end] |- _] => destruct x
          | [_ :  context [match ?x with
-                            | Make.AddInt => _
-                            | Make.AndInt => _
-                            | Make.DivInt => _
-                            | Make.MulInt => _
-                            | Make.OrInt => _
-                            | Make.RemInt => _
-                            | Make.ShlInt => _
-                            | Make.ShrInt => _
-                            | Make.SubInt => _
-                            | Make.UshrInt => _
-                            | Make.XorInt => _
+                            | DEX_Make.AddInt => _
+                            | DEX_Make.AndInt => _
+                            | DEX_Make.DivInt => _
+                            | DEX_Make.MulInt => _
+                            | DEX_Make.OrInt => _
+                            | DEX_Make.RemInt => _
+                            | DEX_Make.ShlInt => _
+                            | DEX_Make.ShrInt => _
+                            | DEX_Make.SubInt => _
+                            | DEX_Make.UshrInt => _
+                            | DEX_Make.XorInt => _
                           end] |- _] => destruct x
        end.
 
 
    Lemma tcheck_correct1 : forall i ins,
-     tcheck i ins = true ->
-     forall tau, step p subclass_test m i ins tau None ->
-       texec i ins tau (S i) None.
+     DEX_tcheck i ins = true ->
+     forall tau, DEX_step (* p subclass_test *) m i ins tau None ->
+       texec i ins tau (RT i) None.
    Proof.
      intros.
      inversion_clear H0 in H;
-       unfold tcheck, step.handler, exception_test, exception_test' in *;
-     try (destruct (S i) as [ | [|]]; intros; try discriminate; flatten;
-       constructor; auto).
-     destruct H2;subst;  split_match; intros; try discriminate.
-     (* Ibinop *)
-     split_match; intros; try discriminate; flatten.
-     constructor; auto.
-     split_match; intros; try discriminate; flatten.
-     constructor; auto.
-     (* Invokestatic *)
-     flatten_bool.
-     generalize (le_nat_test_true _ _ H0); clear H0; intros H0.
-     destruct (length_le_app_form _ _ _ H0) as [st1 [st2 [T1 T2]]].
-     rewrite T1.
-     constructor; flatten; auto.
-     apply tcompat_type_st_lvt_true.
-     congruence.
-     apply L.leql_trans with (2:=H11); apply L.join_right.
-     (* Invokevirtual *)
-     case_eq (pop_n  (length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid))) (S i)).
-     intros HH; rewrite HH in H; flatten_bool.
-     discriminate.
-     intros k1 st2 HH; rewrite HH in H.
-     destruct k1 as [k1|]; try discriminate.
-     flatten_bool.
-     generalize (le_nat_test_true _ _ H0); clear H0; intros H0.
-     assert (length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid)) <= length (S i))%nat.
-     omega.
-     destruct (length_le_app_form _ _ _ H) as [st1 [st3 [T1 T2]]].
-     rewrite T1.
-     rewrite T1 in HH; rewrite T2 in HH; rewrite pop_n_length_fst in HH.
-     subst.
-     flatten.
-     rewrite T1 in *.
-     constructor; flatten; auto.
-     apply tcompat_type_st_lvt_true.
-     rewrite <- T2; auto.
-     (* Putfield *)
-     destruct (S i) as [ | k1 l]; intros; try discriminate.
-     destruct l as [ | k2 l]; intros; try discriminate.
-     destruct k2 as [ k2 |]; intros; try discriminate.
-     flatten.
-     constructor; auto.
-     (* return*) 
-     destruct (resType sgn); congruence.
-     destruct (resType sgn); congruence.
-     destruct (resType sgn); congruence.
-     (* Vaload *)
-     destruct (S i) as [ |k1 l]; intros; try discriminate.
-     destruct k1 as [k1|]; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [k2|]; try discriminate.
-     flatten.
-     constructor; auto.
-     auto.
-replace_leql.
-     auto.
+       unfold DEX_tcheck (* DEX step.handler, exception_test, exception_test' *) in *.
+     (* Return *)
+     try discriminate; flatten; constructor; auto.
+     destruct (DEX_resType sgn); congruence.
 
-     destruct (S i) as [ |k1 l]; intros; try discriminate.
-     destruct k1 as [k1|]; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [k2|]; try discriminate.
-     flatten.
-     constructor; auto.
-     rewrite (In_in_test_true _ _ H1) in *; flatten; auto.
-
-     (* Vastore *)
-     destruct (S i) as [ |kv l]; intros; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [ki|]; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [|ka ke]; try discriminate.
-     flatten.
-     constructor; auto.
-     rewrite (In_in_test_true _ _ H1) in *; flatten; auto.
-   
-     destruct (S i) as [ |kv l]; intros; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [ki|]; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [|ka ke]; try discriminate.
-     flatten.
-     constructor; auto.
-     rewrite (In_in_test_true _ _ H1) in *; flatten; auto.
-
-     destruct (S i) as [ |kv l]; intros; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [ki|]; try discriminate.
-     destruct l as [|k2 l]; try discriminate.
-     destruct k2 as [|ka ke]; try discriminate.
-     flatten.
-     econstructor; eauto.
-     (* Vreturn *)
-     destruct (S i) as [ |k l]; intros; try discriminate.
-     generalize H; clear H; case_eq (resType sgn); intros; try discriminate.
-     econstructor; eauto.
-     generalize (leql'_test_prop k t0). (* Hendra *)
-     rewrite H0; auto.
+     (* VReturn *)
+     destruct (DEX_resType sgn) eqn:H1.
+     destruct (BinNatMap.get t' (RT i) rt) eqn:H2. 
+     apply vReturn with (k_r:=t1) (kv:=t0). 
+     rewrite H2; reflexivity. apply H1.
+     inversion H.
+     inversion H.
    Qed.
 
    Ltac replace_tsub_next :=
      try match goal with
-       [ id1 : tsub_next _ ?st = true, id2 : next _ _ = _ |- _ ] =>
+       [ id1 : tsub_next _ ?rt = true, id2 : next _ _ = _ |- _ ] =>
          unfold tsub_next in id1; rewrite id2 in id1
      end.
 
    Ltac search_tsub :=
      match goal with
-       [ id1 : tsub ?st (S _) = true |- _ ] =>
-         exists st; split; [clear id1 | exact id1]
+       [ id1 : tsub_rt ?rt (RT _) = true |- _ ] =>
+         exists rt; split; [clear id1 | exact id1]
          end.
 
    Ltac flatten2 := flatten; replace_tsub_next; search_tsub.
@@ -775,22 +709,37 @@ replace_leql.
    Hint Constructors texec : texec.
 
    Lemma tcheck_correct2 : forall i ins,
-     tcheck i ins = true ->
-     forall tau j, step p subclass_test m i ins tau (Some j) ->
-       exists st,
-       texec i ins tau (S i) (Some st)
-       /\ tsub st (S j) = true.
+     DEX_tcheck i ins = true ->
+     forall tau j, DEX_step (* DEX p subclass_test *) m i ins tau (Some j) ->
+       exists rt,
+       texec i ins tau (RT i) (Some rt)
+       /\ tsub_rt rt (RT j) = true.
    Proof.
      intros.
      inversion_clear H0 in H;
-       unfold tcheck, step.handler, exception_test, exception_test' in *;
+       unfold DEX_tcheck (* DEX step.handler, exception_test, exception_test'*) in *;
      try (split_match; intuition; subst; try discriminate; flatten2; eauto with texec; fail).
+     (* move *)
+     destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
+     split_match; intuition; try discriminate; flatten2.
+     destruct (in_dec Reg_eq_dec rt (locR p method_signature)) eqn:HlocR.
+     flatten_bool.
+     apply move_constrained.
+       apply i0.
+       rewrite Hrs; reflexivity. 
+       generalize (L.leql_t_spec (se i) (DEX_lvt sgn rt)); rewrite H; auto.
+       generalize (leql'_test_prop (t0) (DEX_lvt sgn rt)); rewrite H2; auto.
+     apply move_unconstrained.
+       apply n.
+       rewrite Hrs; reflexivity.
+     
+(* DEX
      split_match; intuition; try discriminate; flatten2.
      apply arraylength_np_caught with (t := j). apply H0. apply H2.
      
      split_match; try (case op in H; inversion H; fail).
      destruct op; flatten2; apply ibinop; auto.
- 
+ *)
      (* invokestatic *)
      flatten2.
      elim length_le_app_form with (n:=(length (METHODSIGNATURE.parameters (snd mid)))) (l:=(S i)).
@@ -870,5 +819,3 @@ replace_leql.
  End DEX_S.
 *)
   End DEX_typing_rules.
-
-
