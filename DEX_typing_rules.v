@@ -37,7 +37,7 @@ Open Scope type_scope.
 
     | move_constrained : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
       In r (locR p method_signature) ->
-      Some k_rs = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some k_rs ->
       se i <= sgn.(DEX_lvt) r ->
       k_rs <=' sgn.(DEX_lvt) r ->
       texec i (Move k r rs) None rt 
@@ -45,21 +45,21 @@ Open Scope type_scope.
 
     | move_unconstrained : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
       ~In r (locR p method_signature) ->
-      Some k_rs = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some k_rs ->
       texec i (Move k r rs) None rt
         (Some (BinNatMap.update _ rt r ((se i) U' k_rs)))
 
     | moveResult_constrained : forall i (rt:TypeRegisters) k_res (k:DEX_ValKind) (r:DEX_Reg),
       In r (locR p method_signature) ->
-      Some k_res = BinNatMap.get _ rt DEX_Registers.ret ->
+      BinNatMap.get _ rt ret = Some k_res ->
       se i <= sgn.(DEX_lvt) r ->
-      k_res <= sgn.(DEX_lvt) r ->
+      k_res <=' sgn.(DEX_lvt) r ->
       texec i (MoveResult k r) None rt
         (Some (BinNatMap.update _ rt r ((se i) U' k_res)))
 
     | moveResult_unconstrained : forall i (rt:TypeRegisters) k_res (k:DEX_ValKind) (r:DEX_Reg),
       ~In r (locR p method_signature) ->
-      Some k_res = BinNatMap.get _ rt DEX_Registers.ret ->
+      BinNatMap.get _ rt ret = Some k_res ->
       texec i (MoveResult k r) None rt
         (Some (BinNatMap.update _ rt r ((se i) U' k_res)))
 
@@ -68,7 +68,7 @@ Open Scope type_scope.
       texec i (Return) None rt None
 
     | vReturn : forall i (rt:TypeRegisters) k_r kv (k:DEX_ValKind) (r:DEX_Reg),
-      Some k_r = BinNatMap.get _ rt r ->
+      BinNatMap.get _ rt r = Some k_r ->
       sgn.(DEX_resType) = Some kv ->
       (* DEX probably later ((se i) U' k_r) <=' kv -> *)
       texec i (VReturn k r) None rt None
@@ -77,13 +77,13 @@ Open Scope type_scope.
       texec i (Const k r v) None rt (Some (BinNatMap.update _ rt r (L.Simple (se i))))
     
     | instanceOf : forall i (rt:TypeRegisters) k (r:DEX_Reg) (ro:DEX_Reg) (t:DEX_refType),
-      Some k = BinNatMap.get _ rt ro ->
+      BinNatMap.get _ rt ro = Some k ->
       (forall j, region i None j -> k <= se j) -> 
       texec i (InstanceOf r ro t) None rt 
         (Some (BinNatMap.update _ rt r (L.Simple ((se i) U k))))
     
     | arrayLength : forall i k ke (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      Some (L.Array k ke) = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some (L.Array k ke) ->
       texec i (ArrayLength r rs) None rt
         (Some (BinNatMap.update _ rt r (L.Simple k)))
     
@@ -91,7 +91,7 @@ Open Scope type_scope.
       texec i (New r t) None rt (Some (BinNatMap.update _ rt r (L.Simple (se i))))
 
     | newArray : forall i (rt:TypeRegisters) k (r:DEX_Reg) (rl:DEX_Reg) (t:DEX_type),
-      Some k = BinNatMap.get _ rt rl ->
+      BinNatMap.get _ rt rl = Some k ->
       texec i (NewArray r rl t) None rt
         (Some (BinNatMap.update _ rt r (L.Array k (DEX_newArT p (m,i)))))
 
@@ -99,50 +99,52 @@ Open Scope type_scope.
       texec i (Goto o) None rt (Some rt)
 
     | packedSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (firstKey:Z) (size:Z) (l:list DEX_OFFSET.t),
-      Some k = BinNatMap.get _ rt r ->
+      BinNatMap.get _ rt r = Some k ->
       (forall j, region i None j -> k <= se j) -> 
       texec i (PackedSwitch r firstKey size l) None rt (Some (lift_rt k rt))
 
     | sparseSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (size:Z) (l:list (Z * DEX_OFFSET.t)),
-      Some k = BinNatMap.get _ rt r ->
+      BinNatMap.get _ rt r = Some k ->
       (forall j, region i None j -> k <= se j) -> 
       texec i (SparseSwitch r size l) None rt (Some (lift_rt k rt))
     
     | ifcmp : forall i ka kb (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
-      Some ka = BinNatMap.get _ rt ra ->
-      Some kb = BinNatMap.get _ rt rb ->
+      BinNatMap.get _ rt ra = Some ka ->
+      BinNatMap.get _ rt rb = Some kb ->
       (forall j, region i None j -> (ka U kb) <= se j) -> 
       texec i (Ifcmp cmp ra rb o) None rt (Some (lift_rt (ka U kb) rt))
      
     | ifz : forall i k (rt:TypeRegisters) (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
-      Some k = BinNatMap.get _ rt r ->
+      BinNatMap.get _ rt r = Some k ->
       (forall j, region i None j -> k <= se j) -> 
       texec i (Ifz cmp r o) None rt (Some (lift_rt k rt))
 
     | aget : forall i ka kc ki (rt:TypeRegisters) 
        (k:DEX_ArrayKind) (r:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg),
-      Some (L.Array ka kc) = BinNatMap.get _ rt ra ->
-      Some ki = BinNatMap.get _ rt ri ->
+      BinNatMap.get _ rt ra = Some (L.Array ka kc) ->
+      BinNatMap.get _ rt ri = Some ki ->
       texec i (Aget k r ra ri) None rt 
         (Some (BinNatMap.update _ rt r ((ka U ki) U' kc)))
 
     | aput : forall i ks ka kc ki (rt:TypeRegisters)
        (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg),
-      Some ks = BinNatMap.get _ rt rs ->
-      Some (L.Array ka kc) = BinNatMap.get _ rt ra ->
-      Some ki = BinNatMap.get _ rt ri ->
-      ((ka U ki) U' ks) <=' kc ->
+      BinNatMap.get _ rt rs = Some ks ->
+      BinNatMap.get _ rt ri = Some ki ->
+      BinNatMap.get _ rt ra = Some (L.Array ka kc) ->
+      ks <=' kc ->
+      ki <= kc ->
+      ka <= kc ->
       L.leql (DEX_heapEffect sgn) kc ->
       texec i (Aput k rs ra ri) None rt (Some rt)
 
     | iget : forall i ko (rt:TypeRegisters) (k:DEX_ValKind) (r:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature),
-      Some ko = BinNatMap.get _ rt ro ->
+      BinNatMap.get _ rt ro = Some ko ->
       texec i (Iget k r ro f) None rt 
         (Some (BinNatMap.update _ rt r ((ko U (se i)) U' (DEX_ft p f))))
 
     | iput : forall i ks ko (rt:TypeRegisters) (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature),
-      Some ks = BinNatMap.get _ rt rs ->
-      Some ko = BinNatMap.get _ rt ro ->
+      BinNatMap.get _ rt rs = Some ks ->
+      BinNatMap.get _ rt ro = Some ko ->
       ((se i) U ko) U' ks <=' (DEX_ft p f) ->
       sgn.(DEX_heapEffect) <= (DEX_ft p f) ->
       texec i (Iput k rs ro f) None rt (Some rt)
@@ -151,8 +153,8 @@ Open Scope type_scope.
     | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
 
     | invokevirtual : forall i ro ko (rt:TypeRegisters) (m:DEX_MethodSignature) (n:Z) (par:list DEX_Reg),
-      Some ro = hd_error par ->
-      Some ko = BinNatMap.get _ rt ro ->
+      hd_error par = Some ro ->
+      BinNatMap.get _ rt ro = Some ko ->
       length par = length (DEX_METHODSIGNATURE.parameters (snd m)) ->
       compat_type_rt_lvt (DEX_virtual_signature p (snd m) ko) (rt) (par) (Z.to_nat n) ->
       ko <= (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect) -> 
@@ -160,7 +162,7 @@ Open Scope type_scope.
       (* DEX *) (se i) <= (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect) ->
       compat_op (DEX_METHODSIGNATURE.result (snd m)) (DEX_virtual_signature p (snd m) ko).(DEX_resType) -> 
       texec i (Invokevirtual m n par) None rt
-      (Some (update_op rt DEX_Registers.ret
+      (Some (update_op rt ret
             (join_op (ko U (se i)) (DEX_virtual_signature p (snd m) ko).(DEX_resType)) ))
 (*
     | Invokesuper (m:MethodSignature) (n:Z) (p:list Var)
@@ -173,35 +175,35 @@ Open Scope type_scope.
       sgn.(DEX_heapEffect) <= (DEX_static_signature p (snd m)).(DEX_heapEffect) ->
       compat_op (DEX_METHODSIGNATURE.result (snd m)) (DEX_static_signature p (snd m)).(DEX_resType) -> 
       texec i (Invokestatic m n par) None rt
-      (Some (update_op rt DEX_Registers.ret
+      (Some (update_op rt ret
             (join_op (se i) (DEX_static_signature p (snd m)).(DEX_resType)) ))
 (*
     | Invokeinterface (m:MethodSignature) (n:Z) (p:list Var)
 *)
     | ineg : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      Some ks = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some ks ->
       texec i (Ineg r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | inot : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      Some ks = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some ks ->
       texec i (Inot r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | i2b : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      Some ks = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some ks ->
       texec i (I2b r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | i2s : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      Some ks = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some ks ->
       texec i (I2s r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | ibinop : forall i ka kb (rt:TypeRegisters) (op:DEX_BinopInt) (r:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg),
-      Some ka = BinNatMap.get _ rt ra ->
-      Some kb = BinNatMap.get _ rt rb ->
+      BinNatMap.get _ rt ra = Some ka ->
+      BinNatMap.get _ rt rb = Some kb ->
       texec i (Ibinop op r ra rb) None rt 
        (Some (BinNatMap.update _ rt r (L.Simple ((ka U kb) U (se i)))))
     
     | ibinopConst : forall i ks (rt:TypeRegisters) (op:DEX_BinopInt) (r:DEX_Reg) (rs:DEX_Reg) (v:Z),
-      Some ks = BinNatMap.get _ rt rs ->
+      BinNatMap.get _ rt rs = Some ks ->
       texec i (IbinopConst op r rs v) None rt 
        (Some (BinNatMap.update _ rt r (L.Simple (ks U (se i)))))   
     .
@@ -396,16 +398,16 @@ Open Scope type_scope.
           end
         
         | MoveResult _ r, rt1 =>
-          (if in_dec Reg_eq_dec r (locR p method_signature) then
-             match BinNatMap.get _ rt1 ret with
-               | Some k_rs =>
-                   L.leql_t (se i) (sgn.(DEX_lvt) r) &&
-                   leql'_test k_rs (sgn.(DEX_lvt) r)
-               | None => false
-             end
-          else true)
-          &&
-          tsub_next i (BinNatMap.update _ rt1 r (L.join' (se i) (sgn.(DEX_lvt) ret)))
+          match BinNatMap.get _ rt1 ret with
+            | Some k_ret =>
+              (if in_dec Reg_eq_dec r (locR p method_signature) then
+                 L.leql_t (se i) (sgn.(DEX_lvt) r) &&
+                 leql'_test k_ret (sgn.(DEX_lvt) r)
+               else true)
+               && 
+               (tsub_next i (BinNatMap.update _ rt1 r (L.join' (se i) (k_ret))))
+            | None => false
+          end
 
         | Return, rt1 =>
           match sgn.(DEX_resType) with
@@ -451,44 +453,53 @@ Open Scope type_scope.
                 tsub_next i (BinNatMap.update _ rt1 r (L.Array k (DEX_newArT p (m,i))))
           end
 
-        | Goto _, rt1 => tsub_next i rt1
+        | Goto o, rt1 => tsub_rt rt1 (RT (DEX_OFFSET.jump i o))
 
-        | PackedSwitch r _ _ _, rt1 =>
+        | PackedSwitch r _ _ l, rt1 =>
           match BinNatMap.get _ rt1 r with
             | None => false
-            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1))
+            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1)) &&
+               (for_all _
+                 (fun o => tsub_rt (lift_rt k rt1) (RT (DEX_OFFSET.jump i o))) l)  
           end
    
-        | SparseSwitch r _ _, rt1 =>
+        | SparseSwitch r _ l, rt1 =>
           match BinNatMap.get _ rt1 r with
             | None => false
-            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1))
+            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1)) &&
+               (for_all _
+                 (fun o => tsub_rt (lift_rt k rt1) (RT (DEX_OFFSET.jump i o)))
+                 (@map _ _ (@snd _ _) l))
           end
       
-        | Ifcmp _ ra rb _, rt1 =>
+        | Ifcmp _ ra rb o, rt1 =>
           match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 rb with
             | Some ka, Some kb =>
-                (selift i None (ka U kb)) && (tsub_next i (lift_rt (ka U kb) rt1))
+                (selift i None (ka U kb)) && 
+                (tsub_next i (lift_rt (ka U kb) rt1)) &&
+                (tsub_rt (lift_rt (ka U kb) rt1) (RT (DEX_OFFSET.jump i o)))
             | _, _ => false
           end
 
-        | Ifz _ r _, rt1 =>
+        | Ifz _ r o, rt1 =>
           match BinNatMap.get _ rt1 r with
             | Some k => 
-                (selift i None k) && (tsub_next i (lift_rt k rt1))
+                (selift i None k) && 
+                (tsub_next i (lift_rt k rt1)) &&
+                (tsub_rt (lift_rt k rt1) (RT (DEX_OFFSET.jump i o)))
             | None => false
           end        
 
         | Aget _ r ra ri, rt1 =>
-          match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 ri with
-            | Some (L.Array ka kc), Some ki =>
+          match BinNatMap.get _ rt1 ri, BinNatMap.get _ rt1 ra with
+            | Some ki, Some (L.Array ka kc) =>
                 tsub_next i (BinNatMap.update _ rt1 r ((ka U ki) U' kc))
             | _, _ => false
           end
 
         | Aput _ rs ra ri, rt1 =>
-          match BinNatMap.get _ rt1 rs, BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 ri with
-            | Some ks, Some (L.Array ka kc), Some ki =>
+          match BinNatMap.get _ rt1 rs, BinNatMap.get _ rt1 ri, BinNatMap.get _ rt1 ra with
+            | Some ks, Some ki, Some (L.Array ka kc) =>
                 (leql'_test ks kc) &&
                 (L.leql_t ki kc) &&
                 (L.leql_t ka kc) &&
@@ -519,8 +530,9 @@ Open Scope type_scope.
         | Invokevirtual m n (ro::par), rt1 =>
           match BinNatMap.get _ rt1 ro with
             | Some ko =>
-              (le_nat_test (S (Z.to_nat n)) (length par)) &&
-              (tcompat_type_rt_lvt (DEX_virtual_signature p (snd m) ko) (rt1) (par) (Z.to_nat n)) &&
+              (beq_nat (Z.to_nat n) (length (DEX_METHODSIGNATURE.parameters (snd m)))) &&
+              (beq_nat (Z.to_nat n) (length (ro::par))) &&
+              (tcompat_type_rt_lvt (DEX_virtual_signature p (snd m) ko) (rt1) ((ro::par)) (Z.to_nat n)) &&
               (L.leql_t ko (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect)) &&
               (L.leql_t sgn.(DEX_heapEffect) (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect)) &&
               (L.leql_t (se i) (DEX_virtual_signature p (snd m) ko).(DEX_heapEffect)) &&
@@ -531,7 +543,8 @@ Open Scope type_scope.
           end
 
         | Invokestatic m n par, rt1 =>
-            (le_nat_test (S (Z.to_nat n)) (length par)) &&
+            (beq_nat (Z.to_nat n) (length (DEX_METHODSIGNATURE.parameters (snd m)))) &&
+            (beq_nat (Z.to_nat n) (length par)) &&
             (tcompat_type_rt_lvt (DEX_static_signature p (snd m)) (rt1) (par) (Z.to_nat n)) &&
             (L.leql_t sgn.(DEX_heapEffect) (DEX_static_signature p (snd m)).(DEX_heapEffect)) &&
             (L.leql_t (se i) (DEX_static_signature p (snd m)).(DEX_heapEffect)) &&
@@ -572,7 +585,7 @@ Open Scope type_scope.
 
         | IbinopConst _ r rs _, rt1 =>
           match BinNatMap.get _ rt1 rs with
-            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+            | Some ks => (tsub_next i (BinNatMap.update _ rt1 r (L.Simple (ks U (se i)))) )
             | None => false
           end   
 
@@ -718,104 +731,130 @@ Open Scope type_scope.
      intros.
      inversion_clear H0 in H;
        unfold DEX_tcheck (* DEX step.handler, exception_test, exception_test'*) in *;
-     try (split_match; intuition; subst; try discriminate; flatten2; eauto with texec; fail).
+     try (split_match; intuition; subst; try discriminate; flatten2; eauto with texec; fail);
+     try (destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail);
+     flatten2; constructor; apply Hrs; fail).
      (* move *)
      destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
      split_match; intuition; try discriminate; flatten2.
      destruct (in_dec Reg_eq_dec rt (locR p method_signature)) eqn:HlocR.
-     flatten_bool.
+     flatten_bool. replace_leql.
      apply move_constrained.
        apply i0.
-       rewrite Hrs; reflexivity. 
-       generalize (L.leql_t_spec (se i) (DEX_lvt sgn rt)); rewrite H; auto.
-       generalize (leql'_test_prop (t0) (DEX_lvt sgn rt)); rewrite H2; auto.
+       apply Hrs. 
+       apply H. apply H2.
      apply move_unconstrained.
        apply n.
        rewrite Hrs; reflexivity.
-     
-(* DEX
-     split_match; intuition; try discriminate; flatten2.
-     apply arraylength_np_caught with (t := j). apply H0. apply H2.
-     
-     split_match; try (case op in H; inversion H; fail).
-     destruct op; flatten2; apply ibinop; auto.
- *)
-     (* invokestatic *)
-     flatten2.
-     elim length_le_app_form with (n:=(length (METHODSIGNATURE.parameters (snd mid)))) (l:=(S i)).
-     intros st1 [st2 [T1 T2]].
-     rewrite T1.
-     rewrite T2.
-     rewrite pop_n_length_fst.
-     constructor; auto.
-     rewrite <- T1; rewrite <- T2; apply tcompat_type_st_lvt_true; auto.
+     (* moveresult *)
+     destruct (BinNatMap.get t' (RT i) ret) eqn:Hrs; try (inversion H; fail).
+     destruct (in_dec Reg_eq_dec rt (locR p method_signature)) eqn:HlocR.
+     flatten_bool; replace_leql; replace_tsub_next; search_tsub.
+     apply moveResult_constrained.
+       apply i0.
+       apply Hrs.
+       apply H.
+       apply H3.
+     flatten_bool; replace_tsub_next; search_tsub.
+     apply moveResult_unconstrained.
+       apply n.
+       apply Hrs.
+     (* InstanceOf *)
+     destruct (BinNatMap.get t' (RT i) r) eqn:Hrs; try (inversion H; fail).
+     flatten2; apply instanceOf.
+     apply Hrs.
+     apply H0.
+     (* Arraylength *)
+     destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
+     split_match; try (inversion H; fail).
+     flatten_bool; replace_leql; replace_tsub_next; search_tsub.
+     apply arrayLength with (ke:=t0); apply Hrs.
+     (* NewArray *)
+     destruct (BinNatMap.get t' (RT i) rl) eqn:Hrl; try (inversion H; fail).
+     flatten2; apply newArray; apply Hrl.
+     (* Ifcmp *)
+     destruct (BinNatMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) rb) eqn:Hrb; try (inversion H; fail).
+     flatten_bool; replace_selift. inversion H1.
+       (* next successor *)
+       replace_tsub_next; search_tsub.
+       apply ifcmp. apply Hra. apply Hrb. apply H.
+       (* target successor *) 
+       rewrite H0. exists (lift_rt (t0 U t1) (RT i)). split. 
+       apply ifcmp. apply Hra. apply Hrb. apply H. exact H2.
+     (* Ifcmp *)
+     destruct (BinNatMap.get t' (RT i) r) eqn:Hr; try (inversion H; fail).
+     flatten_bool; replace_selift. inversion H1.
+       (* next successor *)
+       replace_tsub_next; search_tsub.
+       apply ifz. apply Hr. apply H.
+       (* target successor *) 
+       rewrite H0. exists (lift_rt t0 (RT i)). split. 
+       apply ifz. apply Hr. apply H. exact H2.
+     (* Aget *)
+     destruct (BinNatMap.get t' (RT i) ri) eqn:Hri; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
+     split_match; try (inversion H; fail).
+     flatten2. apply aget. apply Hra. apply Hri.
+     (* Aput *)
+     destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) ri) eqn:Hri; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
+     split_match; try (inversion H; fail).
+     flatten2. apply aput with (ks:=t0) (ka:=k0) (kc:=t2) (ki:=t1).
+     apply Hrs. apply Hri. apply Hra. apply H. apply H5. apply H4. apply H3.
+     (* Iget *)
+     destruct (BinNatMap.get t' (RT i) ro) eqn:Hro; try (inversion H; fail);
+     flatten2; apply iget; apply Hro.
+     (* Iput *)
+     destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) ro) eqn:Hro; try (inversion H; fail).
+     flatten2; apply iput with (ks:=t0) (ko:=t1). apply Hrs. apply Hro. apply H. apply H3.
+     (* Invokevirtual *)
+     destruct p0 eqn:Hp0; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) d) eqn:Hro; try (inversion H; fail).
+     flatten2. apply invokevirtual with (ro:=d). 
+     trivial. apply Hro. apply eq_trans with (y:=(Z.to_nat n)).
+     symmetry; apply beq_nat_eq; auto. 
+     apply beq_nat_eq; auto.
+     apply tcompat_type_rt_lvt_true; auto. 
+     apply H6. apply H5. apply H4.
      apply tcompat_op_true; auto.
-     generalize (le_nat_test_correct (length (METHODSIGNATURE.parameters (snd mid)))
-       (length (S i))); rewrite H0; auto.
-     (**)
-     flatten2.
-     elim length_le_app_form with (n:=(length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid)))) (l:=(S i)).
-     intros st1 [st2 [T1 T2]].
-     rewrite T1.
-     constructor; auto.
-     rewrite <- T1; rewrite <- T2; apply tcompat_type_st_lvt_true; auto.
-     generalize (le_nat_test_correct (length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid)))
-       (length (S i))).
-     rewrite H0; auto.
-     (* invokevirtual *)
-     generalize H; clear H.
-     case_eq (pop_n  (length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid))) (S i)); intros.
-     discriminate. 
-     destruct t0 as [k1|]; try discriminate.
-     (*destruct t as [k1|]; try discriminate.*)
-     flatten2.
-     elim length_le_app_form with (n:=(length (METHODSIGNATURE.parameters (snd mid)))) (l:=(S i)).
-     intros st1 [st2 [T1 T2]].
-     rewrite T1.
-     rewrite T1 in H; rewrite T2 in H; rewrite pop_n_length_fst in H.
-     subst.
-     constructor; auto.
-     rewrite <- T1; rewrite <- T2; apply tcompat_type_st_lvt_true; auto.
+     (* Invokestatic *)
+     flatten2. apply invokestatic. 
+     apply eq_trans with (y:=(Z.to_nat n)).
+     symmetry; apply beq_nat_eq; auto. 
+     apply beq_nat_eq; auto.
+     apply tcompat_type_rt_lvt_true; auto. 
+     apply H4. apply H5.
      apply tcompat_op_true; auto.
-     generalize (le_nat_test_true _ _ H2); clear H2; intros H2.
-     omega.
-     (**)
-     generalize H; clear H.
-     case_eq (pop_n  (length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid))) (S i)); intros.
-     discriminate.
-     destruct t0 as [k1|]; try discriminate.
-     (*destruct t as [k1|]; try discriminate.*)
-     flatten.
-     elim length_le_app_form with (n:=(length (METHODSIGNATURE.parameters (@snd ClassName METHODSIGNATURE.t mid)))) (l:=(S i)).
-     intros st1 [st2 [T1 T2]].
-     rewrite T1.
-     rewrite T1 in H; rewrite T2 in H; rewrite pop_n_length_fst in H.
-     subst.
-     exists (lift k1 (L.Simple (L.join k1 ((virtual_signature p (snd mid) k1).(resExceptionType) e))::nil)).
-     split.
-     constructor; auto.
-     rewrite <- T1; rewrite <- T2; apply tcompat_type_st_lvt_true; auto.
-     simpl.
-     simpl in H13.
-     destruct (S j); try discriminate.
-     destruct t0; try discriminate.
-     (*destruct t; try discriminate.*)
-     flatten_bool.
-     destruct t1; try discriminate.
-     (*destruct t0; try discriminate.*)
-     replace_leql.
-     generalize (L.leql_t_spec (k1 U k1 U resExceptionType (virtual_signature p (snd mid) k1) e) k).
-     destruct (L.leql_t (k1 U k1 U resExceptionType (virtual_signature p (snd mid) k1) e) k); auto.
-     intros.
-     elim H13.
-     apply L.join_least.
-     apply L.leql_trans with (2:=H).
-     apply L.join_left.
-     auto.     
-     generalize (le_nat_test_true _ _ H3); clear H3; intros H3.
-     omega.
-     (* vaload *)
+     (* Ibinop *)
+     destruct (BinNatMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
+     destruct (BinNatMap.get t' (RT i) rb) eqn:Hrb; try (inversion H; fail).
+     flatten2; apply ibinop. apply Hra. apply Hrb.
+     (* IbinopConst *)
+     destruct (BinNatMap.get t' (RT i) r) eqn:Hr; try (inversion H; fail);
+     flatten2; apply ibinopConst; apply Hr.
+     (* PackedSwitch *)
+     destruct (BinNatMap.get t' (RT i) rt) eqn:Hr; try (inversion H; fail).
+     flatten_bool; replace_selift. inversion H1. 
+       (* default successor *)
+       exists (lift_rt t0 (RT i)); split. apply packedSwitch.
+       apply Hr. apply H. inversion H0. unfold tsub_next in H3. 
+       rewrite H4 in H3. rewrite <- H5. apply H3.
+       (* other successors *)
+       exists (lift_rt t0 (RT i)); split. apply packedSwitch.
+       apply Hr. apply H. replace_for_all. apply H2.
+     (* SparseSwitch *)
+     destruct (BinNatMap.get t' (RT i) rt) eqn:Hr; try (inversion H; fail).
+     flatten_bool; replace_selift. inversion H1. 
+       (* default successor *)
+       exists (lift_rt t0 (RT i)); split. apply sparseSwitch.
+       apply Hr. apply H. inversion H0. unfold tsub_next in H3. 
+       rewrite H4 in H3. rewrite <- H5. apply H3.
+       (* other successors *)
+       exists (lift_rt t0 (RT i)); split. apply sparseSwitch.
+       apply Hr. apply H. replace_for_all. apply H2.
    Qed.
- End DEX_S.
-*)
-  End DEX_typing_rules.
+ End DEX_RT.
+End DEX_typing_rules.
