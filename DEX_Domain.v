@@ -66,6 +66,7 @@ Module Type DEX_SEMANTIC_DOMAIN.
    Parameter get : t-> DEX_Reg -> option DEX_value.
    Parameter update : t -> DEX_Reg -> DEX_value -> t.
    Parameter ret : DEX_Reg.
+   Parameter r0 : DEX_Reg.
    Parameter get_update_new : forall l x v, get (update l x v) x = Some v.
    Parameter get_update_old : forall l x y v,
      x<>y -> get (update l x v) y = get l y.
@@ -254,15 +255,15 @@ Module Type DEX_SEMANTIC_DOMAIN.
   (** compatibility between ArrayKind and type *) 
   Inductive compat_ArrayKind_type : DEX_ArrayKind -> DEX_type -> Prop :=
     | compat_ArrayKind_type_ref : forall rt,
-        compat_ArrayKind_type Aarray (DEX_ReferenceType rt)
+        compat_ArrayKind_type DEX_Aarray (DEX_ReferenceType rt)
     | compat_ArrayKind_type_int : 
-        compat_ArrayKind_type Iarray (DEX_PrimitiveType DEX_INT)
+        compat_ArrayKind_type DEX_Iarray (DEX_PrimitiveType DEX_INT)
     | compat_ArrayKind_type_byte : 
-        compat_ArrayKind_type Barray (DEX_PrimitiveType DEX_BYTE)
+        compat_ArrayKind_type DEX_Barray (DEX_PrimitiveType DEX_BYTE)
     | compat_ArrayKind_type_bool : 
-        compat_ArrayKind_type Barray (DEX_PrimitiveType DEX_BOOLEAN)
+        compat_ArrayKind_type DEX_Barray (DEX_PrimitiveType DEX_BOOLEAN)
     | compat_ArrayKind_type_short : 
-        compat_ArrayKind_type Sarray (DEX_PrimitiveType DEX_SHORT).
+        compat_ArrayKind_type DEX_Sarray (DEX_PrimitiveType DEX_SHORT).
 
   Inductive isReference : DEX_value -> Prop :=
   | isReference_null : isReference Null
@@ -271,20 +272,20 @@ Module Type DEX_SEMANTIC_DOMAIN.
   (** compatibility between ValKind and value *) 
   Inductive compat_ValKind_value : DEX_ValKind -> DEX_value -> Prop :=
     | compat_ValKind_value_ref : forall v,
-        isReference v -> compat_ValKind_value Aval v
+        isReference v -> compat_ValKind_value DEX_Aval v
     | compat_ValKind_value_int : forall n,
-        compat_ValKind_value Ival (Num (I n)).
+        compat_ValKind_value DEX_Ival (Num (I n)).
 
   (** compatibility between ArrayKind and value *) 
   Inductive compat_ArrayKind_value : DEX_ArrayKind -> DEX_value -> Prop :=
     | compat_ArrayKind_value_ref : forall v,
-        isReference v -> compat_ArrayKind_value Aarray v
+        isReference v -> compat_ArrayKind_value DEX_Aarray v
     | compat_ArrayKind_value_int : forall n,
-        compat_ArrayKind_value Iarray (Num (I n))
+        compat_ArrayKind_value DEX_Iarray (Num (I n))
     | compat_ArrayKind_value_byte : forall n,
-        compat_ArrayKind_value Barray (Num (B n))
+        compat_ArrayKind_value DEX_Barray (Num (B n))
     | compat_ArrayKind_value_short : forall n,
-        compat_ArrayKind_value Sarray (Num (Sh n)).
+        compat_ArrayKind_value DEX_Sarray (Num (Sh n)).
 
   (* convert a value to be pushed on the stack *)
   Definition conv_for_stack (v:DEX_value) : DEX_value :=
@@ -348,27 +349,27 @@ Module Type DEX_SEMANTIC_DOMAIN.
 
   Definition SemCompInt (cmp:DEX_CompInt) (z1 z2: Z) : Prop :=
     match cmp with
-      EqInt =>  z1=z2
-    | NeInt => z1<>z2
-    | LtInt => z1<z2
-    | LeInt => z1<=z2
-    | GtInt => z1>z2
-    | GeInt => z1>=z2
+      DEX_EqInt =>  z1=z2
+    | DEX_NeInt => z1<>z2
+    | DEX_LtInt => z1<z2
+    | DEX_LeInt => z1<=z2
+    | DEX_GtInt => z1>z2
+    | DEX_GeInt => z1>=z2
     end.
 
   Definition SemBinopInt (op:DEX_BinopInt) (i1 i2:Int.t) : Int.t :=
     match op with 
-    | AddInt => Int.add i1 i2
-    | AndInt => Int.and i1 i2
-    | DivInt => Int.div i1 i2
-    | MulInt => Int.mul i1 i2
-    | OrInt => Int.or i1 i2
-    | RemInt => Int.rem i1 i2
-    | ShlInt => Int.shl i1 i2
-    | ShrInt => Int.shr i1 i2
-    | SubInt => Int.sub i1 i2
-    | UshrInt => Int.ushr i1 i2
-    | XorInt => Int.xor i1 i2
+    | DEX_AddInt => Int.add i1 i2
+    | DEX_AndInt => Int.and i1 i2
+    | DEX_DivInt => Int.div i1 i2
+    | DEX_MulInt => Int.mul i1 i2
+    | DEX_OrInt => Int.or i1 i2
+    | DEX_RemInt => Int.rem i1 i2
+    | DEX_ShlInt => Int.shl i1 i2
+    | DEX_ShrInt => Int.shr i1 i2
+    | DEX_SubInt => Int.sub i1 i2
+    | DEX_UshrInt => Int.ushr i1 i2
+    | DEX_XorInt => Int.xor i1 i2
     end.
 
   (** Lookup in the callstack if one frame catches the thrown exception *)

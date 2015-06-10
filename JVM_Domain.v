@@ -239,15 +239,15 @@ Module Type JVM_SEMANTIC_DOMAIN.
   (** compatibility between ArrayKind and type *) 
   Inductive compat_ArrayKind_type : JVM_ArrayKind -> JVM_type -> Prop :=
     | compat_ArrayKind_type_ref : forall rt,
-        compat_ArrayKind_type Aarray (JVM_ReferenceType rt)
+        compat_ArrayKind_type JVM_Aarray (JVM_ReferenceType rt)
     | compat_ArrayKind_type_int : 
-        compat_ArrayKind_type Iarray (JVM_PrimitiveType JVM_INT)
+        compat_ArrayKind_type JVM_Iarray (JVM_PrimitiveType JVM_INT)
     | compat_ArrayKind_type_byte : 
-        compat_ArrayKind_type Barray (JVM_PrimitiveType JVM_BYTE)
+        compat_ArrayKind_type JVM_Barray (JVM_PrimitiveType JVM_BYTE)
     | compat_ArrayKind_type_bool : 
-        compat_ArrayKind_type Barray (JVM_PrimitiveType JVM_BOOLEAN)
+        compat_ArrayKind_type JVM_Barray (JVM_PrimitiveType JVM_BOOLEAN)
     | compat_ArrayKind_type_short : 
-        compat_ArrayKind_type Sarray (JVM_PrimitiveType JVM_SHORT).
+        compat_ArrayKind_type JVM_Sarray (JVM_PrimitiveType JVM_SHORT).
 
   Inductive isReference : JVM_value -> Prop :=
   | isReference_null : isReference Null
@@ -256,20 +256,20 @@ Module Type JVM_SEMANTIC_DOMAIN.
   (** compatibility between ValKind and value *) 
   Inductive compat_ValKind_value : JVM_ValKind -> JVM_value -> Prop :=
     | compat_ValKind_value_ref : forall v,
-        isReference v -> compat_ValKind_value Aval v
+        isReference v -> compat_ValKind_value JVM_Aval v
     | compat_ValKind_value_int : forall n,
-        compat_ValKind_value Ival (Num (I n)).
+        compat_ValKind_value JVM_Ival (Num (I n)).
 
   (** compatibility between ArrayKind and value *) 
   Inductive compat_ArrayKind_value : JVM_ArrayKind -> JVM_value -> Prop :=
     | compat_ArrayKind_value_ref : forall v,
-        isReference v -> compat_ArrayKind_value Aarray v
+        isReference v -> compat_ArrayKind_value JVM_Aarray v
     | compat_ArrayKind_value_int : forall n,
-        compat_ArrayKind_value Iarray (Num (I n))
+        compat_ArrayKind_value JVM_Iarray (Num (I n))
     | compat_ArrayKind_value_byte : forall n,
-        compat_ArrayKind_value Barray (Num (B n))
+        compat_ArrayKind_value JVM_Barray (Num (B n))
     | compat_ArrayKind_value_short : forall n,
-        compat_ArrayKind_value Sarray (Num (Sh n)).
+        compat_ArrayKind_value JVM_Sarray (Num (Sh n)).
 
   (* convert a value to be pushed on the stack *)
   Definition conv_for_stack (v:JVM_value) : JVM_value :=
@@ -323,35 +323,35 @@ Module Type JVM_SEMANTIC_DOMAIN.
   | SemCompRef_eq : forall v1 v2,
        isReference v1 -> isReference v2 -> v1 = v2 ->
      (****************************************************)
-          SemCompRef EqRef v1 v2
+          SemCompRef JVM_EqRef v1 v2
   | SemCompRef_ne : forall v1 v2,
        isReference v1 -> isReference v2 -> v1 <> v2 ->
      (****************************************************)
-          SemCompRef NeRef v1 v2.
+          SemCompRef JVM_NeRef v1 v2.
 
   Definition SemCompInt (cmp:JVM_CompInt) (z1 z2: Z) : Prop :=
     match cmp with
-      EqInt =>  z1=z2
-    | NeInt => z1<>z2
-    | LtInt => z1<z2
-    | LeInt => z1<=z2
-    | GtInt => z1>z2
-    | GeInt => z1>=z2
+      JVM_EqInt =>  z1=z2
+    | JVM_NeInt => z1<>z2
+    | JVM_LtInt => z1<z2
+    | JVM_LeInt => z1<=z2
+    | JVM_GtInt => z1>z2
+    | JVM_GeInt => z1>=z2
     end.
 
   Definition SemBinopInt (op:JVM_BinopInt) (i1 i2:Int.t) : Int.t :=
     match op with 
-    | AddInt => Int.add i1 i2
-    | AndInt => Int.and i1 i2
-    | DivInt => Int.div i1 i2
-    | MulInt => Int.mul i1 i2
-    | OrInt => Int.or i1 i2
-    | RemInt => Int.rem i1 i2
-    | ShlInt => Int.shl i1 i2
-    | ShrInt => Int.shr i1 i2
-    | SubInt => Int.sub i1 i2
-    | UshrInt => Int.ushr i1 i2
-    | XorInt => Int.xor i1 i2
+    | JVM_AddInt => Int.add i1 i2
+    | JVM_AndInt => Int.and i1 i2
+    | JVM_DivInt => Int.div i1 i2
+    | JVM_MulInt => Int.mul i1 i2
+    | JVM_OrInt => Int.or i1 i2
+    | JVM_RemInt => Int.rem i1 i2
+    | JVM_ShlInt => Int.shl i1 i2
+    | JVM_ShrInt => Int.shr i1 i2
+    | JVM_SubInt => Int.sub i1 i2
+    | JVM_UshrInt => Int.ushr i1 i2
+    | JVM_XorInt => Int.xor i1 i2
     end.
 
   (** Lookup in the callstack if one frame catches the thrown exception *)
@@ -379,8 +379,3 @@ Module Type JVM_SEMANTIC_DOMAIN.
 *)
 
 End JVM_SEMANTIC_DOMAIN.
-
-
-
-
-    

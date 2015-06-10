@@ -170,11 +170,13 @@ Module JVM_Make <: JVM_PROGRAM.
   Lemma type_dec : eq_dec JVM_type.
   Proof. exact (Aeq_dec _ eq_type eq_type_spec). Qed.
 
-  Inductive JVM_CompInt : Set := EqInt | NeInt | LtInt | LeInt | GtInt | GeInt.
-  Inductive JVM_CompRef : Set := EqRef | NeRef.
+  Inductive JVM_CompInt : Set := 
+    JVM_EqInt | JVM_NeInt | JVM_LtInt | JVM_LeInt | JVM_GtInt | JVM_GeInt.
+  Inductive JVM_CompRef : Set := JVM_EqRef | JVM_NeRef.
 
-  Inductive JVM_BinopInt : Set := AddInt | AndInt | DivInt | MulInt | OrInt | RemInt 
-                            | ShlInt | ShrInt | SubInt | UshrInt | XorInt.
+  Inductive JVM_BinopInt : Set := 
+    JVM_AddInt | JVM_AndInt | JVM_DivInt | JVM_MulInt | JVM_OrInt | JVM_RemInt 
+  | JVM_ShlInt | JVM_ShrInt | JVM_SubInt | JVM_UshrInt | JVM_XorInt.
 
   Module Type JVM_OFFSET_TYPE.
     Parameter t : Set.
@@ -255,60 +257,60 @@ Module JVM_Make <: JVM_PROGRAM.
 
   
   Inductive JVM_ArrayKind : Set :=
-    | Aarray
-    | Iarray
-    | Barray
-    | Sarray.
+    | JVM_Aarray
+    | JVM_Iarray
+    | JVM_Barray
+    | JVM_Sarray.
     
   Inductive JVM_ValKind : Set :=
-    | Aval
-    | Ival.
+    | JVM_Aval
+    | JVM_Ival.
 
   Inductive JVM_Instruction : Set :=
-   | Aconst_null
-   | Arraylength 
-   | Athrow
-   | Checkcast (t:JVM_refType)
-   | Const (t:JVM_primitiveType) (z:Z)
-   | Dup
-   | Dup_x1
-   | Dup_x2
-   | Dup2
-   | Dup2_x1
-   | Dup2_x2
-   | Getfield (f:JVM_FieldSignature)
+   | JVM_Aconst_null
+   | JVM_Arraylength 
+(*   | Athrow
+   | Checkcast (t:JVM_refType) *)
+   | JVM_Const (t:JVM_primitiveType) (z:Z)
+   | JVM_Dup
+   | JVM_Dup_x1
+   | JVM_Dup_x2
+   | JVM_Dup2
+   | JVM_Dup2_x1
+   | JVM_Dup2_x2
+   | JVM_Getfield (f:JVM_FieldSignature)
 (*   | Getstatic  (f:FieldSignature) *)
-   | Goto (o:JVM_OFFSET.t)
-   | I2b
-   | I2s
-   | Ibinop (op:JVM_BinopInt)
-   | If_acmp (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
-   | If_icmp (cmp:JVM_CompInt) (o:JVM_OFFSET.t) 
-   | If0 (cmp:JVM_CompInt) (o:JVM_OFFSET.t)
-   | Ifnull (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
-   | Iinc (x:JVM_Var) (z:Z)
-   | Ineg 
-   | Instanceof (t:JVM_refType) 
-   | Invokeinterface (m:JVM_MethodSignature)
-   | Invokespecial (m:JVM_MethodSignature)
-   | Invokestatic (m:JVM_MethodSignature)
-   | Invokevirtual (m:JVM_MethodSignature)
-   | Lookupswitch (def:JVM_OFFSET.t) (l:list (Z*JVM_OFFSET.t)) 
-   | New (c:JVM_ClassName)
-   | Newarray (t:JVM_type)
-   | Nop
-   | Pop
-   | Pop2
-   | Putfield (f:JVM_FieldSignature)
+   | JVM_Goto (o:JVM_OFFSET.t)
+   | JVM_I2b
+   | JVM_I2s
+   | JVM_Ibinop (op:JVM_BinopInt)
+   | JVM_If_acmp (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
+   | JVM_If_icmp (cmp:JVM_CompInt) (o:JVM_OFFSET.t) 
+   | JVM_If0 (cmp:JVM_CompInt) (o:JVM_OFFSET.t)
+   | JVM_Ifnull (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
+   | JVM_Iinc (x:JVM_Var) (z:Z)
+   | JVM_Ineg 
+   | JVM_Instanceof (t:JVM_refType) 
+   | JVM_Invokeinterface (m:JVM_MethodSignature)
+   | JVM_Invokespecial (m:JVM_MethodSignature)
+   | JVM_Invokestatic (m:JVM_MethodSignature)
+   | JVM_Invokevirtual (m:JVM_MethodSignature)
+   | JVM_Lookupswitch (def:JVM_OFFSET.t) (l:list (Z*JVM_OFFSET.t)) 
+   | JVM_New (c:JVM_ClassName)
+   | JVM_Newarray (t:JVM_type)
+   | JVM_Nop
+   | JVM_Pop
+   | JVM_Pop2
+   | JVM_Putfield (f:JVM_FieldSignature)
 (*   | Putstatic (f:FieldSignature) *)
-   | Return
-   | Swap 
-   | Tableswitch (def:JVM_OFFSET.t) (low high:Z) (l:list JVM_OFFSET.t)
-   | Vaload (k:JVM_ArrayKind) 
-   | Vastore (k:JVM_ArrayKind)
-   | Vload (k:JVM_ValKind) (x:JVM_Var)
-   | Vreturn (k:JVM_ValKind)
-   | Vstore (k:JVM_ValKind) (x:JVM_Var).
+   | JVM_Return
+   | JVM_Swap 
+   | JVM_Tableswitch (def:JVM_OFFSET.t) (low high:Z) (l:list JVM_OFFSET.t)
+   | JVM_Vaload (k:JVM_ArrayKind) 
+   | JVM_Vastore (k:JVM_ArrayKind)
+   | JVM_Vload (k:JVM_ValKind) (x:JVM_Var)
+   | JVM_Vreturn (k:JVM_ValKind)
+   | JVM_Vstore (k:JVM_ValKind) (x:JVM_Var).
 
   Module JVM_FIELD.
     Inductive value : Set :=

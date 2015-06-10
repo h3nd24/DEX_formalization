@@ -172,11 +172,13 @@ Module DEX_Make <: DEX_PROGRAM.
   Lemma type_dec : eq_dec DEX_type.
   Proof. exact (Aeq_dec _ eq_type eq_type_spec). Qed.
 
-  Inductive DEX_CompInt : Set := EqInt | NeInt | LtInt | LeInt | GtInt | GeInt.
+  Inductive DEX_CompInt : Set := 
+    DEX_EqInt | DEX_NeInt | DEX_LtInt | DEX_LeInt | DEX_GtInt | DEX_GeInt.
 (* DEX Inductive CompRef : Set := EqRef | NeRef. *)
 
-  Inductive DEX_BinopInt : Set := AddInt | AndInt | DivInt | MulInt | OrInt | RemInt 
-                            | ShlInt | ShrInt | SubInt | UshrInt | XorInt.
+  Inductive DEX_BinopInt : Set := 
+    DEX_AddInt | DEX_AndInt | DEX_DivInt | DEX_MulInt | DEX_OrInt | DEX_RemInt 
+  | DEX_ShlInt | DEX_ShrInt | DEX_SubInt | DEX_UshrInt | DEX_XorInt.
 
   Module Type DEX_OFFSET_TYPE.
     Parameter t : Set.
@@ -257,14 +259,14 @@ Module DEX_Make <: DEX_PROGRAM.
 
   
   Inductive DEX_ArrayKind : Set :=
-    | Aarray
-    | Iarray
-    | Barray
-    | Sarray.
+    | DEX_Aarray
+    | DEX_Iarray
+    | DEX_Barray
+    | DEX_Sarray.
     
   Inductive DEX_ValKind : Set :=
-    | Aval
-    | Ival.
+    | DEX_Aval
+    | DEX_Ival.
 
 (*  Inductive Instruction : Set :=
    | Aconst_null
@@ -313,38 +315,38 @@ Module DEX_Make <: DEX_PROGRAM.
    | Vstore (k:ValKind) (x:Var).*)
 
   Inductive DEX_Instruction : Set :=
-   | Nop
-   | Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
-   | MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
-   | Return
-   | VReturn (k:DEX_ValKind) (rt:DEX_Reg)
-   | Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
-   | InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
-   | ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
-   | New (rt:DEX_Reg) (t:DEX_refType)
-   | NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
-   | Goto (o:DEX_OFFSET.t)
-   | PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:Z) (l:list DEX_OFFSET.t)
-   | SparseSwitch (rt:DEX_Reg) (size:Z) (l:list (Z * DEX_OFFSET.t))
-   | Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
-   | Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
-   | Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
-   | Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
-   | Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
-   | Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+   | DEX_Nop
+   | DEX_Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
+   | DEX_Return
+   | DEX_VReturn (k:DEX_ValKind) (rt:DEX_Reg)
+   | DEX_Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
+   | DEX_InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
+   | DEX_ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_New (rt:DEX_Reg) (t:DEX_refType)
+   | DEX_NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
+   | DEX_Goto (o:DEX_OFFSET.t)
+   | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
+   | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
+   | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
+   | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
+   | DEX_Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
+   | DEX_Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
+   | DEX_Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+   | DEX_Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
 (*   | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
-   | Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Ineg (rt:DEX_Reg) (rs:DEX_Reg)
-   | Inot (rt:DEX_Reg) (rs:DEX_Reg)
-   | I2b (rt:DEX_Reg) (rs:DEX_Reg)
-   | I2s (rt:DEX_Reg) (rs:DEX_Reg)
-   | Ibinop (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg)
-   | IbinopConst (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z)
+   | DEX_Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Ineg (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_Inot (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_I2b (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_I2s (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_Ibinop (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg)
+   | DEX_IbinopConst (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z)
    .
 
   Module DEX_FIELD.

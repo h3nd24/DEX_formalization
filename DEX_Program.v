@@ -93,23 +93,25 @@ Module Type DEX_PROGRAM.
       (* + ReturnAddressType subroutines *)
 
  
-  Inductive DEX_CompInt : Set := EqInt | NeInt | LtInt | LeInt | GtInt | GeInt.
+  Inductive DEX_CompInt : Set := 
+    DEX_EqInt | DEX_NeInt | DEX_LtInt | DEX_LeInt | DEX_GtInt | DEX_GeInt.
   (* Inductive CompRef : Set := EqRef | NeRef. *)
 
-  Inductive DEX_BinopInt : Set := AddInt | AndInt | DivInt | MulInt | OrInt | RemInt 
-                            | ShlInt | ShrInt | SubInt | UshrInt | XorInt.
+  Inductive DEX_BinopInt : Set := 
+    DEX_AddInt | DEX_AndInt | DEX_DivInt | DEX_MulInt | DEX_OrInt | DEX_RemInt 
+  | DEX_ShlInt | DEX_ShrInt | DEX_SubInt | DEX_UshrInt | DEX_XorInt.
 
   (* Type information used for Vaload and Saload *)
   Inductive DEX_ArrayKind : Set :=
-    | Aarray
-    | Iarray
-    | Barray
-    | Sarray.
+    | DEX_Aarray
+    | DEX_Iarray
+    | DEX_Barray
+    | DEX_Sarray.
     
   (* Type information used for Vload, Vstore and Vreturn *)
   Inductive DEX_ValKind : Set :=
-    | Aval
-    | Ival.
+    | DEX_Aval
+    | DEX_Ival.
 
 
   Module Type DEX_OFFSET_TYPE.
@@ -141,202 +143,6 @@ Module Type DEX_PROGRAM.
       forall mid1 mid2:DEX_ShortMethodSignature, mid1=mid2 \/ ~mid1=mid2.
   End DEX_METHODSIGNATURE_TYPE.
   Declare Module DEX_METHODSIGNATURE : DEX_METHODSIGNATURE_TYPE.
-
-    (** Parser translation :
-
-  aaload                --> Vaload Aarray
-  aastore               --> Vastore Aarray
-  aconst_null           --> Aconst_null
-  aload x               --> Vload Aval x
-  aload_<n>             --> Vload Aval n
-  anewarray t           --> Newarray (ReferenceType t)
-  areturn               --> Vreturn Aarray
-  arraylength           --> Arraylength
-  astore x              --> Vstore Aval x
-  astore_<n>            --> Vstore Aval n
-  athrow                --> Athrow
-  baload                --> Vaload Barray
-  bastore               --> Vastore Barray
-  bipush c              --> Const BYTE c
-  caload                --> char not supported
-  castore               --> char not supported
-  checkcast t           --> Checkcast t
-  d2f                   --> double not supported
-  d2i                   --> double not supported
-  d2l                   --> double not supported
-  dadd                  --> double not supported
-  daload                --> double not supported
-  dastore               --> double not supported
-  dcmp<op>              --> double not supported
-  dconst_<d>            --> double not supported
-  ddiv                  --> double not supported
-  dload                 --> double not supported
-  dload_<n>             --> double not supported
-  dmul                  --> double not supported
-  dneg                  --> double not supported
-  drem                  --> double not supported
-  dreturn               --> double not supported
-  dstore                --> double not supported
-  dstore_<n>            --> double not supported
-  dsub                  --> double not supported
-  dup                   --> Dup
-  dup_x1                --> Dup_x1
-  dup_x2                --> Dup_x2
-  dup2                  --> Dup2
-  dup2_x1               --> Dup2_x1
-  dup2_x2               --> Dup2_x2
-  f2d                   --> float not supported
-  f2i                   --> float not supported
-  f2l                   --> float not supported
-  fadd                  --> float not supported
-  faload                --> float not supported
-  fastore               --> float not supported
-  fcmp<op>              --> float not supported
-  fconst_<f>            --> float not supported
-  fdiv                  --> float not supported
-  fload                 --> float not supported
-  fload_<n>             --> float not supported
-  fmul                  --> float not supported
-  fneg                  --> float not supported
-  frem                  --> float not supported
-  freturn               --> float not supported
-  fstore                --> float not supported
-  fstore_<n>            --> float not supported
-  fsub                  --> float not supported
-  getfield f            --> Getfield f
-  getstatic f           --> Getstatic f
-  goto o                --> Goto o    
-  goto_w o              --> Goto o
-  i2b                   --> I2b
-  i2c                   --> char not supported
-  i2d                   --> double not supported
-  i2f                   --> float not supported
-  i2l                   --> long not supported
-  i2s                   --> I2s
-  iadd                  --> Ibinop AddInt
-  iaload                --> Vaload Iarray
-  iand                  --> Ibinop AndInt
-  iastore               --> Vastore Iarray
-  iconst_<i>            --> Const i
-  idiv                  --> Ibinop DivInt
-  if_acmp<cond> o       --> If_acmp cond o
-  if_icmp<cond> o       --> If_icmp cond o
-  if<cond> o            --> If0 cond o
-  ifnonnull o           --> Ifnull NeRef o
-  ifnull o              --> Ifnull EqRef o
-  iinc x c              --> Iinc x c
-  iload x      	        --> Vload Ival x
-  iload_<n>    	        --> Vload Ival n
-  imul         	        --> Ibinop MulInt
-  ineg         	        --> Ineg
-  instanceof t          --> Instanceof t
-  invokeinterface m     --> Invokeinterface m
-  invokespecial m       --> Invokespecial m
-  invokestatic m        --> Invokestatic m
-  invokevirtual m       --> Invokevirtual m
-  ior                   --> Ibinop OrInt
-  irem                  --> Ibinop RemInt
-  ireturn               --> Vreturn Ival
-  ishl                  --> Ibinop ShlInt
-  ishr                  --> Ibinop ShrInt
-  istore x     	        --> Vstore Ival x
-  istore_<n>   	        --> Vstore Ival n
-  isub                  --> Ibinop SubInt
-  iushr                 --> Ibinop UshrInt
-  ixor                  --> Ibinop XorInt
-  jsr                   --> subroutines not supported
-  jsr_w                 --> subroutines not supported
-  l2d                   --> long not supported
-  l2f                   --> long not supported
-  l2i                   --> long not supported
-  ladd                  --> long not supported
-  laload                --> long not supported
-  land                  --> long not supported
-  lastore               --> long not supported
-  lcmp                  --> long not supported
-  lconst_<l>            --> long not supported
-  ldc c                 --> Const c (but strings not supported)
-  ldc_w c               --> Const c (but strings not supported)
-  ldc2_w c              --> long and double not supported
-  ldiv                  --> long not supported
-  lload                 --> long not supported
-  lload_<n>             --> long not supported
-  lmul                  --> long not supported
-  lneg                  --> long not supported
-  lookupswitch d l      --> Lookupswitch d l
-  lor                   --> long not supported
-  lrem                  --> long not supported
-  lreturn               --> long not supported
-  lshl                  --> long not supported
-  lshr                  --> long not supported
-  lstore                --> long not supported
-  lstore_<n>            --> long not supported
-  lsub                  --> long not supported
-  lushr                 --> long not supported
-  lxor                  --> long not supported
-  monitorenter          --> multithreading not supported
-  monitorexit           --> multithreading not supported
-  multianewarray        --> not supported
-  new c                 --> New c
-  newarray t            --> Newarray (PrimitiveType t)
-  nop                   --> Nop
-  pop                   --> Pop
-  pop2                  --> Pop2
-  putfield f            --> Putfield f
-  putstatic f           --> Putstatic f
-  ret                   --> subroutines not supported
-  return                --> Return
-  saload                --> Vaload Sarray
-  sastore               --> Vastore Sarray
-  sipush c              --> Const c
-  swap                  --> Swap
-  tableswitch d lo hi l --> Tableswitch d lo hi l
-   *)
-
-(*  Inductive Instruction : Set :=
-   | Aconst_null
-   | Arraylength 
-   | Athrow
-   | Checkcast (t:refType)
-   | Const (t:primitiveType) (z:Z)
-   | Dup
-   | Dup_x1
-   | Dup_x2
-   | Dup2
-   | Dup2_x1
-   | Dup2_x2
-   | Getfield (f:FieldSignature)
-   | Goto (o:OFFSET.t)
-   | I2b
-   | I2s
-   | Ibinop (op:BinopInt)
-   | If_acmp (cmp:CompRef) (o:OFFSET.t)
-   | If_icmp (cmp:CompInt) (o:OFFSET.t) 
-   | If0 (cmp:CompInt) (o:OFFSET.t)
-   | Ifnull (cmp:CompRef) (o:OFFSET.t)
-   | Iinc (x:Var) (z:Z)
-   | Ineg 
-   | Instanceof (t:refType) 
-   | Invokeinterface (m:MethodSignature)
-   | Invokespecial (m:MethodSignature)
-   | Invokestatic (m:MethodSignature)
-   | Invokevirtual (m:MethodSignature)
-   | Lookupswitch (def:OFFSET.t) (l:list (Z*OFFSET.t)) 
-(*   | Multianewarray (t:refType) (d:Z) | New (cl:ClassName) *)
-   | New (c:ClassName)
-   | Newarray (t:type)
-   | Nop
-   | Pop
-   | Pop2
-   | Putfield (f:FieldSignature)
-   | Return
-   | Swap 
-   | Tableswitch (def:OFFSET.t) (low high:Z) (l:list OFFSET.t)
-   | Vaload (k:ArrayKind) 
-   | Vastore (k:ArrayKind)
-   | Vload (k:ValKind) (x:Var)
-   | Vreturn (k:ValKind)
-   | Vstore (k:ValKind) (x:Var).*)
 
 (** Parser translation :
 
@@ -573,38 +379,38 @@ Module Type DEX_PROGRAM.
 
 
   Inductive DEX_Instruction : Set :=
-   | Nop
-   | Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
-   | MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
-   | Return
-   | VReturn (k:DEX_ValKind) (rt:DEX_Reg)
-   | Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
-   | InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
-   | ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
-   | New (rt:DEX_Reg) (t:DEX_refType)
-   | NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
-   | Goto (o:DEX_OFFSET.t)
-   | PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:Z) (l:list DEX_OFFSET.t)
-   | SparseSwitch (rt:DEX_Reg) (size:Z) (l:list (Z * DEX_OFFSET.t))
-   | Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
-   | Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
-   | Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
-   | Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
-   | Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
-   | Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+   | DEX_Nop
+   | DEX_Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
+   | DEX_Return
+   | DEX_VReturn (k:DEX_ValKind) (rt:DEX_Reg)
+   | DEX_Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
+   | DEX_InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
+   | DEX_ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_New (rt:DEX_Reg) (t:DEX_refType)
+   | DEX_NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
+   | DEX_Goto (o:DEX_OFFSET.t)
+   | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
+   | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
+   | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
+   | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
+   | DEX_Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
+   | DEX_Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
+   | DEX_Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+   | DEX_Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
 (*   | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
-   | Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
-   | Ineg (rt:DEX_Reg) (rs:DEX_Reg)
-   | Inot (rt:DEX_Reg) (rs:DEX_Reg)
-   | I2b (rt:DEX_Reg) (rs:DEX_Reg)
-   | I2s (rt:DEX_Reg) (rs:DEX_Reg)
-   | Ibinop (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg)
-   | IbinopConst (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z)
+   | DEX_Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+   | DEX_Ineg (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_Inot (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_I2b (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_I2s (rt:DEX_Reg) (rs:DEX_Reg)
+   | DEX_Ibinop (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg)
+   | DEX_IbinopConst (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z)
    .
 
   (** Operations on exception handlers *)

@@ -11,30 +11,30 @@
   Inductive JVM_NormalStep (p:JVM_Program) : JVM_Method -> JVM_IntraNormalState -> JVM_IntraNormalState  -> Prop :=
   | aconst_null : forall h m pc pc' s l,
 
-    instructionAt m pc = Some Aconst_null ->
+    instructionAt m pc = Some (JVM_Aconst_null) ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,s,l)) (pc',(h,(Null::s),l))
 
   | arraylength : forall h m pc pc' s l loc length tp a, 
 
-    instructionAt m pc = Some Arraylength ->
+    instructionAt m pc = Some (JVM_Arraylength) ->
     next m pc = Some pc' ->
     JVM_Heap.typeof  h loc = Some (JVM_Heap.LocationArray length tp a) ->
 
    JVM_NormalStep p m  (pc,(h,(Ref loc::s),l)) (pc',(h,(Num (I length)::s),l))
-
+(*
  | checkcast1 : forall h m pc pc' s l val t,
 
-    instructionAt m pc = Some (Checkcast t) ->
+    instructionAt m pc = Some (JVM_Checkcast t) ->
     next m pc = Some pc' ->
     assign_compatible p h val (JVM_ReferenceType t) ->
 
    JVM_NormalStep p m (pc,(h,(val::s),l))  (pc',(h,(val::s),l))
-
+*)
   | const : forall h m pc pc' s l t z,
 
-    instructionAt m pc = Some (Const t z) ->
+    instructionAt m pc = Some (JVM_Const t z) ->
     next m pc = Some pc' ->
     (   (t=JVM_BYTE /\ -2^7 <= z < 2^7)%Z
      \/ (t=JVM_SHORT /\ -2^15 <= z < 2^15)%Z
@@ -44,49 +44,49 @@
 
   | dup : forall h m pc pc' s l v,
 
-    instructionAt m pc = Some Dup ->
+    instructionAt m pc = Some (JVM_Dup) ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v::s),l))  (pc',(h,(v::v::s),l))
 
   | dup_x1 : forall h m pc pc' s l v1 v2,
 
-    instructionAt m pc = Some Dup_x1 ->
+    instructionAt m pc = Some JVM_Dup_x1 ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::s),l)) (pc',(h,(v1::v2::v1::s),l))
 
   | dup_x2 : forall h m pc pc' s l v1 v2 v3,
 
-    instructionAt m pc = Some Dup_x2 ->
+    instructionAt m pc = Some JVM_Dup_x2 ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p  m (pc,(h,(v1::v2::v3::s),l))  (pc',(h,(v1::v2::v3::v1::s),l))
 
   | dup2 : forall h m pc pc' s l v1 v2,
 
-    instructionAt m pc = Some Dup2 ->
+    instructionAt m pc = Some JVM_Dup2 ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::s),l)) (pc',(h,(v1::v2::v1::v2::s),l))
 
   | dup2_x1 : forall h m pc pc' s l v1 v2 v3,
 
-    instructionAt m pc = Some Dup2_x1 ->
+    instructionAt m pc = Some JVM_Dup2_x1 ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::v3::s),l)) (pc',(h,(v1::v2::v3::v1::v2::s),l))
 
   | dup2_x2 : forall h m pc pc' s l v1 v2 v3 v4,
 
-    instructionAt m pc = Some Dup2_x2 ->
+    instructionAt m pc = Some JVM_Dup2_x2 ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::v3::v4::s),l)) (pc',(h,(v1::v2::v3::v4::v1::v2::s),l))
 
   | getfield : forall h m pc pc' s l loc f v cn,
 
-    instructionAt m pc = Some (Getfield f) ->
+    instructionAt m pc = Some (JVM_Getfield f) ->
     next m pc = Some pc' ->
     JVM_Heap.typeof h loc = Some (JVM_Heap.LocationObject cn) -> 
     defined_field p cn f ->
@@ -96,56 +96,56 @@
 
   | goto : forall h m pc s l o,
 
-    instructionAt m pc = Some (Goto o) ->
+    instructionAt m pc = Some (JVM_Goto o) ->
 
    JVM_NormalStep p m (pc,(h,s,l)) (JVM_OFFSET.jump pc o,(h,s,l))
 
   | i2b : forall h m pc pc' s l i,
 
-    instructionAt m pc = Some I2b ->
+    instructionAt m pc = Some JVM_I2b ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l)) (pc',(h,(Num (I (b2i (i2b i)))::s),l))
 
   | i2s : forall h m pc pc' s l i,
 
-    instructionAt m pc = Some I2s ->
+    instructionAt m pc = Some JVM_I2s ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l))  (pc',(h,(Num (I (s2i (i2s i)))::s),l))
 
   | ibinop : forall h m pc pc' s l op i1 i2,
 
-    instructionAt m pc = Some (Ibinop op) ->
+    instructionAt m pc = Some (JVM_Ibinop op) ->
     next m pc = Some pc' ->
-    (op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0%Z) -> 
+    (* DEX (op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0%Z) -> *)
 
    JVM_NormalStep p m (pc,(h,(Num (I i2)::Num (I i1)::s),l))
                           (pc',(h,(Num (I (SemBinopInt op i1 i2))::s),l))
 
   | if_acmp_step_jump : forall h m pc s l val2 val1 o cmp,
-      instructionAt m pc = Some (If_acmp cmp o) ->
+      instructionAt m pc = Some (JVM_If_acmp cmp o) ->
       SemCompRef cmp val1 val2 ->
   (******************************************************************)
      JVM_NormalStep p m (pc,(h,(val2:: val1::s),l))
                                    (JVM_OFFSET.jump pc o,(h,s,l))
 
   | if_acmp_step_continue : forall h m pc pc' s l val2 val1 o cmp,
-      instructionAt m pc = Some (If_acmp cmp o) ->
+      instructionAt m pc = Some (JVM_If_acmp cmp o) ->
       next m pc = Some pc' ->
       ~ SemCompRef cmp val1 val2 ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(val2::val1::s),l)) (pc',(h,s,l))
 
   | if_icmp_step_jump : forall h m pc s l cmp i2 i1 o,
-      instructionAt m pc = Some (If_icmp cmp o) ->
+      instructionAt m pc = Some (JVM_If_icmp cmp o) ->
       SemCompInt cmp (Int.toZ i1) (Int.toZ i2) ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(Num(I i2)::Num(I i1)::s),l))
                                   (JVM_OFFSET.jump pc o,(h,s,l))
 
   | if_icmpeq_step_continue : forall h m pc pc' s l cmp i2 i1 o,
-      instructionAt m pc = Some (If_icmp cmp o) ->
+      instructionAt m pc = Some (JVM_If_icmp cmp o) ->
       next m pc = Some pc' ->
       ~ SemCompInt cmp (Int.toZ i1) (Int.toZ i2) ->
   (******************************************************************)
@@ -153,28 +153,28 @@
                                   (pc',(h,s,l))
 
   | ifeq_step_jump : forall h m pc s l cmp i o,
-      instructionAt m pc = Some (If0 cmp o) ->
+      instructionAt m pc = Some (JVM_If0 cmp o) ->
       SemCompInt cmp (Int.toZ i) 0 ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(Num(I i)::s),l))
                                   (JVM_OFFSET.jump pc o,(h,s,l))
 
   | ifeq_step_continue : forall h m pc pc' s l cmp i o,
-      instructionAt m pc = Some (If0 cmp o) ->
+      instructionAt m pc = Some (JVM_If0 cmp o) ->
       next m pc = Some pc' ->
       ~ SemCompInt cmp (Int.toZ i) 0 ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(Num(I i)::s),l)) (pc',(h,s,l))
 
   | ifnull_step_jump : forall h m pc s l loc o cmp,
-      instructionAt m pc = Some (Ifnull cmp o) ->
+      instructionAt m pc = Some (JVM_Ifnull cmp o) ->
       SemCompRef cmp loc Null ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(loc::s),l))
                                   (JVM_OFFSET.jump pc o,(h,s,l))
 
   | ifnull_step_continue : forall h m pc pc' s l o loc cmp,
-    instructionAt m pc = Some (Ifnull cmp o) ->
+    instructionAt m pc = Some (JVM_Ifnull cmp o) ->
     next m pc = Some pc' ->
     ~ SemCompRef cmp loc Null ->
   (******************************************************************)
@@ -182,7 +182,7 @@
 
 
   | iinc_step : forall h m pc s l pc' x z i,
-    instructionAt m pc = Some (Iinc x z) ->
+    instructionAt m pc = Some (JVM_Iinc x z) ->
 
     next m pc = Some pc' ->
     (-2^7 <= z < 2^7)%Z ->
@@ -193,14 +193,14 @@
                 (pc',(h,s,(JVM_LocalVar.update l x (Num (I (Int.add i (Int.const z)))))))
 
   | ineg_step : forall h m pc s l pc' i,
-    instructionAt m pc = Some Ineg ->
+    instructionAt m pc = Some JVM_Ineg ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l)) (pc',(h,(Num (I (Int.neg i))::s),l))
 
   | instanceof1 : forall h m pc pc' s l loc t,
 
-    instructionAt m pc = Some (Instanceof t) ->
+    instructionAt m pc = Some (JVM_Instanceof t) ->
     next m pc = Some pc' ->
     assign_compatible p h (Ref loc) (JVM_ReferenceType t) ->
 
@@ -209,7 +209,7 @@
 
   | instanceof2 : forall h m pc pc' s l t v,
 
-    instructionAt m pc = Some (Instanceof t) ->
+    instructionAt m pc = Some (JVM_Instanceof t) ->
     next m pc = Some pc' ->
     isReference v ->
     (~ assign_compatible p h v (JVM_ReferenceType t) \/ v=Null) ->
@@ -219,7 +219,7 @@
 
   | lookupswitch1 : forall h m pc s l def listkey i i' o',
 
-    instructionAt m pc = Some (Lookupswitch def listkey) ->
+    instructionAt m pc = Some (JVM_Lookupswitch def listkey) ->
 
     List.In (pair i' o')listkey ->
     i' = Int.toZ i ->
@@ -228,14 +228,14 @@
 
   | lookupswitch2 : forall h m pc s l def listkey i,
 
-    instructionAt m pc = Some (Lookupswitch def listkey) ->
+    instructionAt m pc = Some (JVM_Lookupswitch def listkey) ->
     (forall i' o', List.In (pair i' o')listkey ->  i' <> Int.toZ i) ->
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l)) (JVM_OFFSET.jump pc def,(h,s,l))
 
   | new : forall h m pc pc' s l c loc h',
 
-    instructionAt m pc = Some (New c) ->
+    instructionAt m pc = Some (JVM_New c) ->
     next m pc = Some pc' ->
     JVM_Heap.new h p (JVM_Heap.LocationObject c) = Some (pair loc h') ->
 
@@ -244,7 +244,7 @@
 
   | newarray : forall h m pc pc' s l t i loc h',
 
-    instructionAt m pc = Some (Newarray t) ->
+    instructionAt m pc = Some (JVM_Newarray t) ->
     next m pc = Some pc' ->
     (0 <= Int.toZ i)%Z -> 
     JVM_Heap.new h p (JVM_Heap.LocationArray i t (m,pc)) = Some (pair loc h') ->
@@ -254,28 +254,28 @@
 
   | nop : forall h m pc pc' s l,
 
-    instructionAt m pc = Some Nop ->
+    instructionAt m pc = Some JVM_Nop ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,s,l)) (pc',(h,s,l))
 
   | pop : forall h m pc pc' s l v,
 
-    instructionAt m pc = Some Pop ->
+    instructionAt m pc = Some JVM_Pop ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v::s),l)) (pc',(h,s,l))
 
   | pop2 : forall h m pc pc' s l v1 v2,
 
-    instructionAt m pc = Some Pop2 ->
+    instructionAt m pc = Some JVM_Pop2 ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::s),l)) (pc',(h,s,l))
 
   | putfield : forall h m pc pc' s l f loc cn v,
 
-    instructionAt m pc = Some (Putfield f) ->
+    instructionAt m pc = Some (JVM_Putfield f) ->
     next m pc = Some pc' ->
     JVM_Heap.typeof h loc = Some (JVM_Heap.LocationObject cn) -> 
     defined_field p cn f ->
@@ -286,14 +286,14 @@
 
   | swap : forall h m pc pc' s l v1 v2,
 
-    instructionAt m pc = Some Swap ->
+    instructionAt m pc = Some JVM_Swap ->
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::s),l)) (pc',(h,(v2::v1::s),l))
 
   | tableswitch1 : forall h m pc s l i def low high list_offset,
 
-    instructionAt m pc = Some (Tableswitch def low high list_offset) ->
+    instructionAt m pc = Some (JVM_Tableswitch def low high list_offset) ->
     Z_of_nat (length list_offset) = (high - low + 1)%Z ->
     (Int.toZ i < low \/ high < Int.toZ i)%Z ->
    
@@ -301,7 +301,7 @@
 
   | tableswitch2 : forall h m pc s l n o i def low high list_offset,
 
-    instructionAt m pc = Some (Tableswitch def low high list_offset) ->
+    instructionAt m pc = Some (JVM_Tableswitch def low high list_offset) ->
     Z_of_nat (length list_offset) = (high - low + 1)%Z ->
     (low <= Int.toZ i <= high)%Z ->
     (Z_of_nat n = (Int.toZ i) - low)%Z ->
@@ -311,7 +311,7 @@
 
   | vaload : forall h m pc pc' s l loc val i length t k a,
 
-    instructionAt m pc = Some (Vaload k) ->
+    instructionAt m pc = Some (JVM_Vaload k) ->
     next m pc = Some pc' ->
     JVM_Heap.typeof h loc = Some (JVM_Heap.LocationArray length t a) ->
     compat_ArrayKind_type k t ->
@@ -325,7 +325,7 @@
 
   | vastore : forall h m pc pc' s l loc val i length t k a,
 
-    instructionAt m pc = Some (Vastore k) ->
+    instructionAt m pc = Some (JVM_Vastore k) ->
     next m pc = Some pc' ->
     JVM_Heap.typeof h loc = Some (JVM_Heap.LocationArray length t a) ->
     assign_compatible p h val t ->
@@ -339,7 +339,7 @@
 
   | vload : forall h m pc pc' s l x val k,
 
-    instructionAt m pc = Some (Vload k x) ->
+    instructionAt m pc = Some (JVM_Vload k x) ->
     next m pc = Some pc' ->
     JVM_METHOD.valid_var m x ->
     JVM_LocalVar.get l x = Some val ->
@@ -349,7 +349,7 @@
  
   | vstore : forall h m pc pc' s l l' x v k,
 
-    instructionAt m pc = Some (Vstore k x) ->
+    instructionAt m pc = Some (JVM_Vstore k x) ->
     next m pc = Some pc' ->
     JVM_METHOD.valid_var m x ->
     l' = JVM_LocalVar.update l x v ->
@@ -486,7 +486,7 @@
   Inductive JVM_CallStep (p:JVM_Program) : JVM_Method -> JVM_IntraNormalState -> JVM_InitCallState -> Prop :=
   | invokestatic : forall h m pc s l mid M args bM,
 
-    instructionAt m pc = Some (Invokestatic mid) ->
+    instructionAt m pc = Some (JVM_Invokestatic mid) ->
     findMethod p mid = Some M ->
     JVM_METHOD.isNative M = false ->
     length args = length (JVM_METHODSIGNATURE.parameters (snd mid)) ->
@@ -497,7 +497,7 @@
 
   | invokevirtual : forall h m pc s l mid cn M args loc cl bM,
 
-    instructionAt m pc = Some (Invokevirtual (cn,mid)) ->
+    instructionAt m pc = Some (JVM_Invokevirtual (cn,mid)) ->
     lookup p cn mid (pair cl M) ->
     JVM_Heap.typeof h loc = Some (JVM_Heap.LocationObject cn) ->
     length args = length (JVM_METHODSIGNATURE.parameters mid) ->
@@ -511,13 +511,13 @@
   Inductive JVM_ReturnStep (p:JVM_Program) : JVM_Method -> JVM_IntraNormalState -> JVM_ReturnState -> Prop :=
   | void_return : forall h m pc s l,
 
-    instructionAt m pc = Some Return ->
+    instructionAt m pc = Some JVM_Return ->
     JVM_METHODSIGNATURE.result (JVM_METHOD.signature m) = None ->
 
     JVM_ReturnStep p m  (pc,(h,s,l)) (h, Normal None)
   | vreturn : forall h m pc s l val t k,
 
-    instructionAt m pc = Some (Vreturn k) ->
+    instructionAt m pc = Some (JVM_Vreturn k) ->
     JVM_METHODSIGNATURE.result (JVM_METHOD.signature m) = Some t ->
     assign_compatible p h val t ->
     compat_ValKind_value k val ->

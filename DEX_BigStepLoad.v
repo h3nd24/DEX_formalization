@@ -11,14 +11,14 @@
   Inductive DEX_NormalStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState  -> Prop :=
   | nop : forall h m pc pc' l,
 
-    instructionAt m pc = Some Nop ->
+    instructionAt m pc = Some DEX_Nop ->
     next m pc = Some pc' ->
 
     DEX_NormalStep p m (pc,(h, l)) (pc',(h, l))
 
   | const : forall h m pc pc' l l' k rt v,
 
-    instructionAt m pc = Some (Const k rt v) ->
+    instructionAt m pc = Some (DEX_Const k rt v) ->
     next m pc = Some pc' ->
     (-2^31 <= v < 2^31)%Z ->
     DEX_METHOD.valid_reg m rt ->
@@ -28,7 +28,7 @@
   
   | move_step_ok : forall h m pc pc' l l' k rt rs v,
 
-    instructionAt m pc = Some (Move k rt rs) ->
+    instructionAt m pc = Some (DEX_Move k rt rs) ->
     next m pc = Some pc' ->
     Some v = DEX_Registers.get l rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -39,7 +39,7 @@
   
   | moveresult_step_ok : forall h m pc pc' l l' k rt v,
 
-    instructionAt m pc = Some (MoveResult k rt) ->
+    instructionAt m pc = Some (DEX_MoveResult k rt) ->
     next m pc = Some pc' ->
     Some v = DEX_Registers.get l DEX_Registers.ret ->
     DEX_METHOD.valid_reg m rt ->
@@ -50,7 +50,7 @@
  (** <addlink>instanceof</addlink>: Determine if object is of given type *)
   | instanceof_step_ok1 : forall h m pc pc' l loc rt r t l',
 
-    instructionAt m pc = Some (InstanceOf rt r t) ->
+    instructionAt m pc = Some (DEX_InstanceOf rt r t) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get l r ->
     assign_compatible p h (Ref loc) (DEX_ReferenceType t) ->
@@ -62,7 +62,7 @@
  (** <addlink>instanceof</addlink>: with object == null *)
   | instanceof_step_ok2 : forall h m pc pc' l rt r t v l',
 
-    instructionAt m pc = Some (InstanceOf rt r t) ->
+    instructionAt m pc = Some (DEX_InstanceOf rt r t) ->
     next m pc = Some pc' ->
     Some v = DEX_Registers.get l r ->
     isReference v ->
@@ -76,7 +76,7 @@
   (** <addlink>arraylength</addlink>: Get length of array *)
   | arraylength_step_ok : forall h m pc pc' l l' loc length tp a rt rs,
 
-    instructionAt m pc = Some (ArrayLength rt rs)->
+    instructionAt m pc = Some (DEX_ArrayLength rt rs)->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get l rs ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.LocationArray length tp a) ->
@@ -89,7 +89,7 @@
   (** <addlink>new</addlink>: Create new object *)
   | new_step_ok : forall h m pc pc' l l' c loc h' rt,
 
-    instructionAt m pc = Some (New rt (DEX_ClassType c)) ->
+    instructionAt m pc = Some (DEX_New rt (DEX_ClassType c)) ->
     next m pc = Some pc' ->
     DEX_Heap.new h p (DEX_Heap.LocationObject c) = Some (pair loc h') ->
     DEX_METHOD.valid_reg m rt ->
@@ -101,7 +101,7 @@
  (** OutOfMemory is not considered in Bicolano *)
   | newarray_step_ok : forall h m pc pc' l l' i t loc h_new rt rl,
 
-    instructionAt m pc = Some (NewArray rt rl t) ->
+    instructionAt m pc = Some (DEX_NewArray rt rl t) ->
     next m pc = Some pc' ->
     DEX_Heap.new h p (DEX_Heap.LocationArray i t (m,pc)) = Some (pair loc h_new) ->
     Some (Num (I i)) = DEX_Registers.get l rl ->
@@ -114,16 +114,16 @@
 
   | goto_step_ok : forall h m pc l o,
 
-    instructionAt m pc = Some (Goto o) ->
+    instructionAt m pc = Some (DEX_Goto o) ->
 
     DEX_NormalStep p m (pc, (h, l)) ((DEX_OFFSET.jump pc o), (h, l))
   
   | packedswitch_step_ok1 : forall h m pc l v r firstKey size list_offset n o,
     
-    instructionAt m pc = Some (PackedSwitch r firstKey size list_offset) ->
+    instructionAt m pc = Some (DEX_PackedSwitch r firstKey size list_offset) ->
     Some (Num (I v)) = DEX_Registers.get l r ->
-    (firstKey <= Int.toZ v < firstKey + size)%Z ->
-    Z_of_nat (length list_offset) = size ->
+    (firstKey <= Int.toZ v < firstKey + (Z_of_nat size))%Z ->
+    length list_offset = size ->
     Z_of_nat n = ((Int.toZ v) - firstKey)%Z ->
     nth_error list_offset n = Some o ->
     DEX_METHOD.valid_reg m r ->
@@ -132,10 +132,10 @@
 
   | packedswitch_step_ok2 : forall h m pc pc' l v r firstKey size list_offset,
     
-    instructionAt m pc = Some (PackedSwitch r firstKey size list_offset) ->
+    instructionAt m pc = Some (DEX_PackedSwitch r firstKey size list_offset) ->
     Some (Num (I v)) = DEX_Registers.get l r ->
-    Z_of_nat (length list_offset) = size ->
-    (Int.toZ v < firstKey \/ firstKey + size <= Int.toZ v)%Z ->
+    length list_offset = size ->
+    (Int.toZ v < firstKey \/ firstKey + (Z_of_nat size) <= Int.toZ v)%Z ->
     next m pc = Some pc' ->
     DEX_METHOD.valid_reg m r ->
 
@@ -143,8 +143,8 @@
   
   | sparseswitch_step_ok1 : forall h m pc l v v' o r size listkey,
     
-    instructionAt m pc = Some (SparseSwitch r size listkey) ->
-    Z_of_nat (length listkey) = size ->
+    instructionAt m pc = Some (DEX_SparseSwitch r size listkey) ->
+    length listkey = size ->
     Some (Num (I v)) = DEX_Registers.get l r ->
     List.In (pair v' o) listkey ->
     v' = Int.toZ v ->
@@ -154,8 +154,8 @@
 
   | sparseswitch_step_ok2 : forall h m pc pc' l v r size listkey,
 
-    instructionAt m pc = Some (SparseSwitch r size listkey) ->
-    Z_of_nat (length listkey) = size ->
+    instructionAt m pc = Some (DEX_SparseSwitch r size listkey) ->
+    length listkey = size ->
     Some (Num (I v)) = DEX_Registers.get l r ->
     (forall v' o, List.In (pair v' o) listkey ->  v' <> Int.toZ v) ->
     next m pc = Some pc' ->
@@ -165,7 +165,7 @@
 
   | ifcmp_step_jump : forall h m pc l va vb cmp ra rb o,
 
-    instructionAt m pc = Some (Ifcmp cmp ra rb o) ->
+    instructionAt m pc = Some (DEX_Ifcmp cmp ra rb o) ->
     Some (Num (I va)) = DEX_Registers.get l ra ->
     Some (Num (I vb)) = DEX_Registers.get l rb ->
     SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -176,7 +176,7 @@
 
   | ifcmp_step_continue : forall h m pc pc' l va vb cmp ra rb o,
     
-    instructionAt m pc = Some (Ifcmp cmp ra rb o) ->
+    instructionAt m pc = Some (DEX_Ifcmp cmp ra rb o) ->
     Some (Num (I va)) = DEX_Registers.get l ra ->
     Some (Num (I vb)) = DEX_Registers.get l rb ->
     ~SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -188,7 +188,7 @@
 
   | ifz_step_jump : forall h m pc l v cmp r o,
 
-    instructionAt m pc = Some (Ifz cmp r o) ->
+    instructionAt m pc = Some (DEX_Ifz cmp r o) ->
     Some (Num (I v)) = DEX_Registers.get l r ->
     SemCompInt cmp (Int.toZ v) (0) ->
     DEX_METHOD.valid_reg m r ->
@@ -197,7 +197,7 @@
 
   | ifz_step_continue : forall h m pc pc' l v cmp r o,
     
-    instructionAt m pc = Some (Ifz cmp r o) ->
+    instructionAt m pc = Some (DEX_Ifz cmp r o) ->
     Some (Num (I v)) = DEX_Registers.get l r ->
     ~SemCompInt cmp (Int.toZ v) (0) ->
     next m pc = Some pc' ->
@@ -207,7 +207,7 @@
    (** Load value from array *)
   | aget_step_ok : forall h m pc pc' l l' loc val i length t a k rt ra ri,
 
-    instructionAt m pc = Some (Aget k rt ra ri) ->
+    instructionAt m pc = Some (DEX_Aget k rt ra ri) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get l ra ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.LocationArray length t a) ->
@@ -226,7 +226,7 @@
   (** Store into array *)
   | aput_step_ok : forall h m pc pc' l loc val i length tp k a rs ra ri, 
 
-    instructionAt m pc = Some (Aput k rs ra ri) ->
+    instructionAt m pc = Some (DEX_Aput k rs ra ri) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get l ra ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.LocationArray length tp a) ->
@@ -246,7 +246,7 @@
   (** <addlink>iget</addlink>: Fetch field from object *)
   | iget_step_ok : forall h m pc pc' l l' loc f v cn k rt ro,
 
-    instructionAt m pc = Some (Iget k rt ro f) ->
+    instructionAt m pc = Some (DEX_Iget k rt ro f) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get l ro ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.LocationObject cn) -> 
@@ -261,7 +261,7 @@
   (** <addlink>iput</addlink>: Set field in object *)
   | iput_step_ok : forall h m pc pc' l f loc cn v k rs ro,
 
-    instructionAt m pc = Some (Iput k rs ro f) ->
+    instructionAt m pc = Some (DEX_Iput k rs ro f) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get l ro ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.LocationObject cn) -> 
@@ -283,7 +283,7 @@
   (** <addlink>ineg</addlink>: Negate [int] *)
   | ineg_step : forall h m pc l l' pc' rt rs v,
 
-    instructionAt m pc = Some (Ineg rt rs) ->
+    instructionAt m pc = Some (DEX_Ineg rt rs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get l rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -295,7 +295,7 @@
   (** <addlink>ineg</addlink>: Not [int] (one's complement) *)
   | inot_step : forall h m pc l l' pc' rt rs v,
 
-    instructionAt m pc = Some (Inot rt rs) ->
+    instructionAt m pc = Some (DEX_Inot rt rs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get l rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -307,7 +307,7 @@
   (** <addlink>i2b</addlink>: Convert [int] to [byte] *)
   | i2b_step_ok : forall h m pc pc' l l' rt rs v,
 
-    instructionAt m pc = Some (I2b rt rs) ->
+    instructionAt m pc = Some (DEX_I2b rt rs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get l rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -319,7 +319,7 @@
  (** <addlink>i2s</addlink>: Convert [int] to [short] *)
   | i2s_step_ok : forall h m pc pc' l l' rt rs v,
 
-    instructionAt m pc = Some (I2s rt rs) ->
+    instructionAt m pc = Some (DEX_I2s rt rs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get l rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -330,7 +330,7 @@
 
   | ibinop_step_ok : forall h m pc pc' l l' op rt ra rb va vb,
 
-    instructionAt m pc = Some (Ibinop op rt ra rb) ->
+    instructionAt m pc = Some (DEX_Ibinop op rt ra rb) ->
     next m pc = Some pc' ->
     (*(op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0) -> at this moment there is no exception*)
     Some (Num (I va)) = DEX_Registers.get l ra ->
@@ -344,7 +344,7 @@
 
   | ibinopconst_step_ok : forall h m pc pc' l l' op rt r va v,
 
-    instructionAt m pc = Some (IbinopConst op rt r v) ->
+    instructionAt m pc = Some (DEX_IbinopConst op rt r v) ->
     next m pc = Some pc' ->
     (*(op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0) -> at this moment there is no exception*)
     Some (Num (I va)) = DEX_Registers.get l r ->
@@ -479,7 +479,7 @@
   Inductive DEX_CallStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_InitCallState -> Prop :=
   | invokestatic : forall h m pc l mid M args bM n,
 
-    instructionAt m pc = Some (Invokestatic mid n args) ->
+    instructionAt m pc = Some (DEX_Invokestatic mid n args) ->
     findMethod p mid = Some M ->
     DEX_METHOD.isNative M = false ->
     length args = length (DEX_METHODSIGNATURE.parameters (snd mid)) ->
@@ -490,7 +490,7 @@
 
   | invokevirtual : forall h m pc l mid M args loc bM n,
 
-    instructionAt m pc = Some (Invokevirtual mid n args) ->
+    instructionAt m pc = Some (DEX_Invokevirtual mid n args) ->
     (*lookup p cn mid (pair cl M) ->*)
     findMethod p mid = Some M ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.LocationObject (fst mid)) ->
@@ -504,14 +504,14 @@
   Inductive DEX_ReturnStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
   | void_return : forall h m pc l,
 
-    instructionAt m pc = Some Return -> 
+    instructionAt m pc = Some DEX_Return -> 
     DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = None ->
 
     DEX_ReturnStep p m (pc, (h, l)) (h, Normal None)
 
   | vreturn : forall h m pc l val t k rs,
     (* Implicit in the assumption is that the register has a value in it *)
-    instructionAt m pc = Some (VReturn k rs) ->
+    instructionAt m pc = Some (DEX_VReturn k rs) ->
     DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = Some t ->
     assign_compatible p h val t ->
     compat_ValKind_value k val ->
