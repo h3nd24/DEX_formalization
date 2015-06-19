@@ -29,9 +29,9 @@ Module DEX_Make <: DEX_PROGRAM.
   Proof. exact nat_of_N_bij1. Qed. 
 
   Definition DEX_PC : Set := N.
-  Definition PC_eq := Neq. 
-  Definition PC_eq_spec := Neq_spec.
-  Lemma PC_eq_dec : eq_dec DEX_PC.
+  Definition DEX_PC_eq := Neq. 
+  Definition DEX_PC_eq_spec := Neq_spec.
+  Lemma DEX_PC_eq_dec : eq_dec DEX_PC.
   Proof. exact Reg_eq_dec. 
     (*intros x1 x2;assert (UU:= Neq_spec x1 x2);destruct (Neq x1 x2);auto.*)
   Qed.
@@ -268,79 +268,41 @@ Module DEX_Make <: DEX_PROGRAM.
     | DEX_Aval
     | DEX_Ival.
 
-(*  Inductive Instruction : Set :=
-   | Aconst_null
-   | Arraylength 
-   | Athrow
-   | Checkcast (t:refType)
-   | Const (t:primitiveType) (z:Z)
-   | Dup
-   | Dup_x1
-   | Dup_x2
-   | Dup2
-   | Dup2_x1
-   | Dup2_x2
-   | Getfield (f:FieldSignature)
-(*   | Getstatic  (f:FieldSignature) *)
-   | Goto (o:OFFSET.t)
-   | I2b
-   | I2s
-   | Ibinop (op:BinopInt)
-   | If_acmp (cmp:CompRef) (o:OFFSET.t)
-   | If_icmp (cmp:CompInt) (o:OFFSET.t) 
-   | If0 (cmp:CompInt) (o:OFFSET.t)
-   | Ifnull (cmp:CompRef) (o:OFFSET.t)
-   | Iinc (x:Var) (z:Z)
-   | Ineg 
-   | Instanceof (t:refType) 
-   | Invokeinterface (m:MethodSignature)
-   | Invokespecial (m:MethodSignature)
-   | Invokestatic (m:MethodSignature)
-   | Invokevirtual (m:MethodSignature)
-   | Lookupswitch (def:OFFSET.t) (l:list (Z*OFFSET.t)) 
-   | New (c:ClassName)
-   | Newarray (t:type)
-   | Nop
-   | Pop
-   | Pop2
-   | Putfield (f:FieldSignature)
-(*   | Putstatic (f:FieldSignature) *)
-   | Return
-   | Swap 
-   | Tableswitch (def:OFFSET.t) (low high:Z) (l:list OFFSET.t)
-   | Vaload (k:ArrayKind) 
-   | Vastore (k:ArrayKind)
-   | Vload (k:ValKind) (x:Var)
-   | Vreturn (k:ValKind)
-   | Vstore (k:ValKind) (x:Var).*)
-
   Inductive DEX_Instruction : Set :=
    | DEX_Nop
    | DEX_Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
+(* DEX Method
    | DEX_MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
+*)
    | DEX_Return
    | DEX_VReturn (k:DEX_ValKind) (rt:DEX_Reg)
    | DEX_Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
+(* DEX Objects
    | DEX_InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
    | DEX_ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
    | DEX_New (rt:DEX_Reg) (t:DEX_refType)
    | DEX_NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
+*)
    | DEX_Goto (o:DEX_OFFSET.t)
    | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
    | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
    | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
    | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
+(* DEX Objects
    | DEX_Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
    | DEX_Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
    | DEX_Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
    | DEX_Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+*)
 (*   | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
+(* DEX Method
    | DEX_Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+*)
    | DEX_Ineg (rt:DEX_Reg) (rs:DEX_Reg)
    | DEX_Inot (rt:DEX_Reg) (rs:DEX_Reg)
    | DEX_I2b (rt:DEX_Reg) (rs:DEX_Reg)
@@ -1115,47 +1077,47 @@ Module P <: DEX_PROGRAM := DEX_Make.
 
 Import P.
 
-Definition bc_empty := MapN.empty (DEX_Instruction*(option DEX_PC * list DEX_ClassName)).
+Definition DEX_bc_empty := MapN.empty (DEX_Instruction*(option DEX_PC * list DEX_ClassName)).
 
-Definition bc_single pc i :=  
-  MapN.update (DEX_Instruction*(option DEX_PC * list DEX_ClassName)) bc_empty pc (i,(None,nil)).
+Definition DEX_bc_single pc i :=  
+  MapN.update (DEX_Instruction*(option DEX_PC * list DEX_ClassName)) DEX_bc_empty pc (i,(None,nil)).
 
-Definition bc_cons pc i pc' bc :=
+Definition DEX_bc_cons pc i pc' bc :=
   MapN.update (DEX_Instruction*(option DEX_PC * list DEX_ClassName)) bc pc (i,(Some pc',nil)).
 
-Definition bc_cons' pc i pc' l bc :=
+Definition DEX_bc_cons' pc i pc' l bc :=
   MapN.update (DEX_Instruction*(option DEX_PC * list DEX_ClassName)) bc pc (i,(Some pc',l)).
 
 
 (* creation function for method map *)
 
-Definition ms_empty := DEX_MapShortMethSign.empty DEX_Method.
+Definition DEX_ms_empty := DEX_MapShortMethSign.empty DEX_Method.
 
-Definition ms_single ms := 
-  DEX_MapShortMethSign.update DEX_Method ms_empty (DEX_METHOD.signature ms) ms.
+Definition DEX_ms_single ms := 
+  DEX_MapShortMethSign.update DEX_Method DEX_ms_empty (DEX_METHOD.signature ms) ms.
 
-Definition ms_cons ms mms := 
+Definition DEX_ms_cons ms mms := 
   DEX_MapShortMethSign.update DEX_Method mms (DEX_METHOD.signature ms) ms.
 
 
 (* creation function for field map *)
 
-Definition mf_empty := DEX_MapField.empty.
+Definition DEX_mf_empty := DEX_MapField.empty.
 
-Definition mf_single mf := DEX_MapField.update mf_empty mf.
+Definition DEX_mf_single mf := DEX_MapField.update DEX_mf_empty mf.
 
-Definition mf_cons mf mmf := DEX_MapField.update mmf mf.
+Definition DEX_mf_cons mf mmf := DEX_MapField.update mmf mf.
 
 
 (* creation function for class map *)
  
-Definition mc_empty := DEX_PROG.DEX_MapClass.empty.
+Definition DEX_mc_empty := DEX_PROG.DEX_MapClass.empty.
 
-Definition mc_cons c mc := DEX_PROG.DEX_MapClass.update mc c.
+Definition DEX_mc_cons c mc := DEX_PROG.DEX_MapClass.update mc c.
 
-Definition mi_empty := DEX_PROG.DEX_MapInterface.empty.
+Definition DEX_mi_empty := DEX_PROG.DEX_MapInterface.empty.
 
-Definition mi_cons c mc := DEX_PROG.DEX_MapInterface.update mc c.
+Definition DEX_mi_cons c mc := DEX_PROG.DEX_MapInterface.update mc c.
 
 Module DEX_MapClassName <: MAP with Definition key := DEX_ClassName := Map2P.
 

@@ -381,30 +381,38 @@ Module Type DEX_PROGRAM.
   Inductive DEX_Instruction : Set :=
    | DEX_Nop
    | DEX_Move (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg)
+(* DEX Method
    | DEX_MoveResult (k:DEX_ValKind) (rt:DEX_Reg)
+*)
    | DEX_Return
    | DEX_VReturn (k:DEX_ValKind) (rt:DEX_Reg)
    | DEX_Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
+(* DEX Objects
    | DEX_InstanceOf (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType)
    | DEX_ArrayLength (rt:DEX_Reg) (rs:DEX_Reg)
    | DEX_New (rt:DEX_Reg) (t:DEX_refType)
    | DEX_NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
+*)
    | DEX_Goto (o:DEX_OFFSET.t)
    | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
    | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
    | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
    | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
+(* DEX Objects
    | DEX_Aget (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
    | DEX_Aput (k:DEX_ArrayKind) (rs:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg)
    | DEX_Iget (k:DEX_ValKind) (rt:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
    | DEX_Iput (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature)
+*)
 (*   | Sget (k:ValKind) (rt:Var) (f:FieldSignature)
    | Sput (k:ValKind) (rs:Var) (f:FieldSignature) *)
+(* DEX Method
    | DEX_Invokevirtual (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokesuper (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokedirect (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokestatic (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
    | DEX_Invokeinterface (m:DEX_MethodSignature) (n:Z) (p:list DEX_Reg)
+*)
    | DEX_Ineg (rt:DEX_Reg) (rs:DEX_Reg)
    | DEX_Inot (rt:DEX_Reg) (rs:DEX_Reg)
    | DEX_I2b (rt:DEX_Reg) (rs:DEX_Reg)
@@ -785,9 +793,9 @@ Module Type DEX_PROGRAM.
 
 
   (** Extra tools for implementation *)
-  Parameter PC_eq : DEX_PC -> DEX_PC -> bool.
-  Parameter PC_eq_spec : forall p q:DEX_PC, if PC_eq p q then p=q else p<>q.
-  Parameter PC_eq_dec : forall pc1 pc2:DEX_PC, pc1=pc2 \/ ~pc1=pc2.
+  Parameter DEX_PC_eq : DEX_PC -> DEX_PC -> bool.
+  Parameter DEX_PC_eq_spec : forall p q:DEX_PC, if DEX_PC_eq p q then p=q else p<>q.
+  Parameter DEX_PC_eq_dec : forall pc1 pc2:DEX_PC, pc1=pc2 \/ ~pc1=pc2.
   
   Parameter Reg_eq_dec : forall x1 x2:DEX_Reg, x1=x2 \/ ~x1=x2. 
   Parameter ClassName_eq_dec : forall c1 c2:DEX_ClassName, c1=c2 \/ ~c1=c2.

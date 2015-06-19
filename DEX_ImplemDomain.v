@@ -947,7 +947,7 @@ Module DEX_Heap <: DEX_HEAP.
      generalize (check_compat_correct h am); destruct (check_compat h am); simpl; intros.
      destruct H; simpl.
      auto.
-     destruct (PC_eq_dec loc0 loc); subst.
+     destruct (DEX_PC_eq_dec loc0 loc); subst.
      unfold typeof in H.
      rewrite DEX_LocMap.get_modify1; auto.
      unfold DEX_LocMap.get in H.
@@ -960,7 +960,7 @@ Module DEX_Heap <: DEX_HEAP.
      
      rewrite DEX_LocMap.get_modify2; auto.
 
-     destruct (PC_eq_dec loc0 loc); subst.
+     destruct (DEX_PC_eq_dec loc0 loc); subst.
      rewrite DEX_LocMap.get_modify1; auto.
      unfold typeof in *.
      destruct (DEX_LocMap.get DEX_Object.t (objects h) loc); try reflexivity.
@@ -1059,7 +1059,7 @@ Module DEX_Heap <: DEX_HEAP.
      destruct 1; destruct am2; simpl; intros; auto.
      rewrite DEX_MapFieldSignature.get_update2; auto; congruence.
 
-     destruct (PC_eq_dec loc d); subst.
+     destruct (DEX_PC_eq_dec loc d); subst.
      rewrite DEX_LocMap.get_modify1; auto.
      unfold typeof,DEX_LocMap.get in *.
      destruct (BinNatMap_Base.get DEX_Object.t (objects h) d); simpl in *.
@@ -1068,7 +1068,7 @@ Module DEX_Heap <: DEX_HEAP.
      auto.
      rewrite DEX_LocMap.get_modify2; auto.
 
-     destruct (PC_eq_dec loc d); subst.
+     destruct (DEX_PC_eq_dec loc d); subst.
      unfold typeof in H1.
      caseeq (DEX_LocMap.get _ (objects h) d); intros; simpl; auto.
      rewrite H2 in H1; inversion H1.

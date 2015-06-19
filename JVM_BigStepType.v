@@ -62,6 +62,7 @@ Module Type JVM_BIGSTEP.
       (forall m s s' , JVM_exec_intra p m s s' -> 
          forall r, JVM_IntraStepStar p m s' r -> P m s' r ->
          P m s r) ->
+(* DEX Method
       (forall m s s' ret m' r, 
          JVM_exec_call p m s ret m' s' (inr _ r) ->
          JVM_IntraStepStar p m' s' (inr _ ret) ->
@@ -72,6 +73,7 @@ Module Type JVM_BIGSTEP.
          JVM_IntraStepStar p m' s' (inr _ ret) -> P m' s' (inr _ ret) ->
          JVM_IntraStepStar p m s'' r -> P m s'' r ->
          P m s r) ->
+*)
    forall m s r, JVM_IntraStepStar p m s r -> P m s r.
 
   Parameter IntraStepStar_intra_ind : 
@@ -81,11 +83,13 @@ Module Type JVM_BIGSTEP.
       (forall m s s', JVM_exec_intra p m s s' -> 
          forall s'', JVM_IntraStepStar_intra p m s' s'' -> P m s' s'' ->
          P m s s'') ->
+(* DEX Method
       (forall m s s1 ret m' s2 s3, 
          JVM_exec_call p m s ret m' s1 (inl _ s2) ->
          JVM_BigStep p m' s1 ret -> 
          JVM_IntraStepStar_intra p m s2 s3 -> P m s2 s3 ->
          P m s s3) ->
+*)
    forall m s s', JVM_IntraStepStar_intra p m s s' -> P m s s'.
   
   Parameter BigStep_ind : 
@@ -95,6 +99,7 @@ Module Type JVM_BIGSTEP.
       (forall m s s' , JVM_exec_intra p m s s' -> 
          forall r, JVM_BigStep p m s' r -> P m s' r ->
          P m s r) ->
+(* DEX Method
       (forall m s s' ret m' r, 
          JVM_exec_call p m s ret m' s' (inr _ r) ->
          JVM_BigStep p m' s' ret ->
@@ -105,6 +110,7 @@ Module Type JVM_BIGSTEP.
          JVM_BigStep p m' s' ret -> P m' s' ret ->
          JVM_BigStep p m s'' r -> P m s'' r ->
          P m s r) ->
+*)
    forall m s r, JVM_BigStep p m s r -> P m s r.
 
   Parameter ReachableStar_ind : 
@@ -115,6 +121,7 @@ Module Type JVM_BIGSTEP.
          forall m' s'', ClosReflTrans (JVM_ReachableStep p) (m,s') (m',s'') -> 
          P (m,s') (m',s'') ->
          P (m,s) (m',s'')) ->
+(* DEX Method
       (forall m s s1 ret m' s2, 
          JVM_exec_call p m s ret m' s1 (inl _ s2) ->
          JVM_BigStep p m' s1 ret -> 
@@ -131,6 +138,7 @@ Module Type JVM_BIGSTEP.
        P (m', (JVM_BYTECODEMETHOD.firstAddress bm',(h,JVM_OperandStack.empty,l')))
          (m'',s'') ->
        P (m, (pc,(h,os,l))) (m'',s'')) ->
+*)
    forall ms ms', 
       ClosReflTrans (JVM_ReachableStep p) ms ms' -> P ms ms'.
 

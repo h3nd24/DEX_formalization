@@ -1,4 +1,5 @@
 Require Export LoadBicolano.
+Require Export EquivDec.
 
 Import JVM_Dom.JVM_Prog DEX_Dom.DEX_Prog.
 
@@ -12,7 +13,6 @@ Module Type DX_TRANSLATOR_TYPE.
   Parameter TSMap : Type.
   Parameter BPMap : Type.
   Parameter bm : JVM_BytecodeMethod.
-  Parameter r0 : DEX_Reg.
   (* Parameter translate : JVM_Program -> DEX_Program. *)
   
   (* We zoom in on bytecode translation *)
@@ -20,14 +20,16 @@ Module Type DX_TRANSLATOR_TYPE.
   Parameter start_block : (BlockMap * SBMap).
   Parameter trace_parent_child : (BlockMap * SBMap) -> (BlockMap * (BPMap * (TSMap * Block))).
   Parameter translate_instructions : (BlockMap * (BPMap * (TSMap * Block))) -> (BlockMap * Block).
-  Parameter pick_order : (BlockMap * Block) -> (BlockMap * Block).
-  Parameter consolidate_blocks : (BlockMap * Block) -> DEX_BytecodeMethod.
+  Parameter pick_order : (BlockMap * Block) -> (list JVM_PC * (BlockMap * Block)).
+  Parameter consolidate_blocks : (list JVM_PC * (BlockMap * Block)) -> list (DEX_Instruction*(DEX_PC*DEX_PC)).
+  Parameter construct_bytecodemethod : list (DEX_Instruction*(DEX_PC*DEX_PC))
+                                       -> MapPC.t (DEX_Instruction*(option DEX_PC * list DEX_ClassName))
+                                       -> DEX_BytecodeMethod.
 
 End DX_TRANSLATOR_TYPE.
 
 Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
   Parameter bm : JVM_BytecodeMethod.
-  Parameter r0 : DEX_Reg.
   Fixpoint create_insnList_rec (bm:JVM_BytecodeMethod) 
    (ls:list (JVM_PC*(JVM_Instruction*(option JVM_PC*list JVM_ClassName))))
    (l:list (JVM_PC*(option JVM_PC*JVM_Instruction))) 
@@ -51,18 +53,19 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
       succs : list JVM_PC;
       pSucc : option JVM_PC;
       order : option nat;
-      dex_instructions : list DEX_Instruction
+      dex_instructions : list DEX_Instruction;
+      dex_label : option DEX_PC
     }.
     Definition empty : t :=
-      mkBlock (nil) (nil) (nil) (None) (None) (nil).
+      mkBlock (nil) (nil) (nil) (None) (None) (nil) (None).
 
     Definition append_source_instructions (source:t) (l:list JVM_Instruction) : t :=
-      mkBlock (l++source.(jvm_instructions)) (source.(parents)) 
-        (source.(succs)) (source.(pSucc)) (source.(order)) (source.(dex_instructions)).
+      mkBlock (l++source.(jvm_instructions)) (source.(parents)) (source.(succs)) 
+        (source.(pSucc)) (source.(order)) (source.(dex_instructions)) (source.(dex_label)).
 
     Definition append_dex_instructions (source:t) (l:list DEX_Instruction) : t :=
-      mkBlock (source.(jvm_instructions)) (source.(parents)) 
-        (source.(succs)) (source.(pSucc)) (source.(order)) (l++source.(dex_instructions)).
+      mkBlock (source.(jvm_instructions)) (source.(parents)) (source.(succs)) 
+        (source.(pSucc)) (source.(order)) (l++source.(dex_instructions)) (source.(dex_label)).
 
    Lemma PC_eq_dec : forall x y : JVM_PC, {x=y} + {x<>y}.
    Proof.
@@ -80,21 +83,25 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
 
     Definition append_parents (source:t) (l:list JVM_PC) : t :=
       let newParents := append_no_duplicate (l) (source.(parents)) in
-      mkBlock (source.(jvm_instructions)) (newParents) 
-        (source.(succs)) (source.(pSucc)) (source.(order)) (source.(dex_instructions)).
+      mkBlock (source.(jvm_instructions)) (newParents) (source.(succs)) 
+        (source.(pSucc)) (source.(order)) (source.(dex_instructions)) (source.(dex_label)).
 
     Definition append_succs (source:t) (l:list JVM_PC) : t :=
       let newSuccs := append_no_duplicate (l) (source.(succs)) in
-      mkBlock (source.(jvm_instructions)) (source.(parents)) 
-        (newSuccs) (source.(pSucc)) (source.(order)) (source.(dex_instructions)).
+      mkBlock (source.(jvm_instructions)) (source.(parents)) (newSuccs) 
+        (source.(pSucc)) (source.(order)) (source.(dex_instructions)) (source.(dex_label)).
 
     Definition update_pSucc (source:t) (pSucc:JVM_PC) : t :=
-      mkBlock (source.(jvm_instructions)) (source.(parents)) 
-        (source.(succs)) (Some pSucc) (source.(order)) (source.(dex_instructions)).
+      mkBlock (source.(jvm_instructions)) (source.(parents)) (source.(succs)) 
+        (Some pSucc) (source.(order)) (source.(dex_instructions)) (source.(dex_label)).
 
     Definition update_order (source:t) (newOrder:nat) : t :=
-      mkBlock (source.(jvm_instructions)) (source.(parents)) 
-        (source.(succs)) (source.(pSucc)) (Some newOrder) (source.(dex_instructions)).
+      mkBlock (source.(jvm_instructions)) (source.(parents)) (source.(succs)) 
+        (source.(pSucc)) (Some newOrder) (source.(dex_instructions)) (source.(dex_label)).
+
+    Definition update_dex_label (source:t) (newLabel:DEX_PC) : t :=
+      mkBlock (source.(jvm_instructions)) (source.(parents)) (source.(succs)) 
+        (source.(pSucc)) (source.(order)) (source.(dex_instructions)) (Some newLabel).
 
    (* 2's complement of -2 *)
    Definition retLabel := Npos (xI (xO (xI (xI (xI (xI (xI (xI 
@@ -217,8 +224,10 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
         | JVM_Vreturn _ => start_block_rec (t) (start_block_false (pc') (maps))
         | JVM_Vstore _ _ => start_block_rec (t) (start_block_false (pc') (maps))
 
+(*
         | _ => start_block_rec (t) (start_block_false (pc') (maps)) (* Default for 
           not yet implemented instructions *)
+*)
       end
     end.
 
@@ -313,7 +322,7 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
           | JVM_Vload _ _ => (n+1)%nat
           | JVM_Vreturn _ => (n-1)%nat
           | JVM_Vstore _ _ => (n-1)%nat
-          | _ => (n)%nat
+(*          | _ => (n)%nat *)
         end
     end.
 
@@ -381,8 +390,8 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
              (m) (bp) (ts) (ret))
         | JVM_Vstore _ _ => parse_insn_rec (t) (sb) (one_step_instructions (pc) (pc') (sb) 
              (m) (bp) (ts) (ret) (tsValue))
-        | _ => parse_insn_rec (t) (sb) (maps) (* Default for 
-          not yet implemented instructions *)
+(*        | _ => parse_insn_rec (t) (sb) (maps) (* Default for 
+          not yet implemented instructions *) *)
       end
     end.
 
@@ -397,9 +406,9 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
       | nil => BLOCK.empty (* impossible case *)
       | (pc, (pc',ins)) :: t => 
       match ins with
-        | JVM_Return => BLOCK.mkBlock (nil) (nil) (nil) (None) (None) (DEX_Return::nil)
+        | JVM_Return => BLOCK.mkBlock (nil) (nil) (nil) (None) (None) (DEX_Return::nil) (None)
         | JVM_Vreturn k => BLOCK.mkBlock (nil) (nil) (nil) (None) (None) 
-                           (DEX_VReturn (translate_valKind (k)) (r0) ::nil)
+                           (DEX_VReturn (translate_valKind (k)) (0)%N ::nil) (None) 
         | _ => create_retBlock t
       end
     end.
@@ -561,9 +570,9 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
         | JVM_Vstore k l0 => let newM := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (translate_move_type (k)) (l0) (N_toReg (tsValue-1)))::nil) in
           translate_instructions_rec (t) (m) (bp) (ts) (ret)
-
+(* 
         | _ => translate_instructions_rec (t) (m) (bp) (ts) (ret) (* Default for 
-          not yet implemented instructions *)
+          not yet implemented instructions *) *)
       end
     end.
 
@@ -574,15 +583,253 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
      let ret := snd (snd (snd arg)) in
      translate_instructions_rec (insnList) (m) (bp) (ts) (ret).
 
-  Definition pick_order (arg:BlockMap * Block) : (BlockMap * Block)
-  := (MapN.empty Block, BLOCK.empty).
+   Lemma Label_eq_dec : forall x y : JVM_PC, {x=y} + {x<>y}.
+   Proof.
+    repeat decide equality.
+   Qed.
 
-  Definition consolidate_blocks (arg:BlockMap * Block) : DEX_BytecodeMethod 
-  := DEX_BYTECODEMETHOD.Build_t (1)%N 
-     (MapN.empty (DEX_Instruction*(option DEX_PC * list DEX_ClassName))) 
-     (1) (1) (1).
+  Definition beq_order (x y:option nat) : bool :=
+    match x with
+      | None => match y with None => true | _ => false end
+      | Some v => match y with Some v => true | _ => false end
+    end.
+
+  Definition beq_pc (x y:option JVM_PC) : bool:=
+    match x with
+      | None => match y with None => true | _ => false end
+      | Some v => match y with Some v => true | _ => false end
+    end.
+
+  Fixpoint find_parent (x:JVM_PC) (parents:list JVM_PC) (loop:list JVM_PC) 
+    (m:BlockMap) : (JVM_PC * bool) :=
+  match parents with
+    | nil => (x, false)
+    | h :: t =>
+        let parentBlock := MapPC.get _ m h in
+        if in_dec (Label_eq_dec) (h) (loop) then
+          (x, false)
+        else 
+          if (beq_order (BLOCK.order (opval parentBlock BLOCK.empty)) None) &&
+             (beq_pc (BLOCK.pSucc (opval parentBlock BLOCK.empty)) (Some x)) 
+          then
+              (h, true)
+          else
+            find_parent (x) (t) (loop) (m)
+  end.
+
+
+  Fixpoint pick_starting_point (x:JVM_PC) (loop:list JVM_PC) (m:BlockMap) (bound:nat) 
+    {struct bound} : JVM_PC :=
+  match bound with
+    | O => x
+    | S n => 
+        let cb := MapPC.get _ m x in
+        let (y, b) := find_parent (x) (BLOCK.parents (opval cb BLOCK.empty)) (loop) (m) in
+        if b then
+          pick_starting_point (y) (y::loop) (m) (n)
+        else
+          x
+  end.
+
+  Fixpoint find_available_successor (x:JVM_PC) (succs:list JVM_PC) (m:BlockMap) (ret:Block) 
+    : (JVM_PC * bool) :=
+  match succs with
+    | nil => (x, false)
+    | h :: t =>
+          let isSuccRet := beq_pc (Some h) (Some BLOCK.retLabel) in
+          let succ := if isSuccRet then ret else (opval (MapPC.get _ m h) BLOCK.empty) in
+          if beq_order (BLOCK.order succ) (None) then
+             (h, true)
+          else
+             find_available_successor (x) (t) (m) (ret) 
+  end.
+
+  Definition find_successor (x:JVM_PC) (xb:Block) (succs:list JVM_PC) (m:BlockMap) (ret:Block) : (JVM_PC * bool) :=
+    let pSuccLabel := (BLOCK.pSucc xb) in
+    if beq_pc (pSuccLabel) (None) then
+      find_available_successor (x) (succs) (m) (ret)
+    else
+      let pSuccBlock := if beq_pc pSuccLabel (Some BLOCK.retLabel) then
+                           ret else opval (MapPC.get _ m (opval pSuccLabel (0)%N)) (BLOCK.empty) in
+      if beq_order (BLOCK.order pSuccBlock) None then
+         ((opval pSuccLabel (0)%N), true)
+      else 
+         find_available_successor (x) (succs) (m) (ret).
+    
+  Fixpoint trace_successors (x:JVM_PC) (order:nat) (m:BlockMap) (ret:Block) 
+    (sortedPC:list JVM_PC) (bound:nat) : (nat * (list JVM_PC * (BlockMap * Block))) :=
+  match bound with
+    | O => (order, (sortedPC, (m, ret)))
+    | S n =>
+        let isReturn := beq_pc (Some x) (Some BLOCK.retLabel) in
+        let b := if isReturn then ret else opval (MapPC.get _ m x) (BLOCK.empty) in
+        let newM := if isReturn then m else MapPC.update _ m x (BLOCK.update_order b order) in
+        let newRet := if isReturn then BLOCK.update_order ret order else ret in
+        let newSortedPC := x :: sortedPC in
+        let (lbl, found) := find_successor (x) (b) (BLOCK.succs b) (m) (ret) in
+          if found then 
+            trace_successors (x) (S order) (newM) (newRet) (newSortedPC) (n)
+          else (S order, (newSortedPC, (newM, newRet)))
+  end.
+ 
+  Fixpoint pick_order_rec (l:list JVM_PC) (order:nat) (arg:BlockMap * Block) 
+      (sortedPC:list JVM_PC) : (list JVM_PC * (BlockMap * Block)):=
+    match l with
+      | nil => (sortedPC, arg)
+      | h :: t => 
+          let source := pick_starting_point (h) (h::nil) (fst arg) (length l) in
+          let (newOrder, newSnd) := trace_successors (source) (order) (fst arg) (snd arg) (sortedPC) (length l) in
+          let (newSortedPC, newSnd') := newSnd in
+          let (newM, newRet) := newSnd' in
+            pick_order_rec (t) (newOrder) (newM, newRet) (newSortedPC)
+    end.
+
+(* the correct behavior is when the list is sorted, at the moment
+   I don't see how sorted-ness will affect the proof. The crucial 
+   part where it should start with block 0 is assumed with all the
+   previous step, and further enforced by adding the first address 
+   to the head of the list *)
+  Definition pick_order (arg:BlockMap * Block) : (list JVM_PC * (BlockMap * Block))
+  := 
+     (*let block0 := MapPC.get _ (fst arg) (BYTECODEMETHOD.firstAddress bm) in
+     let newM := MapPC.update _ (fst arg) (BYTECODEMETHOD.firstAddress bm) 
+         (Block.updateOrder (block0) (Some 0)) in*)
+     pick_order_rec ((JVM_BYTECODEMETHOD.firstAddress bm)::MapPC.dom _ (fst arg)) (0%nat) (arg) (nil).
+   
+  Definition opposite_cmp (cmp:DEX_CompInt) : DEX_CompInt :=
+    match cmp with
+      | DEX_EqInt => DEX_NeInt
+      | DEX_NeInt => DEX_EqInt
+      | DEX_LtInt => DEX_GeInt
+      | DEX_LeInt => DEX_GtInt
+      | DEX_GtInt => DEX_LeInt
+      | DEX_GeInt => DEX_LtInt
+    end.
+
+  Fixpoint add_instructions (lst:list DEX_Instruction) (succs:list DEX_PC) (pSucc:DEX_PC)
+  (dex_label:DEX_PC) (needsGoto : bool) (output : list (DEX_PC * DEX_Instruction))
+  : list (DEX_PC * DEX_Instruction) :=
+    match lst with
+      | nil => 
+        let gotoIns := if needsGoto then nil else 
+            (dex_label,
+            DEX_Goto (Z_of_N (pSucc)))::nil in
+          output ++ gotoIns
+      | h :: nil =>
+             if needsGoto then  
+                match h with 
+                  | DEX_Ifcmp cmp ra rb o => 
+                      match succs with
+                        | s :: pSucc :: t =>
+                           output ++ (dex_label, DEX_Ifcmp (opposite_cmp cmp) ra rb o)::nil
+                        | _ => let lastIns := (dex_label, h)::
+                           ((dex_label + 1)%N,
+                           DEX_Goto (Z_of_N (pSucc)))::nil in
+                              output ++ lastIns
+                      end
+                  | DEX_Ifz cmp r o =>
+                       match succs with
+                        | s :: pSucc :: t =>
+                           output ++ (dex_label, DEX_Ifz (opposite_cmp cmp) r o)::nil
+                        | _ => let lastIns := (dex_label, h)::
+                           ((dex_label + 1)%N,
+                           DEX_Goto (Z_of_N (pSucc)))::nil in
+                              output ++ lastIns
+                       end
+                  | _ => (output ++ (dex_label, h) :: nil)
+                end 
+             else (output ++ (dex_label, h) :: nil)
+      | h :: t => add_instructions (t) (succs) (pSucc) (dex_label + 1)%N (needsGoto) (output ++ (dex_label, h) :: nil)
+    end.
   
-  Definition bytecode_translate : DEX_BytecodeMethod :=
-    consolidate_blocks (pick_order (translate_instructions (trace_parent_child (start_block)))).
+  Fixpoint output_blocks (lst : list JVM_PC) (m:BlockMap) (ret:Block) (dex_label:DEX_PC) 
+    (output:list (DEX_PC*DEX_Instruction))
+  : (list (DEX_PC*DEX_Instruction) * (BlockMap * Block)) :=
+    match lst with
+      | nil => (output, (m, ret)) 
+      | h :: t =>
+          let isReturn := beq_pc (Some h) (Some BLOCK.retLabel) in
+          let cb := if isReturn then ret else 
+                      opval (MapPC.get _ m h) BLOCK.empty in
+          let needsGoto := match (BLOCK.pSucc cb) with
+                             | None => false
+                             | Some x => 
+                             match t with 
+                               | x :: t' => false
+                               | _ => true
+                             end
+                           end in
+          let currentContent := add_instructions (BLOCK.dex_instructions cb) 
+                                (BLOCK.succs cb) (opval (BLOCK.pSucc cb) (0)%N) 
+                                (dex_label) (needsGoto) (nil) in
+          let newOutput := output ++ currentContent in
+          let newBlock := BLOCK.update_dex_label cb dex_label in
+          let newRet := if isReturn then newBlock else ret in
+          let newM := if isReturn then m else
+                        MapPC.update _ m h (newBlock) in
+            output_blocks (t) (newM) (newRet) 
+             (Nplus (dex_label) (N_of_nat (length currentContent))) 
+             (newOutput)
+    end.
+(* TODO fix into pair *)
+  Fixpoint fix_target (lst : list (DEX_PC*DEX_Instruction))
+  (m:BlockMap) (ret:Block) (result:list (DEX_Instruction*(DEX_PC*DEX_PC))) 
+  : (list (DEX_Instruction*(DEX_PC*DEX_PC))) :=
+    match lst with 
+      | nil => result
+      | (pc,ins) :: t => 
+        match ins with 
+          | DEX_Goto o => 
+                let isReturn := beq_pc (Some pc) (Some BLOCK.retLabel) in
+                let succBlock := if isReturn then ret else
+                                   (opval (MapPC.get _ m (N_of_Z o)) BLOCK.empty) in
+                let succLabel := opval (BLOCK.dex_label succBlock) (0)%N in
+                let newIns := DEX_Goto (Z_of_N (succLabel) - Z_of_N (pc))%Z in
+                  fix_target (t) (m) (ret) ((newIns,(pc,succLabel))::result)
+          | DEX_Ifcmp cmp ra rb o => 
+                let isReturn := beq_pc (Some pc) (Some BLOCK.retLabel) in
+                let succBlock := if isReturn then ret else
+                                   (opval (MapPC.get _ m (N_of_Z o)) BLOCK.empty) in
+                let succLabel := opval (BLOCK.dex_label succBlock) (0)%N in
+                let newIns := DEX_Ifcmp cmp ra rb (Z_of_N (succLabel) - Z_of_N (pc))%Z in
+                  fix_target (t) (m) (ret) ((newIns,(pc,(pc+1)%N))::result)
+          | DEX_Ifz cmp r o => 
+                let isReturn := beq_pc (Some pc) (Some BLOCK.retLabel) in
+                let succBlock := if isReturn then ret else
+                                   (opval (MapPC.get _ m (N_of_Z o)) BLOCK.empty) in
+                let succLabel := opval (BLOCK.dex_label succBlock) (0)%N in
+                let newIns := DEX_Ifz cmp r (Z_of_N (succLabel) - Z_of_N (pc))%Z in
+                  fix_target (t) (m) (ret) ((newIns,(pc,(pc+1)%N))::result)
+          | _ => fix_target (t) (m) (ret) ((ins,(pc, (pc+1)%N))::result)
+        end
+    end.
 
+  Definition consolidate_blocks (arg:list JVM_PC * (BlockMap * Block)) 
+  : list (DEX_Instruction*(DEX_PC*DEX_PC)) := 
+    let lst := fst arg in
+    let m := fst (snd arg) in
+    let ret := snd (snd arg) in
+    let (insnList, sndRet) :=  output_blocks (lst) (m) (ret) (0)%N (nil) in
+    let (newM, newRet) := sndRet in
+      fix_target (insnList) (newM) (newRet) (nil).
+
+
+  Fixpoint construct_bytecodemethod (lst:list (DEX_Instruction*(DEX_PC*DEX_PC)) ) 
+  (bc:MapPC.t (DEX_Instruction*(option DEX_PC * list DEX_ClassName))) 
+  : DEX_BytecodeMethod :=
+    match lst with
+      | nil => DEX_BYTECODEMETHOD.Build_t (1)%N (bc) (1) (1) (1)   
+      | (ins, (pc, pc')) :: t => 
+             construct_bytecodemethod (t) (DEX_bc_cons (pc) ins (pc') bc)
+    end.
+
+  Definition bytecode_translate : DEX_BytecodeMethod :=
+    construct_bytecodemethod 
+      (consolidate_blocks (pick_order (translate_instructions 
+      (trace_parent_child (start_block))))) (DEX_bc_empty).
+
+  Section Translate_se.
+    Parameter Translate_PC : JVM_PC -> DEX_PC.
+  End Translate_se.
+ 
 End DX_TRANSLATOR.

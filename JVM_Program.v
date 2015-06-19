@@ -298,9 +298,11 @@ Module Type JVM_PROGRAM.
    *)
 
   Inductive JVM_Instruction : Set :=
+(* DEX Objects
    | JVM_Aconst_null
    | JVM_Arraylength 
-(*   | Athrow
+*)
+(* DEX Exception  | Athrow
    | Checkcast (t:JVM_refType) *)
    | JVM_Const (t:JVM_primitiveType) (z:Z)
    | JVM_Dup
@@ -309,35 +311,51 @@ Module Type JVM_PROGRAM.
    | JVM_Dup2
    | JVM_Dup2_x1
    | JVM_Dup2_x2
-   | JVM_Getfield (f:JVM_FieldSignature)
+
+(* DEX
+  | JVM_Getfield (f:JVM_FieldSignature)
+*)
    | JVM_Goto (o:JVM_OFFSET.t)
    | JVM_I2b
    | JVM_I2s
    | JVM_Ibinop (op:JVM_BinopInt)
+(* DEX 
    | JVM_If_acmp (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
+*)
    | JVM_If_icmp (cmp:JVM_CompInt) (o:JVM_OFFSET.t) 
    | JVM_If0 (cmp:JVM_CompInt) (o:JVM_OFFSET.t)
+
+(* DEX
    | JVM_Ifnull (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
+*)
    | JVM_Iinc (x:JVM_Var) (z:Z)
    | JVM_Ineg 
+(* DEX
    | JVM_Instanceof (t:JVM_refType) 
    | JVM_Invokeinterface (m:JVM_MethodSignature)
    | JVM_Invokespecial (m:JVM_MethodSignature)
    | JVM_Invokestatic (m:JVM_MethodSignature)
    | JVM_Invokevirtual (m:JVM_MethodSignature)
+*)
    | JVM_Lookupswitch (def:JVM_OFFSET.t) (l:list (Z*JVM_OFFSET.t)) 
 (*   | Multianewarray (t:refType) (d:Z) | New (cl:ClassName) *)
+(* DEX
    | JVM_New (c:JVM_ClassName)
    | JVM_Newarray (t:JVM_type)
+*)
    | JVM_Nop
    | JVM_Pop
    | JVM_Pop2
+(* DEX
    | JVM_Putfield (f:JVM_FieldSignature)
+*)
    | JVM_Return
    | JVM_Swap 
    | JVM_Tableswitch (def:JVM_OFFSET.t) (low high:Z) (l:list JVM_OFFSET.t)
+(* DEX
    | JVM_Vaload (k:JVM_ArrayKind) 
    | JVM_Vastore (k:JVM_ArrayKind)
+*)
    | JVM_Vload (k:JVM_ValKind) (x:JVM_Var)
    | JVM_Vreturn (k:JVM_ValKind)
    | JVM_Vstore (k:JVM_ValKind) (x:JVM_Var).
@@ -711,9 +729,9 @@ Module Type JVM_PROGRAM.
 
 
   (** Extra tools for implementation *)
-  Parameter PC_eq : JVM_PC -> JVM_PC -> bool.
-  Parameter PC_eq_spec : forall p q:JVM_PC, if PC_eq p q then p=q else p<>q.
-  Parameter PC_eq_dec : forall pc1 pc2:JVM_PC, pc1=pc2 \/ ~pc1=pc2.
+  Parameter JVM_PC_eq : JVM_PC -> JVM_PC -> bool.
+  Parameter JVM_PC_eq_spec : forall p q:JVM_PC, if JVM_PC_eq p q then p=q else p<>q.
+  Parameter JVM_PC_eq_dec : forall pc1 pc2:JVM_PC, pc1=pc2 \/ ~pc1=pc2.
   
   Parameter Var_eq_dec : forall x1 x2:JVM_Var, x1=x2 \/ ~x1=x2. 
   Parameter ClassName_eq_dec : forall c1 c2:JVM_ClassName, c1=c2 \/ ~c1=c2.

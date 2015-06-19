@@ -9,6 +9,7 @@
 
 
   Inductive JVM_NormalStep (p:JVM_Program) : JVM_Method -> JVM_IntraNormalState -> JVM_IntraNormalState  -> Prop :=
+(* DEX
   | aconst_null : forall h m pc pc' s l,
 
     instructionAt m pc = Some (JVM_Aconst_null) ->
@@ -23,6 +24,7 @@
     JVM_Heap.typeof  h loc = Some (JVM_Heap.LocationArray length tp a) ->
 
    JVM_NormalStep p m  (pc,(h,(Ref loc::s),l)) (pc',(h,(Num (I length)::s),l))
+*)
 (*
  | checkcast1 : forall h m pc pc' s l val t,
 
@@ -83,7 +85,7 @@
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::v3::v4::s),l)) (pc',(h,(v1::v2::v3::v4::v1::v2::s),l))
-
+(* DEX
   | getfield : forall h m pc pc' s l loc f v cn,
 
     instructionAt m pc = Some (JVM_Getfield f) ->
@@ -93,6 +95,7 @@
     JVM_Heap.get h (JVM_Heap.DynamicField loc f) = Some v ->    
 
    JVM_NormalStep p m (pc,(h,(Ref loc::s),l)) (pc',(h,(v::s),l))
+*)
 
   | goto : forall h m pc s l o,
 
@@ -123,6 +126,7 @@
    JVM_NormalStep p m (pc,(h,(Num (I i2)::Num (I i1)::s),l))
                           (pc',(h,(Num (I (SemBinopInt op i1 i2))::s),l))
 
+(* DEX
   | if_acmp_step_jump : forall h m pc s l val2 val1 o cmp,
       instructionAt m pc = Some (JVM_If_acmp cmp o) ->
       SemCompRef cmp val1 val2 ->
@@ -136,6 +140,7 @@
       ~ SemCompRef cmp val1 val2 ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(val2::val1::s),l)) (pc',(h,s,l))
+*)
 
   | if_icmp_step_jump : forall h m pc s l cmp i2 i1 o,
       instructionAt m pc = Some (JVM_If_icmp cmp o) ->
@@ -165,7 +170,7 @@
       ~ SemCompInt cmp (Int.toZ i) 0 ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(Num(I i)::s),l)) (pc',(h,s,l))
-
+(* DEX
   | ifnull_step_jump : forall h m pc s l loc o cmp,
       instructionAt m pc = Some (JVM_Ifnull cmp o) ->
       SemCompRef cmp loc Null ->
@@ -179,7 +184,7 @@
     ~ SemCompRef cmp loc Null ->
   (******************************************************************)
     JVM_NormalStep p m (pc,(h,(loc::s),l)) (pc',(h,s,l))
-
+*)
 
   | iinc_step : forall h m pc s l pc' x z i,
     instructionAt m pc = Some (JVM_Iinc x z) ->
@@ -198,6 +203,7 @@
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l)) (pc',(h,(Num (I (Int.neg i))::s),l))
 
+(* DEX
   | instanceof1 : forall h m pc pc' s l loc t,
 
     instructionAt m pc = Some (JVM_Instanceof t) ->
@@ -215,7 +221,7 @@
     (~ assign_compatible p h v (JVM_ReferenceType t) \/ v=Null) ->
 
    JVM_NormalStep p m (pc,(h,(v::s),l)) (pc',(h,(Num (I (Int.const 0))::s),l))
-
+*)
 
   | lookupswitch1 : forall h m pc s l def listkey i i' o',
 
@@ -232,7 +238,7 @@
     (forall i' o', List.In (pair i' o')listkey ->  i' <> Int.toZ i) ->
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l)) (JVM_OFFSET.jump pc def,(h,s,l))
-
+(* DEX
   | new : forall h m pc pc' s l c loc h',
 
     instructionAt m pc = Some (JVM_New c) ->
@@ -251,7 +257,7 @@
 
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l))
                             (pc',(h',(Ref loc::s),l))
-
+*)
   | nop : forall h m pc pc' s l,
 
     instructionAt m pc = Some JVM_Nop ->
@@ -272,7 +278,7 @@
     next m pc = Some pc' ->
 
    JVM_NormalStep p m (pc,(h,(v1::v2::s),l)) (pc',(h,s,l))
-
+(* DEX
   | putfield : forall h m pc pc' s l f loc cn v,
 
     instructionAt m pc = Some (JVM_Putfield f) ->
@@ -283,7 +289,7 @@
 
    JVM_NormalStep p m(pc,(h,(v::(Ref loc)::s),l))
                            (pc',(JVM_Heap.update h (JVM_Heap.DynamicField loc f) v,s,l))
-
+*)
   | swap : forall h m pc pc' s l v1 v2,
 
     instructionAt m pc = Some JVM_Swap ->
@@ -308,7 +314,7 @@
     nth_error list_offset n = Some o ->
    
    JVM_NormalStep p m (pc,(h,(Num (I i)::s),l)) (JVM_OFFSET.jump pc o,(h,s,l))
-
+(*
   | vaload : forall h m pc pc' s l loc val i length t k a,
 
     instructionAt m pc = Some (JVM_Vaload k) ->
@@ -336,7 +342,7 @@
     JVM_NormalStep p m
          (pc,(h,(val::(Num (I i))::(Ref loc)::s),l))
          (pc',(JVM_Heap.update h (JVM_Heap.ArrayElement loc (Int.toZ i)) (conv_for_array val t),s,l))
-
+*)
   | vload : forall h m pc pc' s l x val k,
 
     instructionAt m pc = Some (JVM_Vload k x) ->
@@ -358,7 +364,7 @@
    JVM_NormalStep p m  (pc,(h,(v::s),l)) (pc',(h,s,l'))
 .
 
-(* DEX
+(* DEX Exception
   Inductive JVMExceptionStep  (p:Program) : Method -> IntraNormalState -> ShortClassName -> Prop :=
   | arraylength_NullPointerException : forall h m pc s l,
 
@@ -458,10 +464,6 @@
 .
 
 
-
-
-
-
   Inductive ExceptionStep (p:Program) : Method -> IntraNormalState -> IntraExceptionState -> Prop :=
   | athrow : forall h m pc s l loc cn,
 
@@ -478,11 +480,7 @@
     ExceptionStep p m (pc,(h,s,l)) (h',loc).
 *)
 
-
-
-
-
-
+(* DEX Method
   Inductive JVM_CallStep (p:JVM_Program) : JVM_Method -> JVM_IntraNormalState -> JVM_InitCallState -> Prop :=
   | invokestatic : forall h m pc s l mid M args bM,
 
@@ -505,8 +503,7 @@
     JVM_METHOD.isStatic M = false ->
  
     JVM_CallStep p m (pc,(h,(args++(Ref loc)::s),l)) (M,(s,stack2localvar (args++(Ref loc)::s)  (1+(length args)))).
-
-
+*)
 
   Inductive JVM_ReturnStep (p:JVM_Program) : JVM_Method -> JVM_IntraNormalState -> JVM_ReturnState -> Prop :=
   | void_return : forall h m pc s l,
@@ -525,11 +522,7 @@
     JVM_ReturnStep p m (pc,(h,(val::s),l)) (h,Normal (Some val))
 .
 
-
-
-
-
-
+(* DEX Method
   Inductive JVM_call_and_return : 
     JVM_Method -> JVM_IntraNormalState -> JVM_InitCallState -> JVM_IntraNormalState -> JVM_ReturnState -> JVM_IntraNormalState -> Prop :=
   | call_and_return_void : forall m pc h s l m' l' bm' h'' s' pc',
@@ -552,11 +545,9 @@
                  (JVM_BYTECODEMETHOD.firstAddress bm',(h,JVM_OperandStack.empty,l'))
                  (h'', Normal (Some v)) 
                  (pc',(h'',v::s',l)).
+*)
 
-
-
-
-(* DEX
+(* DEX Exception
   Inductive call_and_return_exception : Method -> IntraNormalState -> InitCallState -> IntraNormalState -> ReturnState -> IntraExceptionState -> Prop :=
   | call_and_return_exception_def : forall m pc h s l m' l' bm' h'' s' loc,
       METHOD.body m' = Some bm' ->
@@ -572,7 +563,8 @@
   | exec_intra_normal : forall s1 s2,
      JVM_NormalStep p m s1 s2 ->
      JVM_exec_intra p m s1 s2
-(* DEX  | exec_exception : forall pc1 h1 h2 loc2 s1 l1 pc',
+(* DEX Exception
+  | exec_exception : forall pc1 h1 h2 loc2 s1 l1 pc',
    ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
    CaughtException p m (pc1,h2,loc2) pc' ->
    exec_intra p m (pc1,(h1,s1,l1)) (pc',(h2,Ref loc2::OperandStack.empty,l1))*).
@@ -581,11 +573,14 @@
   | exec_return_normal : forall s h ov,
      JVM_ReturnStep p m s (h,Normal ov) ->
      JVM_exec_return p m s (h,Normal ov)
-  (* DEX | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1,
+(* DEX Exception
+ | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1,
      ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
      UnCaughtException  p m (pc1,h2,loc2) ->
-     exec_return p m (pc1,(h1,s1,l1)) (h2,Exception loc2)*).
+     exec_return p m (pc1,(h1,s1,l1)) (h2,Exception loc2)
+*).
 
+(* Method
   Inductive JVM_exec_call (p:JVM_Program) (m:JVM_Method) :
    JVM_IntraNormalState -> JVM_ReturnState -> JVM_Method  -> JVM_IntraNormalState -> JVM_IntraNormalState+JVM_ReturnState -> Prop :=
  | exec_call_normal : forall m2 pc1 pc1' h1 s1 l1 os l2 h2 bm2 ov,
@@ -598,7 +593,7 @@
         m2
         (JVM_BYTECODEMETHOD.firstAddress bm2,(h1,JVM_OperandStack.empty,l2))
         (inl _ (pc1',(h2,cons_option ov os,l1)))
-(* DEX
+(* DEX Exception
  | exec_call_caught : forall m2 pc1 pc1' h1 s1 l1 os l2 h2 loc bm2,
      CallStep p m (pc1,(h1,s1,l1 )) (m2,(os,l2)) ->
      METHOD.body m2 = Some bm2 ->
@@ -619,6 +614,7 @@
        m2
        (BYTECODEMETHOD.firstAddress bm2,(h1,OperandStack.empty,l2))
        (inr _ (h2,Exception loc))*) .
+*)
 
  Inductive JVM_IntraStep (p:JVM_Program) : 
     JVM_Method -> JVM_IntraNormalState -> JVM_IntraNormalState + JVM_ReturnState -> Prop :=
@@ -628,10 +624,11 @@
   | IntraStep_intra_step:forall m s1 s2,
      JVM_exec_intra p m s1 s2 ->
      JVM_IntraStep p m s1 (inl _ s2) 
+(* DEX Method
   | IntraStep_call :forall m m' s1 s' ret' r,
      JVM_exec_call p m s1 ret' m' s' r ->
      TransStep_l (JVM_IntraStep p m') s' (inr _ ret') ->
-     JVM_IntraStep p m s1 r.
+     JVM_IntraStep p m s1 r*).
  
  Definition JVM_IntraStepStar p m s r := TransStep_l (JVM_IntraStep p m) s r.
 
@@ -644,11 +641,12 @@
    | ReachableIntra : forall M s s', 
        JVM_IntraStep P M s (inl _ s') ->
        JVM_ReachableStep P (M,s) (M,s')
+(* DEX Method
    | Reachable_invS : forall M pc h os l M' os' l' bm',
        JVM_CallStep P M (pc,(h,os,l)) (M',(os',l')) ->
        JVM_METHOD.body M' = Some bm' ->
        JVM_ReachableStep P (M, (pc,(h,os,l)))
-         (M', (JVM_BYTECODEMETHOD.firstAddress bm',(h,JVM_OperandStack.empty,l'))).
+         (M', (JVM_BYTECODEMETHOD.firstAddress bm',(h,JVM_OperandStack.empty,l')))*).
 
  Definition JVM_Reachable P M s s' := 
    exists M',  ClosReflTrans (JVM_ReachableStep P) (M,s) (M',s').

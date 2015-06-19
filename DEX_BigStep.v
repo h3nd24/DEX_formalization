@@ -28,6 +28,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
          (forall m s s' , DEX_exec_intra p m s s' -> 
             forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
             P m s r) ->
+(* DEX Method
          (forall m s s' ret m' r, 
             DEX_exec_call p m s ret m' s' (inr _ r) ->
             DEX_IntraStepStar p m' s' (inr _ ret) ->
@@ -38,6 +39,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
             DEX_IntraStepStar p m' s' (inr _ ret) -> P m' s' (inr _ ret) ->
             DEX_IntraStepStar p m s'' r -> P m s'' r ->
             P m s r) ->
+*)
       forall m s r, DEX_IntraStep p m s r -> 
         match r with
         | inr r' => P m s (inr _ r')
@@ -45,9 +47,11 @@ Module DEX_BigStep <: DEX_BIGSTEP.
         end.
      Proof.
        intros p P H0 Hr Hi Hcr Hc.
-       fix intra 4;intros m s r Hs;case Hs;clear m s r Hs;intros.
+       fix intra (*4*) 2;intros (*m s*) r Hs;case Hs;clear (*m s*) r Hs;intros.
        apply Hr;trivial.
        apply Hi with s2;trivial. 
+     Qed.
+(* DEX Method
        assert (P m' s' (inr DEX_IntraNormalState ret')).
        generalize s' (inr DEX_IntraNormalState ret') H1;clear H1 H m s1 s' ret' r.
        fix fixp 3;intros s' s Ht;case Ht;clear Ht s' s;intros.
@@ -61,6 +65,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
        eapply Hc;eauto.
        intros r' Hcall;eapply Hcr;eauto.
      Qed.
+*)
 
   Lemma IntraStepStar_ind : 
     forall (p:DEX_Program) 
@@ -70,6 +75,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
        (forall m s s' , DEX_exec_intra p m s s' -> 
           forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
           P m s r) ->
+(* DEX Method
        (forall m s s' ret m' r, 
           DEX_exec_call p m s ret m' s' (inr _ r) ->
           DEX_IntraStepStar p m' s' (inr _ ret) ->
@@ -80,15 +86,16 @@ Module DEX_BigStep <: DEX_BIGSTEP.
           DEX_IntraStepStar p m' s' (inr _ ret) -> P m' s' (inr _ ret) ->
           DEX_IntraStepStar p m s'' r -> P m s'' r ->
           P m s r) ->
+*)
     forall m s r, DEX_IntraStepStar p m s r -> P m s r.
    Proof.
-     intros p P H0 Hr Hi Hcr Hc.
+     intros p P H0 Hr Hi (*Hcr Hc*).
      fix fixp 4;intros m s' s Ht;case Ht;clear Ht s' s;intros.
      apply H0.
-     generalize (IntraStep_ind_ p P H0 Hr Hi Hcr Hc _ _ _ H).
+     generalize (IntraStep_ind_ p P H0 Hr Hi (*Hcr Hc*) _ _ _ H).
      case r;intros;trivial.
      apply H1;trivial. constructor.
-     assert (HH:=IntraStep_ind_  p P H0 Hr Hi Hcr Hc _ _ _ H);simpl in HH.
+     assert (HH:=IntraStep_ind_  p P H0 Hr Hi (*Hcr Hc*) _ _ _ H);simpl in HH.
      apply HH;trivial.   
      apply fixp;trivial.
    Qed.
@@ -100,11 +107,13 @@ Module DEX_BigStep <: DEX_BIGSTEP.
        (forall m s s', DEX_exec_intra p m s s' -> 
           forall s'', DEX_IntraStepStar_intra p m s' s'' -> P m s' s'' ->
           P m s s'') ->
+(* DEX Method
        (forall m s s1 ret m' s2 s3, 
           DEX_exec_call p m s ret m' s1 (inl _ s2) ->
           DEX_BigStep p m' s1 ret -> 
           DEX_IntraStepStar_intra p m s2 s3 -> P m s2 s3 ->
           P m s s3) ->
+*)
     forall m s s', DEX_IntraStepStar_intra p m s s' -> P m s s'.
    Proof.
      intros p P H0 Hi Hc.
@@ -122,6 +131,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
        (forall m s s' , DEX_exec_intra p m s s' -> 
           forall r, DEX_BigStep p m s' r -> P m s' r ->
           P m s r) ->
+(* DEX Method
        (forall m s s' ret m' r, 
           DEX_exec_call p m s ret m' s' (inr _ r) ->
           DEX_BigStep p m' s' ret ->
@@ -132,6 +142,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
           DEX_BigStep p m' s' ret -> P m' s' ret ->
           DEX_BigStep p m s'' r -> P m s'' r ->
           P m s r) ->
+*)
     forall m s r, DEX_BigStep p m s r -> P m s r.
   Proof.
    intros p P Hr Hi Hcr Hc.
@@ -149,6 +160,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
           forall m' s'', ClosReflTrans (DEX_ReachableStep p) (m,s') (m',s'') -> 
           P (m,s') (m',s'') ->
           P (m,s) (m',s'')) ->
+(* DEX Method
        (forall m s s1 ret m' s2, 
           DEX_exec_call p m s ret m' s1 (inl _ s2) ->
           DEX_BigStep p m' s1 ret -> 
@@ -165,6 +177,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
         P (m', (DEX_BYTECODEMETHOD.firstAddress bm',(h, l')))
           (m'',s'') ->
         P (m, (pc,(h, l))) (m'',s'')) ->
+*)
     forall ms ms', 
        ClosReflTrans (DEX_ReachableStep p) ms ms' -> P ms ms'.
    Proof.

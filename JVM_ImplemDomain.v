@@ -921,7 +921,7 @@ Module JVM_Heap <: JVM_HEAP.
      generalize (check_compat_correct h am); destruct (check_compat h am); simpl; intros.
      destruct H; simpl.
      auto.
-     destruct (PC_eq_dec loc0 loc); subst.
+     destruct (JVM_PC_eq_dec loc0 loc); subst.
      unfold typeof in H.
      rewrite JVM_LocMap.get_modify1; auto.
      unfold JVM_LocMap.get in H.
@@ -934,7 +934,7 @@ Module JVM_Heap <: JVM_HEAP.
      
      rewrite JVM_LocMap.get_modify2; auto.
 
-     destruct (PC_eq_dec loc0 loc); subst.
+     destruct (JVM_PC_eq_dec loc0 loc); subst.
      rewrite JVM_LocMap.get_modify1; auto.
      unfold typeof in *.
      destruct (JVM_LocMap.get JVM_Object.t (objects h) loc); try reflexivity.
@@ -1033,7 +1033,7 @@ Module JVM_Heap <: JVM_HEAP.
      destruct 1; destruct am2; simpl; intros; auto.
      rewrite JVM_MapFieldSignature.get_update2; auto; congruence.
 
-     destruct (PC_eq_dec loc j); subst.
+     destruct (JVM_PC_eq_dec loc j); subst.
      rewrite JVM_LocMap.get_modify1; auto.
      unfold typeof,JVM_LocMap.get in *.
      destruct (BinNatMap_Base.get JVM_Object.t (objects h) j); simpl in *.
@@ -1042,7 +1042,7 @@ Module JVM_Heap <: JVM_HEAP.
      auto.
      rewrite JVM_LocMap.get_modify2; auto.
 
-     destruct (PC_eq_dec loc j); subst.
+     destruct (JVM_PC_eq_dec loc j); subst.
      unfold typeof in H1.
      caseeq (JVM_LocMap.get _ (objects h) j); intros; simpl; auto.
      rewrite H2 in H1; inversion H1.

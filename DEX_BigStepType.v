@@ -62,6 +62,7 @@ Module Type DEX_BIGSTEP.
       (forall m s s' , DEX_exec_intra p m s s' -> 
          forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
          P m s r) ->
+(* DEX Method
       (forall m s s' ret m' r, 
          DEX_exec_call p m s ret m' s' (inr _ r) ->
          DEX_IntraStepStar p m' s' (inr _ ret) ->
@@ -72,6 +73,7 @@ Module Type DEX_BIGSTEP.
          DEX_IntraStepStar p m' s' (inr _ ret) -> P m' s' (inr _ ret) ->
          DEX_IntraStepStar p m s'' r -> P m s'' r ->
          P m s r) ->
+*)
    forall m s r, DEX_IntraStepStar p m s r -> P m s r.
 
   Parameter IntraStepStar_intra_ind : 
@@ -81,11 +83,13 @@ Module Type DEX_BIGSTEP.
       (forall m s s', DEX_exec_intra p m s s' -> 
          forall s'', DEX_IntraStepStar_intra p m s' s'' -> P m s' s'' ->
          P m s s'') ->
+(* DEX Method
       (forall m s s1 ret m' s2 s3, 
          DEX_exec_call p m s ret m' s1 (inl _ s2) ->
          DEX_BigStep p m' s1 ret -> 
          DEX_IntraStepStar_intra p m s2 s3 -> P m s2 s3 ->
          P m s s3) ->
+*)
    forall m s s', DEX_IntraStepStar_intra p m s s' -> P m s s'.
   
   Parameter BigStep_ind : 
@@ -95,6 +99,7 @@ Module Type DEX_BIGSTEP.
       (forall m s s' , DEX_exec_intra p m s s' -> 
          forall r, DEX_BigStep p m s' r -> P m s' r ->
          P m s r) ->
+(* DEX Method
       (forall m s s' ret m' r, 
          DEX_exec_call p m s ret m' s' (inr _ r) ->
          DEX_BigStep p m' s' ret ->
@@ -105,6 +110,7 @@ Module Type DEX_BIGSTEP.
          DEX_BigStep p m' s' ret -> P m' s' ret ->
          DEX_BigStep p m s'' r -> P m s'' r ->
          P m s r) ->
+*)
    forall m s r, DEX_BigStep p m s r -> P m s r.
 
   Parameter ReachableStar_ind : 
@@ -115,6 +121,7 @@ Module Type DEX_BIGSTEP.
          forall m' s'', ClosReflTrans (DEX_ReachableStep p) (m,s') (m',s'') -> 
          P (m,s') (m',s'') ->
          P (m,s) (m',s'')) ->
+(* DEX Method
       (forall m s s1 ret m' s2, 
          DEX_exec_call p m s ret m' s1 (inl _ s2) ->
          DEX_BigStep p m' s1 ret -> 
@@ -131,6 +138,7 @@ Module Type DEX_BIGSTEP.
        P (m', (DEX_BYTECODEMETHOD.firstAddress bm',(h, l')))
          (m'',s'') ->
        P (m, (pc,(h, l))) (m'',s'')) ->
+*)
    forall ms ms', 
       ClosReflTrans (DEX_ReachableStep p) ms ms' -> P ms ms'.
 

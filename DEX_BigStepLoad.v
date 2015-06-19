@@ -36,7 +36,7 @@
     l' = DEX_Registers.update l rt v ->
 
     DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
-  
+(* DEX Method  
   | moveresult_step_ok : forall h m pc pc' l l' k rt v,
 
     instructionAt m pc = Some (DEX_MoveResult k rt) ->
@@ -46,7 +46,8 @@
     l' = DEX_Registers.update l rt v ->
 
     DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
-
+*)
+(* DEX Object
  (** <addlink>instanceof</addlink>: Determine if object is of given type *)
   | instanceof_step_ok1 : forall h m pc pc' l loc rt r t l',
 
@@ -111,6 +112,7 @@
     l' = DEX_Registers.update l rt (Ref loc) ->
 
     DEX_NormalStep p m (pc, (h, l)) (pc', (h_new, l'))
+*)
 
   | goto_step_ok : forall h m pc l o,
 
@@ -204,6 +206,7 @@
 
     DEX_NormalStep p m (pc, (h, l)) (pc', (h, l))
 
+(* DEX Object
    (** Load value from array *)
   | aget_step_ok : forall h m pc pc' l l' loc val i length t a k rt ra ri,
 
@@ -273,12 +276,7 @@
 
     DEX_NormalStep p m (pc, (h, l))
            (pc, ((DEX_Heap.update h (DEX_Heap.DynamicField loc f) v), l))
-
-  (* TODO : Invokevirtual *)
-  (* TODO : Invokesuper *)
-  (* TODO : Invokedirect *)
-  (* TODO : Invokestatic *)
-  (* TODO : Invokeinterface *)
+*)
 
   (** <addlink>ineg</addlink>: Negate [int] *)
   | ineg_step : forall h m pc l l' pc' rt rs v,
@@ -475,7 +473,7 @@
     ExceptionStep p m (pc,(h,s,l)) (h',loc).
 *)
 
-
+(* DEX Method
   Inductive DEX_CallStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_InitCallState -> Prop :=
   | invokestatic : forall h m pc l mid M args bM n,
 
@@ -500,6 +498,7 @@
  
     DEX_CallStep p m (pc,(h, l)) (M,(listreg2regs l (length args) args))
   .
+*)
 
   Inductive DEX_ReturnStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
   | void_return : forall h m pc l,
@@ -520,7 +519,7 @@
     DEX_ReturnStep p m (pc, (h, l)) (h, Normal (Some val))
 .
 
-
+(* DEX Method
   Inductive DEX_call_and_return : DEX_Method -> DEX_IntraNormalState -> DEX_InitCallState -> DEX_IntraNormalState -> DEX_ReturnState -> DEX_IntraNormalState -> Prop :=
   | call_and_return_void : forall m pc h l m' l' bm' h'' pc',
       next m pc = Some pc' -> 
@@ -543,7 +542,7 @@
                  (DEX_BYTECODEMETHOD.firstAddress bm',(h, l'))
                  (h'', Normal (Some v)) 
                  (pc',(h'', l'')).
-
+*)
 
 
 (*
@@ -578,6 +577,7 @@
      exec_return p m (pc1,(h1,s1,l1)) (h2,Exception loc2)*)
 .
 
+(* DEX Method
   Inductive DEX_exec_call (p:DEX_Program) (m:DEX_Method) :
    DEX_IntraNormalState -> DEX_ReturnState -> DEX_Method  -> DEX_IntraNormalState -> DEX_IntraNormalState+DEX_ReturnState -> Prop :=
  | exec_call_normal : forall m2 pc1 pc1' h1 l1 l2 h2 bm2 ov l1',
@@ -612,6 +612,7 @@
        m2
        (BYTECODEMETHOD.firstAddress bm2,(h1,OperandStack.empty,l2))
        (inr _ (h2,Exception loc))*).
+*)
 
  Inductive DEX_IntraStep (p:DEX_Program) : 
     DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState + DEX_ReturnState -> Prop :=
@@ -621,10 +622,11 @@
   | IntraStep_intra_step:forall m s1 s2,
      DEX_exec_intra p m s1 s2 ->
      DEX_IntraStep p m s1 (inl _ s2) 
+(* DEX Method
   | IntraStep_call :forall m m' s1 s' ret' r,
      DEX_exec_call p m s1 ret' m' s' r ->
      TransStep_l (DEX_IntraStep p m') s' (inr _ ret') ->
-     DEX_IntraStep p m s1 r.
+     DEX_IntraStep p m s1 r*) .
  
  Definition DEX_IntraStepStar p m s r := TransStep_l (DEX_IntraStep p m) s r.
 
@@ -637,11 +639,12 @@
    | ReachableIntra : forall M s s', 
        DEX_IntraStep P M s (inl _ s') ->
        DEX_ReachableStep P (M,s) (M,s')
+(* DEX Method
    | Reachable_invS : forall M pc h l M' l' bm',
        DEX_CallStep P M (pc,(h, l)) (M', l') ->
        DEX_METHOD.body M' = Some bm' ->
        DEX_ReachableStep P (M, (pc,(h, l)))
-         (M', (DEX_BYTECODEMETHOD.firstAddress bm',(h, l'))).
+         (M', (DEX_BYTECODEMETHOD.firstAddress bm',(h, l')))*).
 
  Definition DEX_Reachable P M s s' := 
    exists M',  ClosReflTrans (DEX_ReachableStep P) (M,s) (M',s').

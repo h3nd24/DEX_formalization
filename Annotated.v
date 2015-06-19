@@ -67,7 +67,7 @@ Definition  virtual_signature (p:ExtendedProgram) mid (k:L.t) : sign :=
 *)
 
 Definition well_formed_lookupswitch m := forall pc def l i o1 o2,
-  instructionAt m pc = Some (Lookupswitch def l) ->
+  instructionAt m pc = Some (JVM_Lookupswitch def l) ->
   In (i, o1) l -> In (i, o2) l -> o1=o2.
 
 (* DEX

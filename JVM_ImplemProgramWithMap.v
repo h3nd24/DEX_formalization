@@ -29,9 +29,9 @@ Module JVM_Make <: JVM_PROGRAM.
   Proof. exact nat_of_N_bij1. Qed.
 
   Definition JVM_PC : Set := N.
-  Definition PC_eq := Neq. 
-  Definition PC_eq_spec := Neq_spec.
-  Lemma PC_eq_dec : eq_dec JVM_PC.
+  Definition JVM_PC_eq := Neq. 
+  Definition JVM_PC_eq_spec := Neq_spec.
+  Lemma JVM_PC_eq_dec : eq_dec JVM_PC.
   Proof. exact Var_eq_dec. Qed.
 
   Definition JVM_PackageName : Set := positive.
@@ -267,8 +267,10 @@ Module JVM_Make <: JVM_PROGRAM.
     | JVM_Ival.
 
   Inductive JVM_Instruction : Set :=
+(* DEX
    | JVM_Aconst_null
-   | JVM_Arraylength 
+   | JVM_Arraylength
+*) 
 (*   | Athrow
    | Checkcast (t:JVM_refType) *)
    | JVM_Const (t:JVM_primitiveType) (z:Z)
@@ -278,36 +280,50 @@ Module JVM_Make <: JVM_PROGRAM.
    | JVM_Dup2
    | JVM_Dup2_x1
    | JVM_Dup2_x2
+(* DEX
    | JVM_Getfield (f:JVM_FieldSignature)
+*)
 (*   | Getstatic  (f:FieldSignature) *)
    | JVM_Goto (o:JVM_OFFSET.t)
    | JVM_I2b
    | JVM_I2s
    | JVM_Ibinop (op:JVM_BinopInt)
+(* DEX
    | JVM_If_acmp (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
+*)
    | JVM_If_icmp (cmp:JVM_CompInt) (o:JVM_OFFSET.t) 
    | JVM_If0 (cmp:JVM_CompInt) (o:JVM_OFFSET.t)
+(*
    | JVM_Ifnull (cmp:JVM_CompRef) (o:JVM_OFFSET.t)
+*)
    | JVM_Iinc (x:JVM_Var) (z:Z)
    | JVM_Ineg 
+(* DEX
    | JVM_Instanceof (t:JVM_refType) 
    | JVM_Invokeinterface (m:JVM_MethodSignature)
    | JVM_Invokespecial (m:JVM_MethodSignature)
    | JVM_Invokestatic (m:JVM_MethodSignature)
    | JVM_Invokevirtual (m:JVM_MethodSignature)
+*)
    | JVM_Lookupswitch (def:JVM_OFFSET.t) (l:list (Z*JVM_OFFSET.t)) 
+(*
    | JVM_New (c:JVM_ClassName)
    | JVM_Newarray (t:JVM_type)
+*)
    | JVM_Nop
    | JVM_Pop
    | JVM_Pop2
+(* DEX
    | JVM_Putfield (f:JVM_FieldSignature)
+*)
 (*   | Putstatic (f:FieldSignature) *)
    | JVM_Return
    | JVM_Swap 
    | JVM_Tableswitch (def:JVM_OFFSET.t) (low high:Z) (l:list JVM_OFFSET.t)
+(* DEX
    | JVM_Vaload (k:JVM_ArrayKind) 
    | JVM_Vastore (k:JVM_ArrayKind)
+*)
    | JVM_Vload (k:JVM_ValKind) (x:JVM_Var)
    | JVM_Vreturn (k:JVM_ValKind)
    | JVM_Vstore (k:JVM_ValKind) (x:JVM_Var).
@@ -1061,47 +1077,47 @@ Module JVM_P <: JVM_PROGRAM := JVM_Make.
 
 Import JVM_P.
 
-Definition bc_empty := MapN.empty (JVM_Instruction*(option JVM_PC * list JVM_ClassName)).
+Definition JVM_bc_empty := MapN.empty (JVM_Instruction*(option JVM_PC * list JVM_ClassName)).
 
-Definition bc_single pc i :=  
-  MapN.update (JVM_Instruction*(option JVM_PC * list JVM_ClassName)) bc_empty pc (i,(None,nil)).
+Definition JVM_bc_single pc i :=  
+  MapN.update (JVM_Instruction*(option JVM_PC * list JVM_ClassName)) JVM_bc_empty pc (i,(None,nil)).
 
-Definition bc_cons pc i pc' bc :=
+Definition JVM_bc_cons pc i pc' bc :=
   MapN.update (JVM_Instruction*(option JVM_PC * list JVM_ClassName)) bc pc (i,(Some pc',nil)).
 
-Definition bc_cons' pc i pc' l bc :=
+Definition JVM_bc_cons' pc i pc' l bc :=
   MapN.update (JVM_Instruction*(option JVM_PC * list JVM_ClassName)) bc pc (i,(Some pc',l)).
 
 
 (* creation function for method map *)
 
-Definition ms_empty := JVM_MapShortMethSign.empty JVM_Method.
+Definition JVM_ms_empty := JVM_MapShortMethSign.empty JVM_Method.
 
-Definition ms_single ms := 
-  JVM_MapShortMethSign.update JVM_Method ms_empty (JVM_METHOD.signature ms) ms.
+Definition JVM_ms_single ms := 
+  JVM_MapShortMethSign.update JVM_Method JVM_ms_empty (JVM_METHOD.signature ms) ms.
 
-Definition ms_cons ms mms := 
+Definition JVM_ms_cons ms mms := 
   JVM_MapShortMethSign.update JVM_Method mms (JVM_METHOD.signature ms) ms.
 
 
 (* creation function for field map *)
 
-Definition mf_empty := JVM_MapField.empty.
+Definition JVM_mf_empty := JVM_MapField.empty.
 
-Definition mf_single mf := JVM_MapField.update mf_empty mf.
+Definition JVM_mf_single mf := JVM_MapField.update JVM_mf_empty mf.
 
-Definition mf_cons mf mmf := JVM_MapField.update mmf mf.
+Definition JVM_mf_cons mf mmf := JVM_MapField.update mmf mf.
 
 
 (* creation function for class map *)
  
-Definition mc_empty := JVM_PROG.JVM_MapClass.empty.
+Definition JVM_mc_empty := JVM_PROG.JVM_MapClass.empty.
 
-Definition mc_cons c mc := JVM_PROG.JVM_MapClass.update mc c.
+Definition JVM_mc_cons c mc := JVM_PROG.JVM_MapClass.update mc c.
 
-Definition mi_empty := JVM_PROG.JVM_MapInterface.empty.
+Definition JVM_mi_empty := JVM_PROG.JVM_MapInterface.empty.
 
-Definition mi_cons c mc := JVM_PROG.JVM_MapInterface.update mc c.
+Definition JVM_mi_cons c mc := JVM_PROG.JVM_MapInterface.update mc c.
 
 Module JVM_MapClassName <: MAP with Definition key := JVM_ClassName := Map2P.
 
