@@ -87,6 +87,33 @@ Definition TypeStack := list L.t'.
 
 Module VarMap := BinNatMap.
 Definition TypeRegisters := VarMap.t L.t'.
+
+Fixpoint base_rt_rec (max_locals:nat) (lvt:JVM_Var->L.t') (rt:TypeRegisters) 
+  : TypeRegisters := 
+  match max_locals with
+    | O => rt
+    | S n => VarMap.update _ rt (N_toVar n) (lvt (N_toVar n))
+  end.
+
+Definition base_rt (max_locals:nat) (lvt:JVM_Var->L.t') : TypeRegisters :=
+  base_rt_rec (max_locals) (lvt) (VarMap.empty L.t').
+
+Fixpoint translate_st_rt_rec (st:TypeStack) (max_locals:nat) (rt:VarMap.t L.t')
+  : TypeRegisters :=
+  match st with
+    | nil => rt
+    | h :: t => let newRT := VarMap.update _ rt (N_toVar (length st) + 
+                    N_toVar max_locals)%N h in
+                translate_st_rt_rec (t) (max_locals) (newRT)
+  end.
+
+Definition translate_st_rt (st:TypeStack) (max_locals:nat) 
+  (lvt:JVM_Var -> L.t') : TypeRegisters :=
+  translate_st_rt_rec (st) (max_locals) (base_rt (max_locals) (lvt)).
+
+Module MapAddress' := MapPair_Base MapN MapN.
+Module MapAddress := Map_Of_MapBase MapAddress'. (* for intermediate compilation *)
+
 Definition update_op (rt:TypeRegisters) (key:VarMap.key) (k:option L.t') :=
   match k with
     | Some v => BinNatMap.update _ rt key v

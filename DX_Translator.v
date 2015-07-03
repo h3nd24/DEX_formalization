@@ -1,5 +1,6 @@
 Require Export LoadBicolano.
 Require Export EquivDec.
+Require Export Annotated.
 
 Import JVM_Dom.JVM_Prog DEX_Dom.DEX_Prog.
 
@@ -12,40 +13,32 @@ Module Type DX_TRANSLATOR_TYPE.
   Parameter BlockMap : Type.
   Parameter TSMap : Type.
   Parameter BPMap : Type.
-  Parameter bm : JVM_BytecodeMethod.
+(*  Parameter bm : JVM_BytecodeMethod.
+  Parameter insnList : list (JVM_PC * (option JVM_PC*JVM_Instruction)). *)
   (* Parameter translate : JVM_Program -> DEX_Program. *)
   
   (* We zoom in on bytecode translation *)
-  Parameter bytecode_translate : DEX_BytecodeMethod.
-  Parameter start_block : (BlockMap * SBMap).
-  Parameter trace_parent_child : (BlockMap * SBMap) -> (BlockMap * (BPMap * (TSMap * Block))).
-  Parameter translate_instructions : (BlockMap * (BPMap * (TSMap * Block))) -> (BlockMap * Block).
+(*
+  Parameter bytecode_translate : list (JVM_PC * (option JVM_PC*JVM_Instruction)) -> DEX_BytecodeMethod.
+*)
+  Parameter start_block : list (JVM_PC * (option JVM_PC*JVM_Instruction)) -> (BlockMap * SBMap).
+  Parameter trace_parent_child : list (JVM_PC * (option JVM_PC*JVM_Instruction)) -> (BlockMap * SBMap) 
+                                 -> (BlockMap * (BPMap * (TSMap * Block))).
+  Parameter translate_instructions : list (JVM_PC * (option JVM_PC*JVM_Instruction)) 
+                                     -> (BlockMap * (BPMap * (TSMap * Block))) 
+                                     -> (JVM_PC -> TypeStack)
+                                     -> ((BlockMap * Block) * (MapAddress.t TypeRegisters * MapN.t (list (N*N)))).
+(*
   Parameter pick_order : (BlockMap * Block) -> (list JVM_PC * (BlockMap * Block)).
   Parameter consolidate_blocks : (list JVM_PC * (BlockMap * Block)) -> list (DEX_Instruction*(DEX_PC*DEX_PC)).
   Parameter construct_bytecodemethod : list (DEX_Instruction*(DEX_PC*DEX_PC))
                                        -> MapPC.t (DEX_Instruction*(option DEX_PC * list DEX_ClassName))
                                        -> DEX_BytecodeMethod.
+*)
 
 End DX_TRANSLATOR_TYPE.
 
 Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
-  Parameter bm : JVM_BytecodeMethod.
-  Fixpoint create_insnList_rec (bm:JVM_BytecodeMethod) 
-   (ls:list (JVM_PC*(JVM_Instruction*(option JVM_PC*list JVM_ClassName))))
-   (l:list (JVM_PC*(option JVM_PC*JVM_Instruction))) 
-   : list (JVM_PC*(option JVM_PC*JVM_Instruction)) :=
-     match ls with
-       | nil => l
-       | (pc, (ins,(pc',_))) :: ts => create_insnList_rec (bm) (ts) ((pc,(pc',ins))::l)
-     end.
-
-  Definition create_insnList (bm:JVM_BytecodeMethod) : list (JVM_PC * (option JVM_PC*JVM_Instruction)) :=
-    let pc := JVM_BYTECODEMETHOD.firstAddress bm in
-    create_insnList_rec (bm) 
-      (MapPC.elements _ (JVM_BYTECODEMETHOD.instr bm)) (nil).
-
-  Definition insnList := create_insnList (bm).
-
   Module BLOCK.
     Record t : Type := mkBlock {
       jvm_instructions : list JVM_Instruction;
@@ -112,6 +105,30 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
      (xO (xO (xO (xO (xO (xO (xO (xO xH)))))))))))))))).  *)
   End BLOCK.
   Definition Block := BLOCK.t.
+
+  Section BytecodeMethod_Translator.
+  Parameter bm : JVM_BytecodeMethod.
+  Definition max_locals := JVM_BYTECODEMETHOD.max_locals bm.
+  Parameter sgn : JVM_sign. 
+
+(*
+  Fixpoint create_insnList_rec (bm:JVM_BytecodeMethod) 
+   (ls:list (JVM_PC*(JVM_Instruction*(option JVM_PC*list JVM_ClassName))))
+   (l:list (JVM_PC*(option JVM_PC*JVM_Instruction))) 
+   : list (JVM_PC*(option JVM_PC*JVM_Instruction)) :=
+     match ls with
+       | nil => l
+       | (pc, (ins,(pc',_))) :: ts => create_insnList_rec (bm) (ts) ((pc,(pc',ins))::l)
+     end.
+
+  Definition create_insnList (bm:JVM_BytecodeMethod) : list (JVM_PC * (option JVM_PC*JVM_Instruction)) :=
+    let pc := JVM_BYTECODEMETHOD.firstAddress bm in
+    create_insnList_rec (bm) 
+      (MapPC.elements _ (JVM_BYTECODEMETHOD.instr bm)) (nil).
+*)
+  Variable insnList : list (JVM_PC * (option JVM_PC*JVM_Instruction)).
+  
+(*  Definition insnList := create_insnList (bm). *)
 
   Definition SBMap := MapPC.t bool.
   Definition BlockMap := MapPC.t Block.
@@ -406,9 +423,9 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
       | nil => BLOCK.empty (* impossible case *)
       | (pc, (pc',ins)) :: t => 
       match ins with
-        | JVM_Return => BLOCK.mkBlock (nil) (nil) (nil) (None) (None) (DEX_Return::nil) (None)
+        | JVM_Return => BLOCK.mkBlock (nil) (nil) (nil) (None) (None) (DEX_Return::nil) (None) 
         | JVM_Vreturn k => BLOCK.mkBlock (nil) (nil) (nil) (None) (None) 
-                           (DEX_VReturn (translate_valKind (k)) (0)%N ::nil) (None) 
+                           (DEX_VReturn (translate_valKind (k)) (0)%N ::nil) (None)
         | _ => create_retBlock t
       end
     end.
@@ -453,136 +470,345 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
     end.
 
   Fixpoint translate_instructions_rec (l:list (JVM_PC*(option JVM_PC*JVM_Instruction)))
-     (m:BlockMap) (bp:BPMap) (ts:TSMap) (ret:Block)
+     (m:BlockMap) (bp:BPMap) (ts:TSMap) (ret:Block) (S:JVM_PC -> TypeStack) 
+     (RT:MapAddress.t TypeRegisters) (pcMapping:MapN.t (list (N*N)))
+  : ((BlockMap * Block) * (MapAddress.t TypeRegisters * MapN.t (list (N*N))))
   := match l with 
-       | nil => (m, ret)
+       | nil => ((m, ret), (RT, pcMapping))
        | (pc, (pc',ins)) :: t => 
         let blockIndex := opval (MapPC.get _ bp pc) (0)%N in
         let cb := opval (MapPC.get _ m blockIndex) (BLOCK.empty) in
         let tsValue := get_tsValue (MapPC.get _ ts pc) (ins) in
       match ins with
-        | JVM_Const t0 z => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Const t0 z => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Const (translate_const_type (t0)) (N_toReg (tsValue)) z)::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Dup => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Dup => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-1)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Dup_x1 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Dup_x1 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-1)) (N_toReg (tsValue-2)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-2)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let tsm1 := opval (MapN.get _ rt (N_toReg (tsValue-1))) (L.Simple L.bot) in
+          let rt1 := MapN.update _ rt (N_toReg (tsValue)) (tsm1) in
+          let RT1 := MapAddress.update _ (RT') (pc, (j+1)%N) (rt1) in
+          let tsm2 := opval (MapN.get _ rt1 (N_toReg (tsValue-2))) (L.Simple L.bot) in
+          let rt2 := MapN.update _ rt1 (N_toReg (tsValue-1)) (tsm2) in
+          let RT2 := MapAddress.update _ (RT1) (pc, (j+2)%N) (rt2) in
+(*
+          let ts0 := opval (MapN.get _ rt2 (N_toReg (tsValue))) (L.Simple L.bot) in
+          let rt3 := MapN.update _ rt2 (N_toReg (tsValue-2)) (ts0) in
+          let RT3 := MapAddress.update _ (RT2) (pc, (j+3)%N) (rt3) in
+*)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) 
+            ((pc, j)::(pc,(j+1)%N)::(pc,(j+2)%N)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT2) (pcMapping')
 
-        | JVM_Dup_x2 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Dup_x2 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-1)) (N_toReg (tsValue-2)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-2)) (N_toReg (tsValue-3)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-3)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let tsm1 := opval (MapN.get _ rt (N_toReg (tsValue-1))) (L.Simple L.bot) in
+          let rt1 := MapN.update _ rt (N_toReg (tsValue)) (tsm1) in
+          let RT1 := MapAddress.update _ (RT') (pc, (j+1)%N) (rt1) in
+          let tsm2 := opval (MapN.get _ rt1 (N_toReg (tsValue-2))) (L.Simple L.bot) in
+          let rt2 := MapN.update _ rt1 (N_toReg (tsValue-1)) (tsm2) in
+          let RT2 := MapAddress.update _ (RT1) (pc, (j+2)%N) (rt2) in
+          let tsm3 := opval (MapN.get _ rt2 (N_toReg (tsValue-3))) (L.Simple L.bot) in
+          let rt3 := MapN.update _ rt2 (N_toReg (tsValue-2)) (tsm3) in
+          let RT3 := MapAddress.update _ (RT2) (pc, (j+3)%N) (rt3) in
+(*
+          let ts0 := opval (MapN.get _ rt2 (N_toReg (tsValue))) (L.Simple L.bot) in
+          let rt4 := MapN.update _ rt3 (N_toReg (tsValue-3)) (ts0) in
+          let RT4 := MapAddress.update _ (RT3) (pc, (j+4)%N) (rt4) in
+*)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) 
+            ((pc, j)::(pc,(j+1)%N)::(pc,(j+2)%N)::(pc,(j+3)%N)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT3) (pcMapping')
 
-        | JVM_Dup2 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Dup2 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue+1)) (N_toReg (tsValue-1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-2)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let tsm1 := opval (MapN.get _ rt (N_toReg (tsValue-1))) (L.Simple L.bot) in
+          let rt1 := MapN.update _ rt (N_toReg (tsValue+1)) (tsm1) in
+          let RT1 := MapAddress.update _ (RT') (pc, (j+1)%N) (rt1) in
+(*
+          let tsm2 := opval (MapN.get _ rt1 (N_toReg (tsValue-2))) (L.Simple L.bot) in
+          let rt2 := MapN.update _ rt1 (N_toReg (tsValue)) (tsm2) in
+          let RT2 := MapAddress.update _ (RT1) (pc, (j+2)%N) (rt2) in
+*)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::(pc,(j+1)%N)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT1) (pcMapping')
 
-        | JVM_Dup2_x1 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Dup2_x1 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue+1)) (N_toReg (tsValue-1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-2)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-1)) (N_toReg (tsValue-3)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-2)) (N_toReg (tsValue+1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-3)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let tsm1 := opval (MapN.get _ rt (N_toReg (tsValue-1))) (L.Simple L.bot) in
+          let rt1 := MapN.update _ rt (N_toReg (tsValue+1)) (tsm1) in
+          let RT1 := MapAddress.update _ (RT') (pc, (j+1)%N) (rt1) in
+          let tsm2 := opval (MapN.get _ rt1 (N_toReg (tsValue-2))) (L.Simple L.bot) in
+          let rt2 := MapN.update _ rt1 (N_toReg (tsValue)) (tsm2) in
+          let RT2 := MapAddress.update _ (RT1) (pc, (j+2)%N) (rt2) in
+          let tsm3 := opval (MapN.get _ rt2 (N_toReg (tsValue-3))) (L.Simple L.bot) in
+          let rt3 := MapN.update _ rt2 (N_toReg (tsValue-1)) (tsm3) in
+          let RT3 := MapAddress.update _ (RT2) (pc, (j+3)%N) (rt3) in
+          let tsp1 := opval (MapN.get _ rt2 (N_toReg (tsValue+1))) (L.Simple L.bot) in
+          let rt4 := MapN.update _ rt3 (N_toReg (tsValue-2)) (tsp1) in
+          let RT4 := MapAddress.update _ (RT3) (pc, (j+4)%N) (rt4) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) 
+            ((pc, j)::(pc,(j+1)%N)::(pc,(j+2)%N)::(pc,(j+3)%N)::(pc,(j+4)%N)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT4) (pcMapping')
 
-        | JVM_Dup2_x2 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Dup2_x2 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue+1)) (N_toReg (tsValue-1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-2)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-1)) (N_toReg (tsValue-3)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-2)) (N_toReg (tsValue-4)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-3)) (N_toReg (tsValue+1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-4)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let tsm1 := opval (MapN.get _ rt (N_toReg (tsValue-1))) (L.Simple L.bot) in
+          let rt1 := MapN.update _ rt (N_toReg (tsValue+1)) (tsm1) in
+          let RT1 := MapAddress.update _ (RT') (pc, (j+1)%N) (rt1) in
+          let tsm2 := opval (MapN.get _ rt1 (N_toReg (tsValue-2))) (L.Simple L.bot) in
+          let rt2 := MapN.update _ rt1 (N_toReg (tsValue)) (tsm2) in
+          let RT2 := MapAddress.update _ (RT1) (pc, (j+2)%N) (rt2) in
+          let tsm3 := opval (MapN.get _ rt2 (N_toReg (tsValue-3))) (L.Simple L.bot) in
+          let rt3 := MapN.update _ rt2 (N_toReg (tsValue-1)) (tsm3) in
+          let RT3 := MapAddress.update _ (RT2) (pc, (j+3)%N) (rt3) in
+          let tsm4 := opval (MapN.get _ rt2 (N_toReg (tsValue-4))) (L.Simple L.bot) in
+          let rt4 := MapN.update _ rt3 (N_toReg (tsValue-2)) (tsm4) in
+          let RT4 := MapAddress.update _ (RT3) (pc, (j+4)%N) (rt4) in
+          let tsp1 := opval (MapN.get _ rt2 (N_toReg (tsValue+1))) (L.Simple L.bot) in
+          let rt5 := MapN.update _ rt3 (N_toReg (tsValue-3)) (tsp1) in
+          let RT5 := MapAddress.update _ (RT3) (pc, (j+5)%N) (rt5) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) 
+            ((pc, j)::(pc,(j+1)%N)::(pc,(j+2)%N)::(pc,(j+3)%N)::(pc,(j+4)%N)::(pc,(j+5)%N)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT5) (pcMapping')
 
-        | JVM_Goto o => translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_Goto o => translate_instructions_rec (t) (m) (bp) (ts) (ret) (S) (RT) (pcMapping)
 
-        | JVM_I2b => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_I2b =>
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_I2b (N_toReg (tsValue)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_I2s => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_I2s => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_I2s (N_toReg (tsValue)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
-
-        | JVM_Ibinop op => let newM := BLOCK.append_dex_instructions (cb) 
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
+ 
+        | JVM_Ibinop op => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Ibinop (translate_binop_op (op)) (N_toReg (tsValue)) (N_toReg (tsValue)) (N_toReg (tsValue-1)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_If_icmp cmp o => let newM := BLOCK.append_dex_instructions (cb) 
-           ((DEX_Ifcmp (translate_comp (cmp)) (N_toReg (tsValue-1)) (N_toReg (tsValue-2)) o)::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_If_icmp cmp o => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
+           ((DEX_Ifcmp (translate_comp (cmp)) (N_toReg (tsValue-1)) (N_toReg (tsValue-2)) 
+           (Z_of_N (DEX_OFFSET.jump pc o)))::nil) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_If0 cmp o => let newM := BLOCK.append_dex_instructions (cb) 
-           ((DEX_Ifz (translate_comp (cmp)) (N_toReg (tsValue-1)) o)::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_If0 cmp o => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
+           ((DEX_Ifz (translate_comp (cmp)) (N_toReg (tsValue-1)) 
+           (Z_of_N (DEX_OFFSET.jump pc o)))::nil) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Iinc l0 z => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Iinc l0 z => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_IbinopConst (DEX_AddInt) (l0) (l0) z)::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Ineg => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Ineg => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Ineg (N_toReg (tsValue)) (N_toReg (tsValue)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Lookupswitch d l0 => let newM := BLOCK.append_dex_instructions (cb) 
-           ((DEX_SparseSwitch (N_toReg (tsValue-1)) (length l0) (l0))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_Lookupswitch d l0 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
+           ((DEX_SparseSwitch (N_toReg (tsValue-1)) (length l0) 
+           (map (fun e => ((fst e), Z_of_N (DEX_OFFSET.jump pc (snd e)))) l0))::nil) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-
-        | JVM_Nop => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Nop => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Nop)::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Pop => translate_instructions_rec (t) (m) (bp) (ts) (ret)
-        | JVM_Pop2 => translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_Pop => translate_instructions_rec (t) (m) (bp) (ts) (ret) (S) (RT) (pcMapping)
+        | JVM_Pop2 => translate_instructions_rec (t) (m) (bp) (ts) (ret) (S) (RT) (pcMapping)
 
-        | JVM_Return => translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_Return => translate_instructions_rec (t) (m) (bp) (ts) (ret) (S) (RT) (pcMapping)
 
-        | JVM_Swap => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Swap => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (DEX_Ival) (N_toReg (tsValue+1)) (N_toReg (tsValue-1)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue)) (N_toReg (tsValue-2)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-1)) (N_toReg (tsValue)))::
             (DEX_Move (DEX_Ival) (N_toReg (tsValue-2)) (N_toReg (tsValue+1)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let tsm1 := opval (MapN.get _ rt (N_toReg (tsValue-1))) (L.Simple L.bot) in
+          let rt1 := MapN.update _ rt (N_toReg (tsValue+1)) (tsm1) in
+          let RT1 := MapAddress.update _ (RT') (pc, (j+1)%N) (rt1) in
+          let tsm2 := opval (MapN.get _ rt1 (N_toReg (tsValue-2))) (L.Simple L.bot) in
+          let rt2 := MapN.update _ rt1 (N_toReg (tsValue)) (tsm2) in
+          let RT2 := MapAddress.update _ (RT1) (pc, (j+2)%N) (rt2) in
+          let ts0 := opval (MapN.get _ rt2 (N_toReg (tsValue))) (L.Simple L.bot) in
+          let rt3 := MapN.update _ rt2 (N_toReg (tsValue-1)) (ts0) in
+          let RT3 := MapAddress.update _ (RT2) (pc, (j+3)%N) (rt3) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) 
+            ((pc, j)::(pc,(j+1)%N)::(pc,(j+2)%N)::(pc,(j+3)%N)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT3) (pcMapping')
 
-        | JVM_Tableswitch d low high l0 => let newM := BLOCK.append_dex_instructions (cb) 
-           ((DEX_PackedSwitch (N_toReg (tsValue-1)) (low) (length l0) (l0))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+        | JVM_Tableswitch d low high l0 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
+           ((DEX_PackedSwitch (N_toReg (tsValue-1)) (low) (length l0) 
+           (map (fun o => Z_of_N (DEX_OFFSET.jump pc o)) l0))::nil) in
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Vload k l0 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Vload k l0 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (translate_move_type (k)) (N_toReg (tsValue)) (l0))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Vreturn k => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Vreturn k => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_VReturn (translate_valKind (k)) (0)%N)::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
 
-        | JVM_Vstore k l0 => let newM := BLOCK.append_dex_instructions (cb) 
+        | JVM_Vstore k l0 => 
+          let j := N.of_nat (length (BLOCK.dex_instructions cb)) in
+          let rt := translate_st_rt (S pc) (max_locals) (sgn.(JVM_lvt)) in
+          let RT' := MapAddress.update _ (RT) (pc, j) (rt) in
+          let newBlock := BLOCK.append_dex_instructions (cb) 
            ((DEX_Move (translate_move_type (k)) (l0) (N_toReg (tsValue-1)))::nil) in
-          translate_instructions_rec (t) (m) (bp) (ts) (ret)
+          let newM := MapPC.update _ m blockIndex newBlock in
+          let pcMapping' := MapN.update _ pcMapping (pc) ((pc, j)::nil) in
+          translate_instructions_rec (t) (newM) (bp) (ts) (ret) (S) (RT') (pcMapping')
+
 (* 
         | _ => translate_instructions_rec (t) (m) (bp) (ts) (ret) (* Default for 
           not yet implemented instructions *) *)
       end
     end.
 
-  Definition translate_instructions (arg:BlockMap * (BPMap * (TSMap * Block))) : (BlockMap * Block) 
+  Definition translate_instructions (arg:BlockMap * (BPMap * (TSMap * Block))) 
+  (S:JVM_PC -> TypeStack) 
+  : ((BlockMap * Block) * (MapAddress.t TypeRegisters * MapN.t (list (N*N)))) 
   := let m := fst (arg) in
      let bp := fst (snd arg) in
      let ts := fst (snd (snd arg)) in
      let ret := snd (snd (snd arg)) in
-     translate_instructions_rec (insnList) (m) (bp) (ts) (ret).
-
+     translate_instructions_rec (insnList) (m) (bp) (ts) (ret) (S) 
+      (MapAddress.empty TypeRegisters) (MapN.empty (list (N*N))).
+(*
    Lemma Label_eq_dec : forall x y : JVM_PC, {x=y} + {x<>y}.
    Proof.
     repeat decide equality.
@@ -827,9 +1053,12 @@ Module DX_TRANSLATOR <: DX_TRANSLATOR_TYPE.
     construct_bytecodemethod 
       (consolidate_blocks (pick_order (translate_instructions 
       (trace_parent_child (start_block))))) (DEX_bc_empty).
-
+*)
+  End BytecodeMethod_Translator. 
+(*
   Section Translate_se.
     Parameter Translate_PC : JVM_PC -> DEX_PC.
   End Translate_se.
+*)
  
 End DX_TRANSLATOR.

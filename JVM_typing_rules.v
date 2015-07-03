@@ -28,12 +28,14 @@ Open Scope type_scope.
     Infix "U" := L.join (at level 60, right associativity).
 
     Inductive texec : JVM_PC -> JVM_Instruction -> JVM_tag -> TypeStack -> option TypeStack -> Prop :=
+(* DEX Object
     | aconst_null : forall i st,
       texec i Aconst_null None st (Some (L.Simple (se i)::st))
     | arraylength : forall i k ke st,
       (forall j, region i None j -> k <= se j) -> 
       (* DEX texec i Arraylength None (L.Array k ke::st)  (Some (L.Simple k::(elift m i k st))) *)
       texec i Arraylength None (L.Array k ke::st)  (Some (L.Simple k::st)) 
+*)
 (* DEX 
     | arraylength_np_caught : forall i t (k:L.t') st,
       (forall j, region i (Some np) j -> k <= se j) -> 
@@ -68,25 +70,27 @@ Open Scope type_scope.
       handler i cc = None ->
       texec i (Checkcast t) (Some cc) (k::st) None
 *)
-    | const : forall i t z st,
-      texec i (Const t z) None st (Some (L.Simple (se i)::st))
-    | dup : forall i k st,
-      texec i Dup None (k::st) (Some (k::k::st))
-    | dup_x1 : forall i k1 k2 st,
-      texec i Dup_x1 None  (k1::k2::st) (Some (k1::k2::k1::st))
-    | dup_x2 : forall i k1 k2 k3 st,
-      texec i Dup_x2 None (k1::k2::k3::st) (Some (k1::k2::k3::k1::st))
-    | dup2 : forall i k1 k2 st,
-      texec i Dup2 None (k1::k2::st) (Some (k1::k2::k1::k2::st))
-    | dup2_x1 : forall i k1 k2 k3 st,
-      texec i Dup2_x1 None (k1::k2::k3::st) (Some (k1::k2::k3::k1::k2::st))
-    | dup2_x2 : forall i k1 k2 k3 k4 st,
-      texec i Dup2_x2 None (k1::k2::k3::k4::st) (Some (k1::k2::k3::k4::k1::k2::st))
+    | JVM_const : forall i t z st,
+      texec i (JVM_Const t z) None st (Some (L.Simple (se i)::st))
+    | JVM_dup : forall i k st,
+      texec i JVM_Dup None (k::st) (Some (k::k::st))
+    | JVM_dup_x1 : forall i k1 k2 st,
+      texec i JVM_Dup_x1 None  (k1::k2::st) (Some (k1::k2::k1::st))
+    | JVM_dup_x2 : forall i k1 k2 k3 st,
+      texec i JVM_Dup_x2 None (k1::k2::k3::st) (Some (k1::k2::k3::k1::st))
+    | JVM_dup2 : forall i k1 k2 st,
+      texec i JVM_Dup2 None (k1::k2::st) (Some (k1::k2::k1::k2::st))
+    | JVM_dup2_x1 : forall i k1 k2 k3 st,
+      texec i JVM_Dup2_x1 None (k1::k2::k3::st) (Some (k1::k2::k3::k1::k2::st))
+    | JVM_dup2_x2 : forall i k1 k2 k3 k4 st,
+      texec i JVM_Dup2_x2 None (k1::k2::k3::k4::st) (Some (k1::k2::k3::k4::k1::k2::st))
+(* DEX Object
     | getfield : forall i f k st,
       (forall j, region i None j -> k <= se j) -> 
       (* DEX texec i (Getfield f) None (L.Simple k::st) (Some ((k U' (ft p f))::(elift m i k st))) *)
       texec i (Getfield f) None (L.Simple k::st) (Some ((k U' (JVM_ft JVM_p f))::st))
-(* DEX
+*)
+(* DEX Exception
     | getfield_np_caught : forall i t f k st,
       (forall j, region i (Some np) j -> k <= se j) -> 
       handler i np = Some t ->
@@ -97,14 +101,14 @@ Open Scope type_scope.
       handler i np = None ->
       texec i (Getfield f) (Some np) (L.Simple k::st) None
 *)
-    | goto : forall i o st,
-      texec i (Goto o) None st (Some st)
-    | i2b : forall i k st,
-      texec i I2b None (L.Simple k::st) (Some (L.Simple k::st))
-    | i2s : forall i k st,
-      texec i I2s None (L.Simple k::st) (Some (L.Simple k::st))
-    | ibinop : forall i op k1 k2 st st',
-(* DEX
+    | JVM_goto : forall i o st,
+      texec i (JVM_Goto o) None st (Some st)
+    | JVM_i2b : forall i k st,
+      texec i JVM_I2b None (L.Simple k::st) (Some (L.Simple k::st))
+    | JVM_i2s : forall i k st,
+      texec i JVM_I2s None (L.Simple k::st) (Some (L.Simple k::st))
+    | JVM_ibinop : forall i op k1 k2 st st',
+(* DEX Exception
       (match op with 
                 | DivInt => forall j, region i None j -> k1 <= se j 
                 | RemInt => forall j, region i None j -> k1 <= se j 
@@ -116,8 +120,8 @@ Open Scope type_scope.
                 | _ => st
               end)->
 *)
-      texec i (Ibinop op) None (L.Simple k1::L.Simple k2::st) (Some (L.Simple (L.join k1 k2)::st'))
-(* DEX
+      texec i (JVM_Ibinop op) None (L.Simple k1::L.Simple k2::st) (Some (L.Simple (L.join k1 k2)::st'))
+(* DEX Exception
     | ibinop_ae_caught : forall i t op k1 k2 st,
       (forall j, region i (Some ae) j -> k1 <= se j) -> 
       op = DivInt \/ op = RemInt ->
@@ -130,23 +134,28 @@ Open Scope type_scope.
       handler i ae = None ->
       texec i (Ibinop op) (Some ae) (L.Simple k1::L.Simple k2::st) None
 *)
+(* DEX Object
     | if_acmp : forall i cmp o k1 k2 st,
       (forall j, region i None j -> L.join k1 k2 <= se j) -> 
       texec i (If_acmp cmp o) None (L.Simple k1::L.Simple k2::st) (Some (lift_st (L.join k1 k2) st))
-    | if_icmp : forall i cmp o k1 k2 st,
+*)
+    | JVM_if_icmp : forall i cmp o k1 k2 st,
       (forall j, region i None j -> L.join k1 k2 <= se j) -> 
-      texec i (If_icmp cmp o) None (L.Simple k1::L.Simple k2::st) (Some (lift_st (L.join k1 k2) st))
-    | ifeq : forall i cmp o k st,
+      texec i (JVM_If_icmp cmp o) None (L.Simple k1::L.Simple k2::st) (Some (lift_st (L.join k1 k2) st))
+    | JVM_ifeq : forall i cmp o k st,
       (forall j, region i None j -> k <= se j) -> 
-      texec i (If0 cmp o) None (L.Simple k::st) (Some (lift_st k st))
+      texec i (JVM_If0 cmp o) None (L.Simple k::st) (Some (lift_st k st))
+(* DEX Object
     | ifnull : forall i cmp o (k:L.t') st,
       (forall j, region i None j -> k <= se j) -> 
       texec i (Ifnull cmp o) None (k::st) (Some (lift_st k st))
-    | iinc : forall i x c st,
+*)
+    | JVM_iinc : forall i x c st,
       se i <= sgn.(JVM_lvt) x -> 
-      texec i (Iinc x c) None st (Some st)
-    | ineg : forall i k st,
-      texec i Ineg None (k::st) (Some (k::st))
+      texec i (JVM_Iinc x c) None st (Some st)
+    | JVM_ineg : forall i k st,
+      texec i JVM_Ineg None (k::st) (Some (k::st))
+(* DEX Object and Method
     | instanceof : forall i t (k:L.t') st,
       (forall j, region i None j -> k <= se j) -> 
       texec i (Instanceof t) None (k::st) (Some (k::st))
@@ -233,9 +242,11 @@ Open Scope type_scope.
       texec i (Invokevirtual mid) (Some cn)
       (st1++L.Simple k1::st2)  None
 *)
-    | lookupswitch : forall i d l k st,
+*)
+    | JVM_lookupswitch : forall i d l k st,
       (forall j, region i None j -> k <= se j) -> 
-      texec i (Lookupswitch d l) None (L.Simple k::st) (Some (lift_st k st))
+      texec i (JVM_Lookupswitch d l) None (L.Simple k::st) (Some (lift_st k st))
+(* DEX Object
     | new : forall i c st,
       texec i (New c) None st (Some (L.Simple (se i)::st))
     | newarray : forall i t k st,
@@ -253,12 +264,14 @@ Open Scope type_scope.
       handler i nase = None ->
       texec i (Newarray t) (Some nase) (L.Simple k::st) None
 *)
-    | nop : forall i st,
-      texec i Nop None st (Some st)
-    | pop : forall i k st,
-      texec i Pop None (k::st) (Some st)
-    | pop2 : forall i k1 k2 st,
-      texec i Pop2 None (k1::k2::st) (Some st)
+*)
+    | JVM_nop : forall i st,
+      texec i JVM_Nop None st (Some st)
+    | JVM_pop : forall i k st,
+      texec i JVM_Pop None (k::st) (Some st)
+    | JVM_pop2 : forall i k1 k2 st,
+      texec i JVM_Pop2 None (k1::k2::st) (Some st)
+(* DEX Object
     | putfield : forall i f k1 k2 st,
       k1 <=' JVM_ft JVM_p f -> 
       k2 <= JVM_ft JVM_p f -> 
@@ -278,14 +291,16 @@ Open Scope type_scope.
       handler i np = None ->
       texec i (Putfield f) (Some np) (k1::L.Simple k2::st) None
 *)
-    | return_ : forall i st,
+*)
+    | JVM_return_ : forall i st,
       sgn.(JVM_resType) = None ->
-      texec i Return None st None
-    | swap : forall i k1 k2 st,
-      texec i Swap None (k1::k2::st) (Some (k2::k1::st))
-    | tableswitch : forall i d lo hi l k st,
+      texec i JVM_Return None st None
+    | JVM_swap : forall i k1 k2 st,
+      texec i JVM_Swap None (k1::k2::st) (Some (k2::k1::st))
+    | JVM_tableswitch : forall i d lo hi l k st,
       (forall j, region i None j -> k <= se j) -> 
-      texec i (Tableswitch d lo hi l) None (L.Simple k::st) (Some (lift_st k st))
+      texec i (JVM_Tableswitch d lo hi l) None (L.Simple k::st) (Some (lift_st k st))
+(* DEX Object
     | vaload : forall i t k1 k2 ke st,
       (forall j, region i None j -> k2 <= se j) -> 
       (forall j, region i None j -> (L.join k1 k2) <= se j) -> 
@@ -350,16 +365,17 @@ Open Scope type_scope.
       handler i iob = None ->
       texec i (Vastore t) (Some iob) (kv::L.Simple ki::L.Array ka ke::st) None
 *)
-    | vload : forall i t x st,
-      texec i (Vload t x) None st (Some (L.join' (se i) (sgn.(JVM_lvt) x)::st))
-    | vstore : forall i t x k st,
+*)
+    | JVM_vload : forall i t x st,
+      texec i (JVM_Vload t x) None st (Some (L.join' (se i) (sgn.(JVM_lvt) x)::st))
+    | JVM_vstore : forall i t x k st,
       se i <= sgn.(JVM_lvt) x -> 
       L.leql' k (sgn.(JVM_lvt) x) ->      
-      texec i (Vstore t x) None (k::st) (Some st)
-    | vreturn : forall i x k kv st,
+      texec i (JVM_Vstore t x) None (k::st) (Some st)
+    | JVM_vreturn : forall i x k kv st,
       sgn.(JVM_resType) = Some kv ->
       L.leql' k kv ->      
-      texec i (Vreturn x) None (k::st) None.
+      texec i (JVM_Vreturn x) None (k::st) None.
 
     Section JVM_S.
       Variable S : JVM_PC -> TypeStack.
@@ -518,6 +534,7 @@ Open Scope type_scope.
 
    Definition JVM_tcheck (i:JVM_PC) (ins:JVM_Instruction) : bool :=
       match ins,S i with
+(* DEX Object
         | Aconst_null,   st1 => 
           tsub_next i (L.Simple (se i)::st1)
         | Arraylength,   (L.Array k ke::st) =>
@@ -528,6 +545,7 @@ Open Scope type_scope.
           for_all _ 
             (fun e => (selift i (Some e) k) && (exception_test i e k))
             (throwableAt m i)
+*)
 *)
 (* DEX          
         | Athrow,        (L.Simple k::st) =>
@@ -541,34 +559,36 @@ Open Scope type_scope.
             (fun e => (selift i (Some e) k) && (exception_test i e k))
             (throwableAt m i)
 *)
-        | Const _ _,       st =>
+        | JVM_Const _ _,       st =>
           tsub_next i (L.Simple (se i)::st) 
-        | Dup,             k::st =>
+        | JVM_Dup,             k::st =>
           tsub_next i (k::k::st)
-        | Dup_x1,          k1::k2::st =>
+        | JVM_Dup_x1,          k1::k2::st =>
           tsub_next i (k1::k2::k1::st) 
-        | Dup_x2,          k1::k2::k3::st =>
+        | JVM_Dup_x2,          k1::k2::k3::st =>
           tsub_next i (k1::k2::k3::k1::st) 
-        | Dup2,            k1::k2::st =>
+        | JVM_Dup2,            k1::k2::st =>
           tsub_next i (k1::k2::k1::k2::st) 
-        | Dup2_x1,         k1::k2::k3::st =>
+        | JVM_Dup2_x1,         k1::k2::k3::st =>
           tsub_next i (k1::k2::k3::k1::k2::st) 
-        | Dup2_x2,         k1::k2::k3::k4::st =>
+        | JVM_Dup2_x2,         k1::k2::k3::k4::st =>
           tsub_next i (k1::k2::k3::k4::k1::k2::st) 
+(* DEX Object
         | Getfield f,      L.Simple k::st =>
           (selift i None k) && 
           (tsub_next i ((k U' (JVM_ft JVM_p f))::st))
+*)
 (* DEX
           (tsub_next i ((k U' (JVM_ft p f))::(elift m i k st))) &&
           for_all _
             (fun e => (selift i (Some e) k) && (exception_test i e k))
             (throwableAt m i)
 *)
-        | Goto o,          st =>
+        | JVM_Goto o,          st =>
           tsub_st st (S (JVM_OFFSET.jump i o)) 
-        | I2b,             L.Simple k::st =>
+        | JVM_I2b,             L.Simple k::st =>
           tsub_next i (L.Simple k::st) 
-        | I2s,             L.Simple k::st =>
+        | JVM_I2s,             L.Simple k::st =>
           tsub_next i (L.Simple k::st) 
 (* DEX
         | Ibinop DivInt,       L.Simple k1::L.Simple k2::st =>
@@ -584,29 +604,34 @@ Open Scope type_scope.
             (fun e => (selift i (Some e) k1) && (exception_test i e k1))
             (throwableAt m i)
 *)
-        | Ibinop _,       L.Simple k1::L.Simple k2::st =>
+        | JVM_Ibinop _,       L.Simple k1::L.Simple k2::st =>
           tsub_next i (L.Simple (L.join k1 k2)::st)
+(* DEX Object
         | If_acmp _ o,    L.Simple k1::L.Simple k2::st =>
           (selift i None (L.join k1 k2)) &&
           (tsub_next i (lift_st (L.join k1 k2) st)) &&
           (tsub_st (lift_st (L.join k1 k2) st) (S (JVM_OFFSET.jump i o)))
-        | If_icmp _ o,    L.Simple k1::L.Simple k2::st =>
+*)
+        | JVM_If_icmp _ o,    L.Simple k1::L.Simple k2::st =>
           (selift i None (L.join k1 k2)) &&
           (tsub_next i (lift_st (L.join k1 k2) st)) &&
           (tsub_st (lift_st (L.join k1 k2) st) (S (JVM_OFFSET.jump i o)))
-        | If0 _ o,        L.Simple k::st =>
+        | JVM_If0 _ o,        L.Simple k::st =>
           (selift i None k) &&
           (tsub_next i (lift_st k st)) &&
           (tsub_st (lift_st k st) (S (JVM_OFFSET.jump i o)))
+(* DEX Object
         | Ifnull _ o,        k::st =>
           (selift i None k) &&
           (tsub_next i (lift_st k st)) &&
           (tsub_st (lift_st k st) (S (JVM_OFFSET.jump i o)))
-        | Iinc x c,         st =>
+*)
+        | JVM_Iinc x c,         st =>
           (L.leql_t (se i) (sgn.(JVM_lvt) x)) &&
           (tsub_next i st)
-        | Ineg,             k::st =>
+        | JVM_Ineg,             k::st =>
           tsub_next i (k::st)
+(* DEX Object and Method
         | Instanceof _,     k::st =>
           (selift i None k) &&
           (tsub_next i (k::st))
@@ -652,12 +677,14 @@ Open Scope type_scope.
                 tsub_next i (lift_st k1 (cons_option (join_op k1 (JVM_virtual_signature JVM_p (snd mid) k1).(JVM_resType)) st2))
               | _ => false
             end
-        | Lookupswitch d l, L.Simple k::st =>
+*)
+        | JVM_Lookupswitch d l, L.Simple k::st =>
           (selift i None k) &&
           (for_all _
             (fun o => tsub_st (lift_st k st) (S (JVM_OFFSET.jump i o)))
             (d::@map _ _ (@snd _ _) l)) &&
           tsub_next i (lift_st k st)
+(* DEX Object
         | New c, st =>
           tsub_next i (L.Simple (se i)::st)
         | Newarray t, (L.Simple k::st) =>
@@ -669,15 +696,18 @@ Open Scope type_scope.
             (fun e => (selift i (Some e) k) && (exception_test i e k))
             (throwableAt m i)
 *)
-        | Nop, st => tsub_next i st
-        | Pop, k::st => tsub_next i  st
-        | Pop2, k1::k2::st => tsub_next i st
+*)
+        | JVM_Nop, st => tsub_next i st
+        | JVM_Pop, k::st => tsub_next i  st
+        | JVM_Pop2, k1::k2::st => tsub_next i st
+(* DEX Object
         | Putfield f, (k1::L.Simple k2::st) =>
           leql'_test k1 (JVM_ft JVM_p f) &&
           L.leql_t k2 (JVM_ft JVM_p f) &&
           L.leql_t (se i) (JVM_ft JVM_p f) &&
           L.leql_t sgn.(JVM_heapEffect) (JVM_ft JVM_p f) &&
           selift i None k2 && tsub_next i st
+*)
 (* DEX
           &&
           tsub_next i (elift m i k2 st) &&
@@ -685,18 +715,19 @@ Open Scope type_scope.
             (fun e => (selift i (Some e) k2) && (exception_test i e k2))
             (throwableAt m i)
 *)
-        | Return, st =>
+        | JVM_Return, st =>
           match sgn.(JVM_resType) with
             | None => true
             | _ => false
           end
-        | Swap, k1::k2::st => tsub_next i (k2::k1::st)
-        | Tableswitch d lo hi l, L.Simple k::st =>
+        | JVM_Swap, k1::k2::st => tsub_next i (k2::k1::st)
+        | JVM_Tableswitch d lo hi l, L.Simple k::st =>
           (selift i None k) &&
           (tsub_next i (lift_st k st)) &&
           (for_all _
             (fun o => tsub_st (lift_st k st) (S (JVM_OFFSET.jump i o)))
             (d::l))          
+(* DEX Object
         | Vaload t, L.Simple k1::L.Array k2 ke::st =>
           (selift i None k2) &&
           (selift i None (L.join k1 k2)) &&
@@ -721,13 +752,14 @@ Open Scope type_scope.
           (selift i (Some ase) (L.join kv (L.join ki ka))) && (exception_test' i ase (L.join kv (L.join ki ka))) && 
           (selift i (Some iob) (L.join ki ka)) && (exception_test' i iob (L.join ki ka)) 
 *)
-        | Vload t x, st =>
+*)
+        | JVM_Vload t x, st =>
           tsub_next i (L.join' (se i) (sgn.(JVM_lvt) x)::st)
-        | Vstore t x, k::st =>
+        | JVM_Vstore t x, k::st =>
           L.leql_t (se i) (sgn.(JVM_lvt) x) &&
           leql'_test k (sgn.(JVM_lvt) x) &&
           tsub_next i st
-        | Vreturn x, k::st =>
+        | JVM_Vreturn x, k::st =>
           match sgn.(JVM_resType) with
             | None => false
             | Some kv => leql'_test k kv 
@@ -813,17 +845,17 @@ Open Scope type_scope.
          | [ _ : context[match ?x with nil => _ | _ :: _ => _ end] |- _] => destruct x
          | [ _ : context[match ?x with L.Simple _ => _ | L.Array _ _ => _ end] |- _] => destruct x
          | [_ :  context [match ?x with
-                            | JVM_Make.AddInt => _
-                            | JVM_Make.AndInt => _
-                            | JVM_Make.DivInt => _
-                            | JVM_Make.MulInt => _
-                            | JVM_Make.OrInt => _
-                            | JVM_Make.RemInt => _
-                            | JVM_Make.ShlInt => _
-                            | JVM_Make.ShrInt => _
-                            | JVM_Make.SubInt => _
-                            | JVM_Make.UshrInt => _
-                            | JVM_Make.XorInt => _
+                            | JVM_Make.JVM_AddInt => _
+                            | JVM_Make.JVM_AndInt => _
+                            | JVM_Make.JVM_DivInt => _
+                            | JVM_Make.JVM_MulInt => _
+                            | JVM_Make.JVM_OrInt => _
+                            | JVM_Make.JVM_RemInt => _
+                            | JVM_Make.JVM_ShlInt => _
+                            | JVM_Make.JVM_ShrInt => _
+                            | JVM_Make.JVM_SubInt => _
+                            | JVM_Make.JVM_UshrInt => _
+                            | JVM_Make.JVM_XorInt => _
                           end] |- _] => destruct x
        end.
 
@@ -965,6 +997,7 @@ replace_leql.
      intros.
      inversion_clear H0 in H;
        unfold JVM_tcheck (* DEX, step.handler, exception_test, exception_test'*) in *;
+       (*   split_match. intuition. subst. try discriminate; flatten. replace_tsub_next. search_tsub.*)
      try (split_match; intuition; subst; try discriminate; flatten2; eauto with texec; fail).
 (* DEX
      split_match; intuition; try discriminate; flatten2.
@@ -972,7 +1005,9 @@ replace_leql.
      
      split_match; try (case op in H; inversion H; fail).
      destruct op; flatten2; apply ibinop; auto.
-*) 
+*)
+    Qed.
+(* DEX Method and Objects 
      (* invokestatic *)
      flatten2.
      elim length_le_app_form with (n:=(length (JVM_METHODSIGNATURE.parameters (snd mid)))) (l:=(S i)).
@@ -1053,6 +1088,7 @@ replace_leql.
      (* vaload *)
 *)
    Qed.
+*)
  End JVM_S.
   End JVM_typing_rules.
 

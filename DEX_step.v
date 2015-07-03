@@ -1,33 +1,57 @@
 (** Static Intra-method control flow step. We also implement an iterator on it *)
-
 Require Export Annotated.
 Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
 
+Module Make (Ms:MAP).
 
   Section DEX_S_section.   (** step relation **)
-    Variable p : DEX_Program.
+    (*Variable p : DEX_Program.*)
+    Definition address := Ms.key.
+    Variable codes : Ms.t (DEX_Instruction*(option address*list DEX_ClassName)).
+    Variable jump_label : address -> DEX_OFFSET.t -> address.
+
+    Definition nextAddress (pc:address): option address :=
+    match Ms.get codes pc with
+      | Some p => fst (snd p)
+      | None => None
+    end.
+
+    Definition instructionAtAddress (pc:address) : option DEX_Instruction :=
+    match Ms.get codes pc with
+      |Some p => Some (fst p)
+      |None => None
+    end.
+(*
     Variable subclass_test : DEX_ClassName -> DEX_ClassName -> bool.
     Variable m : DEX_Method.
+*)
 
     (* DEX Definition handler := handler subclass_test m.*)
 
-    Inductive DEX_step : DEX_PC -> DEX_Instruction -> DEX_tag -> option DEX_PC -> Prop :=
-    | nop : forall i j,
-      next m i = Some j ->
-      DEX_step i Nop None (Some j)
-    | move : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg),
-      next m i = Some j ->
-      DEX_step i (Move k rt rs) None (Some j)
+(*    Inductive DEX_step : DEX_PC -> DEX_Instruction -> DEX_tag -> option DEX_PC -> Prop := *)
+    Inductive DEX_step : address -> DEX_Instruction -> DEX_tag -> option address -> Prop :=
+    | DEX_nop : forall i j,
+      (*next m i = Some j ->*)
+      nextAddress i = Some j ->
+      DEX_step i DEX_Nop None (Some j)
+    | DEX_move : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg),
+      (*next m i = Some j ->*)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_Move k rt rs) None (Some j)
+(* DEX Method
     | moveResult : forall i j (k:DEX_ValKind) (rt:DEX_Reg),
       next m i = Some j ->
       DEX_step i (MoveResult k rt) None (Some j)
-    | return_s : forall i,
-      DEX_step i Return None None
-    | vReturn : forall i (k:DEX_ValKind) (rt:DEX_Reg),
-      DEX_step i (VReturn k rt) None None
-    | const : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (v:Z),
-      next m i = Some j ->
-      DEX_step i (Const k rt v) None (Some j)
+*)
+    | DEX_return_s : forall i,
+      DEX_step i DEX_Return None None
+    | DEX_vReturn : forall i (k:DEX_ValKind) (rt:DEX_Reg),
+      DEX_step i (DEX_VReturn k rt) None None
+    | DEX_const : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (v:Z),
+      (*next m i = Some j ->*)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_Const k rt v) None (Some j)
+(* DEX Object
     | instanceOf : forall i j (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType),
       next m i = Some j ->
       DEX_step i (InstanceOf rt r t) None (Some j)
@@ -40,8 +64,10 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     | newArray : forall i j (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type),
       next m i = Some j ->
       DEX_step i (NewArray rt rl t) None (Some j)
-    | goto : forall i (o:DEX_OFFSET.t),
-      DEX_step i (Goto o) None (Some (DEX_OFFSET.jump i o))
+*)
+    | DEX_goto : forall i (o:DEX_OFFSET.t),
+(*      DEX_step i (DEX_Goto o) None (Some (DEX_OFFSET.jump i o))*)
+      DEX_step i (DEX_Goto o) None (Some (jump_label i o))
 (* still experimental for PackedSwitch in that the next instruction is
    defined as the difference between i and j *)
 (*    | packedSwitch : forall i j (rt:DEX_Reg) (firstKey:Z) (size:Z) (l:list OFFSET.t),
@@ -51,12 +77,15 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     | sparseSwitch : forall i j (rt:DEX_Reg) (size:Z) (l:list (Z * OFFSET.t)),
       next m i = Some j \/ In j (@map _ _ (OFFSET.jump i) (@map _ _ (@snd _ _) l)) ->
       step i (SparseSwitch rt size l) None (Some j) *)
-    | ifcmp : forall i j (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
-      next m i = Some j \/ j = DEX_OFFSET.jump i o ->
-      DEX_step i (Ifcmp cmp ra rb o) None (Some j)
-    | ifz : forall i j (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
-      next m i = Some j \/ j = DEX_OFFSET.jump i o ->
-      DEX_step i (Ifz cmp r o) None (Some j)
+    | DEX_ifcmp : forall i j (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
+(*      next m i = Some j \/ j = DEX_OFFSET.jump i o ->*)
+      nextAddress i = Some j \/ j = jump_label i o ->
+      DEX_step i (DEX_Ifcmp cmp ra rb o) None (Some j)
+    | DEX_ifz : forall i j (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
+(*      next m i = Some j \/ j = DEX_OFFSET.jump i o ->*)
+      nextAddress i = Some j \/ j = jump_label i o ->
+      DEX_step i (DEX_Ifz cmp r o) None (Some j)
+(* DEX Object
     | aget : forall i j (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg),
       next m i = Some j ->
       DEX_step i (Aget k rt ra ri) None (Some j)
@@ -69,10 +98,12 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     | iput : forall i j (k:DEX_ValKind) (rs:DEX_Reg) (ro:DEX_Reg) (f:DEX_FieldSignature),
       next m i = Some j ->
       DEX_step i (Iput k rs ro f) None (Some j)
+*)
 (*    
     | Sget (k:ValKind) (rt:DEX_Reg) (f:FieldSignature)
     | Sput (k:ValKind) (rs:DEX_Reg) (f:FieldSignature) 
 *)
+(* DEX Method
     | invokevirtual : forall i j (m0:DEX_MethodSignature) (n:Z) (p:list DEX_Reg),
       next m i = Some j ->
       DEX_step i (Invokevirtual m0 n p) None (Some j)
@@ -88,50 +119,64 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     | invokeinterface : forall i j (m0:DEX_MethodSignature) (n:Z) (p:list DEX_Reg),
       next m i = Some j ->
       DEX_step i (Invokeinterface m0 n p) None (Some j)
-    | ineg : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
-      next m i = Some j ->
-      DEX_step i (Ineg rt rs) None (Some j)
-    | inot : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
-      next m i = Some j ->
-      DEX_step i (Inot rt rs) None (Some j)
-    | i2b : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
-      next m i = Some j ->
-      DEX_step i (I2b rt rs) None (Some j)
-    | i2s : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
-      next m i = Some j ->
-      DEX_step i (I2s rt rs) None (Some j)
-    | ibinop : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg),
-      next m i = Some j ->
-      DEX_step i (Ibinop op rt ra rb) None (Some j)
-    | ibinopConst : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z),
-      next m i = Some j ->
-      DEX_step i (IbinopConst op rt r v) None (Some j)
-    | packedSwitch : forall i j d (rt:DEX_Reg) (firstKey:Z) (size:Z) (l:list DEX_OFFSET.t),
-      (next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ In j l ->
-      DEX_step i (PackedSwitch rt firstKey size l) None (Some (DEX_OFFSET.jump i j))
-    | sparseSwitch : forall i j d (rt:DEX_Reg) (size:Z) (l:list (Z * DEX_OFFSET.t)),
-      (next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ 
+*)
+    | DEX_ineg : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
+      (*next m i = Some j ->*)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_Ineg rt rs) None (Some j)
+    | DEX_inot : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
+      (*next m i = Some j ->*)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_Inot rt rs) None (Some j)
+    | DEX_i2b : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
+      (*next m i = Some j ->*)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_I2b rt rs) None (Some j)
+    | DEX_i2s : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
+      (* next m i = Some j -> *)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_I2s rt rs) None (Some j)
+    | DEX_ibinop : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg),
+      (* next m i = Some j -> *)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_Ibinop op rt ra rb) None (Some j)
+    | DEX_ibinopConst : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z),
+      (* next m i = Some j -> *)
+      nextAddress i = Some j ->
+      DEX_step i (DEX_IbinopConst op rt r v) None (Some j)
+    | DEX_packedSwitch : forall i j d (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
+      (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ In j l ->*)
+      (nextAddress i = Some d /\ d = jump_label i j) \/ In j l ->
+      (*DEX_step i (DEX_PackedSwitch rt firstKey size l) None (Some (DEX_OFFSET.jump i j))*)
+      DEX_step i (DEX_PackedSwitch rt firstKey size l) None (Some (jump_label i j))
+    | DEX_sparseSwitch : forall i j d (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
+      (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ *)
+      (nextAddress i = Some d /\ d = jump_label i j) \/ 
         In j (@map _ _ (@snd _ _) l) ->
-      DEX_step i (SparseSwitch rt size l) None (Some (DEX_OFFSET.jump i j))
+      (*DEX_step i (DEX_SparseSwitch rt size l) None (Some (DEX_OFFSET.jump i j))*)
+      DEX_step i (DEX_SparseSwitch rt size l) None (Some (jump_label i j))
 .
 
-    Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list (DEX_tag * option DEX_PC) := 
+    (*Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list (DEX_tag * option DEX_PC) := *)
+    Definition get_steps (i:address) (ins:DEX_Instruction) (next:option address): list (DEX_tag * option address) := 
       match ins with
-        | SparseSwitch r size l =>
-          (None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (@map _ _ (@snd _ _) l)
-        | PackedSwitch r firstKey size l =>
-          (None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (l)
-        | Return => (None,None)::nil
-        | VReturn k rt => (None,None)::nil
-        | Goto o => (None,Some (DEX_OFFSET.jump i o))::nil
-        | Ifcmp cmp ra rb o => (None,next)::(None,Some (DEX_OFFSET.jump i o))::nil
-        | Ifz cmp r o => (None,next)::(None,Some (DEX_OFFSET.jump i o))::nil
+        | DEX_SparseSwitch r size l =>
+          (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (@map _ _ (@snd _ _) l)*)
+          (None,next) :: map (fun o => (None,Some (jump_label i o))) (@map _ _ (@snd _ _) l)
+        | DEX_PackedSwitch r firstKey size l =>
+          (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (l)*)
+          (None,next) :: map (fun o => (None,Some (jump_label i o))) (l)
+        | DEX_Return => (None,None)::nil
+        | DEX_VReturn k rt => (None,None)::nil
+        | DEX_Goto o => (None,Some ((*DEX_OFFSET.*)jump_label i o))::nil
+        | DEX_Ifcmp cmp ra rb o => (None,next)::(None,Some ((*DEX_OFFSET.*)jump_label i o))::nil
+        | DEX_Ifz cmp r o => (None,next)::(None,Some ((*DEX_OFFSET.*)jump_label i o))::nil
         | _ => (None,next)::nil
       end.
 
     Lemma all_step_in_get_steps : forall i ins tau oj,
         DEX_step i ins tau oj -> 
-        In (tau,oj) (get_steps i ins (next m i)).
+        In (tau,oj) (get_steps i ins (nextAddress (*m*) i)).
     Proof.
       intros.
       inversion_clear H; simpl get_steps; try rewrite H0;
@@ -158,49 +203,50 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     Qed.
 
   Section for_all_steps.
-    Variable test : DEX_PC -> DEX_Instruction -> DEX_tag -> option DEX_PC -> bool.
+    (*Variable test : DEX_PC -> DEX_Instruction -> DEX_tag -> option DEX_PC -> bool.*)
+    Variable test : address -> DEX_Instruction -> DEX_tag -> option address -> bool.
 
-    Definition for_all_steps_bm (bm:DEX_BytecodeMethod) : bool :=
-      MapN.for_all _
-      (fun i (ins_next:DEX_Instruction*(option DEX_PC*list DEX_ClassName)) =>
+    Definition for_all_steps_codes (codes:Ms.t (DEX_Instruction*(option (*DEX_PC*)address*list DEX_ClassName))) : bool :=
+      Ms.for_all 
+      (fun i (ins_next:DEX_Instruction*(option (*DEX_PC*)address*list DEX_ClassName)) =>
         let (ins,next) := ins_next in
           for_all _
-          (fun (tau_oj:DEX_tag*option DEX_PC) => let (tau,oj):=tau_oj in test i ins tau oj)
-          (get_steps i ins (fst next)))
-      bm.(DEX_BYTECODEMETHOD.instr).
+          (fun (tau_oj:DEX_tag*option (*DEX_PC*)address) => 
+              let (tau,oj):=tau_oj in test i ins tau oj)
+              (get_steps i ins (fst next)) )
+      codes.
 
-    Lemma for_all_steps_bm_true : forall bm,
-      DEX_METHOD.body m = Some bm ->
-      for_all_steps_bm bm = true ->
+    Lemma for_all_steps_codes_true : for_all_steps_codes codes = true ->
       forall i ins tau oj,
-        instructionAt m i = Some ins ->
+        instructionAtAddress i = Some ins ->
         DEX_step i ins tau oj -> test i ins tau oj = true.
     Proof.
       intros.
-      assert (T1:=MapN.for_all_true _ _ _ H0).
-      assert (T2:=all_step_in_get_steps _ _ _ _ H2).
-      unfold instructionAt, DEX_BYTECODEMETHOD.instructionAt in H1.
-      rewrite H in H1.
-      caseeq (MapN.get (DEX_Instruction * (option DEX_PC*list DEX_ClassName)) (DEX_BYTECODEMETHOD.instr bm) i).
+      assert (T1:=Ms.for_all_true _ _ codes H).
+      assert (T2:=all_step_in_get_steps _ _ _ _ H1).
+      unfold instructionAtAddress in H0.
+      (*rewrite H in H1.*)
+      caseeq (Ms.get codes i).
       intros (ins0,next0) T3.
-      rewrite T3 in H1.
+      rewrite T3 in H0.
       generalize (T1 _ _ T3); clear T1; intros T1.
       apply for_all_true with
-        (test:=(fun tau_oj : DEX_tag * option DEX_PC =>
+        (test:=(fun tau_oj : DEX_tag * option address =>
           let (tau, oj) := tau_oj in test i ins tau oj))
         (2:=T2).
-      unfold next, DEX_BYTECODEMETHOD.nextAddress.
-      rewrite H; rewrite T3; simpl.
-      inversion_mine H1; auto.
-      intros T3; rewrite T3 in H1; discriminate.
+      unfold nextAddress.
+      rewrite T3; simpl.
+      inversion_mine H0; auto.
+      intros T3; rewrite T3 in H0; discriminate.
     Qed.
-
-  Definition for_all_steps_m : bool :=
-    match DEX_METHOD.body m with
+(*
+  Definition for_all_steps_codes codes : bool :=
+    match codes with
       | None => false
-      | Some bm => for_all_steps_bm bm
+      | Some instructions => for_all_steps_codes instructions
     end.
-
+*)
+(*
   Definition test_all_steps_m : list (DEX_PC*bool) :=
     match DEX_METHOD.body m with
       | None => nil
@@ -226,9 +272,9 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     apply H; auto.
     intros; discriminate.
   Qed.
-
+*)
   End for_all_steps.
-
+(*
   Section for_all_succs.
     Variable pc:DEX_PC.
     Variable test : DEX_tag -> option DEX_PC -> bool.
@@ -246,7 +292,7 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
       DEX_METHOD.body m = Some bm ->
       for_all_succs_bm bm = true ->
       forall ins tau oj,
-        instructionAt m pc = Some ins ->
+        instructionAtAddress pc = Some ins ->
         DEX_step pc ins tau oj -> test tau oj = true.
     Proof.
       unfold for_all_succs_bm; intros.
@@ -287,7 +333,8 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
   Qed.
    
  End for_all_succs.
-
+*)
+(*
   Section for_all_instrs.
     Variable test : DEX_PC -> DEX_Instruction -> bool.
 
@@ -333,9 +380,11 @@ Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
     Qed.
 
   End for_all_instrs.
-
+*)
 End DEX_S_section.
+End Make.
 
+(*
 Module DEX_MapClassTools := MapProjTools DEX_PROG.DEX_MapClass.
 
 Section p.
@@ -366,8 +415,7 @@ Section p.
   Qed.
 
 End p.
-
-
+*)
   
 
 

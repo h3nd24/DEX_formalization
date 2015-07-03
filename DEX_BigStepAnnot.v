@@ -62,6 +62,7 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
 *)
 .
 
+(* DEX Method
   Inductive DEX_exec_call (p:DEX_Program)  (m:DEX_Method) : option DEX_ClassName ->
    DEX_IntraNormalState -> DEX_ReturnState -> DEX_Method  -> DEX_IntraNormalState -> DEX_IntraNormalState + DEX_ReturnState  -> Prop :=
  | exec_call_normal : forall m2 pc1 pc1' h1 l1 l1' l2 h2 bm2 ov,
@@ -107,6 +108,7 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
        (inr _ (h2,Exception loc))
 *)
 .
+*)
 
  Inductive DEX_IntraStep (p:DEX_Program) : 
     DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState + DEX_ReturnState -> Prop :=
@@ -116,10 +118,12 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
   | IntraStep_intra_step:forall m s1 s2 tau,
      DEX_exec_intra p m tau s1 s2 ->
      DEX_IntraStep p m s1 (inl _ s2) 
+(* DEX Method
   | IntraStep_call :forall m m' s1 s' ret' r tau,
      DEX_exec_call p m tau s1 ret' m' s' r ->
      TransStep_l (DEX_IntraStep p m') s' (inr _ ret') ->
-     DEX_IntraStep p m s1 r.
+     DEX_IntraStep p m s1 r
+*).
  
  Definition DEX_IntraStepStar p m s r := TransStep_l (DEX_IntraStep p m) s r.
 
@@ -136,6 +140,7 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
          (forall m tau s s' , DEX_exec_intra p m tau s s' -> 
             forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
             P m s r) ->
+(* DEX Method
          (forall m tau s s' ret m' r, 
             DEX_exec_call p m tau s ret m' s' (inr _ r) ->
             DEX_IntraStepStar p m' s' (inr _ ret) ->
@@ -146,6 +151,7 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
             DEX_IntraStepStar p m' s' (inr _ ret) -> P m' s' (inr _ ret) ->
             DEX_IntraStepStar p m s'' r -> P m s'' r ->
             P m s r) ->
+*)
       forall m s r, DEX_IntraStep p m s r -> 
         match r with
         | inr r' => P m s (inr _ r')
@@ -153,9 +159,11 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
         end.
      Proof.
        intros prg Q H0 Hr Hi Hcr Hc.
-       fix intra 4;intros m s r Hs;case Hs;clear m s r Hs;intros.
+       fix intra (*4*)2;intros (*m s*) r Hs;case Hs;clear (*m s*) r Hs;intros.
        eapply Hr; eauto.
        apply Hi with tau s2;trivial. 
+     Qed.
+(* DEX Method
        assert (Q m' s' (inr DEX_IntraNormalState ret')).
        generalize s' (inr DEX_IntraNormalState ret') H1;clear H1 H m s1 s' ret' r.
        fix fixp 3;intros s' s Ht;case Ht;clear Ht s' s;intros.
@@ -169,6 +177,7 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
        eapply Hc;eauto.
        intros r' Hcall;eapply Hcr;eauto.
      Qed.
+*)
 
   Lemma DEX_IntraStepStar_ind : 
     forall (p:DEX_Program) 
@@ -178,6 +187,7 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
        (forall m tau s s' , DEX_exec_intra p m tau s s' -> 
           forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
           P m s r) ->
+(* DEX Method
        (forall m tau s s' ret m' r, 
           DEX_exec_call p m tau s ret m' s' (inr _ r) ->
           DEX_IntraStepStar p m' s' (inr _ ret) ->
@@ -188,16 +198,17 @@ Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_P
           DEX_IntraStepStar p m' s' (inr _ ret) -> P m' s' (inr _ ret) ->
           DEX_IntraStepStar p m s'' r -> P m s'' r ->
           P m s r) ->
+*)
     forall m s r, DEX_IntraStepStar p m s r -> P m s r.
    Proof.
-     intros p Q H0 Hr Hi Hcr Hc.
+     intros p Q H0 Hr Hi (*Hcr Hc*).
      fix fixp 4;intros m s' s Ht;case Ht;clear Ht s' s;intros.
      apply H0.
-     generalize (DEX_IntraStep_ind_ Q H0 Hr Hi Hcr Hc H).
+     generalize (DEX_IntraStep_ind_ Q H0 Hr Hi (*Hcr Hc*) H).
      case r;intros;trivial.
      apply H1;trivial. 
      constructor.
-     assert (HH:=DEX_IntraStep_ind_ Q H0 Hr Hi Hcr Hc H);simpl in HH.
+     assert (HH:=DEX_IntraStep_ind_ Q H0 Hr Hi (*Hcr Hc*) H);simpl in HH.
      apply HH;trivial.   
      apply fixp;trivial.
    Qed.

@@ -12,13 +12,15 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
     (* DEX Definition handler := handler subclass_test m. *)
 
     Inductive JVM_step : JVM_PC -> JVM_Instruction -> JVM_tag -> option JVM_PC -> Prop :=
-    | aconst_null : forall i j,
+(* DEX Object
+    | JVM_aconst_null : forall i j,
       next m i = Some j ->
-      JVM_step i Aconst_null None (Some j)
+      JVM_step i JVM_Aconst_null None (Some j)
     | arraylength : forall i j,
       next m i = Some j ->
       JVM_step i Arraylength None (Some j)
-(* DEX    
+*)
+(* DEX Exception
     | arraylength_np_caught : forall i t,
       In np (throwableAt m i) ->
       handler i np = Some t ->
@@ -51,31 +53,33 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i cc = None ->
       step i (Checkcast t) (Some cc) None
 *)
-    | const : forall i t z j,
+    | JVM_const : forall i t z j,
       next m i = Some j ->
-      JVM_step i (Const t z) None (Some j)
-    | dup : forall i j,
+      JVM_step i (JVM_Const t z) None (Some j)
+    | JVM_dup : forall i j,
       next m i = Some j ->
-      JVM_step i Dup None (Some j)
-    | dup_x1 : forall i j,
+      JVM_step i JVM_Dup None (Some j)
+    | JVM_dup_x1 : forall i j,
       next m i = Some j ->
-      JVM_step i Dup_x1 None (Some j)
-    | dup_x2 : forall i j,
+      JVM_step i JVM_Dup_x1 None (Some j)
+    | JVM_dup_x2 : forall i j,
       next m i = Some j ->
-      JVM_step i Dup_x2 None (Some j)
-    | dup2 : forall i j,
+      JVM_step i JVM_Dup_x2 None (Some j)
+    | JVM_dup2 : forall i j,
       next m i = Some j ->
-      JVM_step i Dup2 None (Some j)
-    | dup2_x1 : forall i j,
+      JVM_step i JVM_Dup2 None (Some j)
+    | JVM_dup2_x1 : forall i j,
       next m i = Some j ->
-      JVM_step i Dup2_x1 None (Some j)
-    | dup2_x2 : forall i j,
+      JVM_step i JVM_Dup2_x1 None (Some j)
+    | JVM_dup2_x2 : forall i j,
       next m i = Some j ->
-      JVM_step i Dup2_x2 None (Some j)
+      JVM_step i JVM_Dup2_x2 None (Some j)
+(* DEX Object
     | getfield : forall i f j,
       next m i = Some j ->
       JVM_step i (Getfield f) None (Some j)
-(* DEX
+*)
+(* DEX Exception
     | getfield_np_caught : forall i t f,
       In np (throwableAt m i) ->
       handler i np = Some t ->
@@ -85,17 +89,17 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i np = None ->
       step i (Getfield f) (Some np) None
 *)
-    | goto : forall i o,
-      JVM_step i (Goto o) None (Some (JVM_OFFSET.jump i o))
-    | i2b : forall i j,
+    | JVM_goto : forall i o,
+      JVM_step i (JVM_Goto o) None (Some (JVM_OFFSET.jump i o))
+    | JVM_i2b : forall i j,
       next m i = Some j ->
-      JVM_step i I2b None (Some j)
-    | i2s : forall i j,
+      JVM_step i JVM_I2b None (Some j)
+    | JVM_i2s : forall i j,
       next m i = Some j ->
-      JVM_step i I2s None (Some j)
-    | ibinop : forall i op j,
+      JVM_step i JVM_I2s None (Some j)
+    | JVM_ibinop : forall i op j,
       next m i = Some j ->
-      JVM_step i (Ibinop op) None (Some j)
+      JVM_step i (JVM_Ibinop op) None (Some j)
 (* DEX
     | ibinop_ae_caught : forall i t op,
       In ae (throwableAt m i) ->
@@ -108,24 +112,29 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i ae = None ->
       step i (Ibinop op) (Some ae) None
 *)
+(* DEX Object
     | if_acmp : forall i cmp o j,
       next m i = Some j \/ j = JVM_OFFSET.jump i o ->
       JVM_step i (If_acmp cmp o) None (Some j)
-    | if_icmp : forall i cmp o j,
+*)
+    | JVM_if_icmp : forall i cmp o j,
       next m i = Some j \/ j = JVM_OFFSET.jump i o ->
-      JVM_step i (If_icmp cmp o) None (Some j)
-    | ifeq : forall i cmp o j,
+      JVM_step i (JVM_If_icmp cmp o) None (Some j)
+    | JVM_ifeq : forall i cmp o j,
       next m i = Some j \/ j = JVM_OFFSET.jump i o ->
-      JVM_step i (If0 cmp o) None (Some j)
+      JVM_step i (JVM_If0 cmp o) None (Some j)
+(* DEX Object
     | ifnull : forall i cmp o j,
       next m i = Some j \/ j = JVM_OFFSET.jump i o ->
       JVM_step i (Ifnull cmp o) None (Some j)
-    | iinc : forall i x c j,
+*)
+    | JVM_iinc : forall i x c j,
       next m i = Some j ->
-      JVM_step i (Iinc x c) None (Some j)
-    | ineg : forall i j,
+      JVM_step i (JVM_Iinc x c) None (Some j)
+    | JVM_ineg : forall i j,
       next m i = Some j ->
-      JVM_step i Ineg None (Some j)
+      JVM_step i JVM_Ineg None (Some j)
+(* DEX Object and Method
     | instanceof : forall i t j,
       next m i = Some j ->
       JVM_step i (Instanceof t) None (Some j)
@@ -155,16 +164,19 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i e = None ->
       step i (Invokevirtual mid) (Some e) None
 *)
-    | lookupswitch : forall i d l o,
+*)
+    | JVM_lookupswitch : forall i d l o,
       In o (d::@map _ _ (@snd _ _) l) ->
-      JVM_step i (Lookupswitch d l) None (Some (JVM_OFFSET.jump i o))
+      JVM_step i (JVM_Lookupswitch d l) None (Some (JVM_OFFSET.jump i o))
+(* DEX Object
     | new : forall i c j,
       next m i = Some j ->
       JVM_step i (New c) None (Some j)
     | newarray : forall i t j,
       next m i = Some j ->
       JVM_step i (Newarray t) None (Some j)
-(* DEX
+*)
+(* DEX Exception
     | newarray_nase_caught : forall i t te,
       In nase (throwableAt m i) ->
       handler i nase = Some te ->
@@ -174,19 +186,21 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i nase = None ->
       step i (Newarray t) (Some nase) None
 *)
-    | nop : forall i j,
+    | JVM_nop : forall i j,
       next m i = Some j ->
-      JVM_step i Nop None (Some j)
-    | pop : forall i j,
+      JVM_step i JVM_Nop None (Some j)
+    | JVM_pop : forall i j,
       next m i = Some j ->
-      JVM_step i Pop None (Some j)
-    | pop2 : forall i j,
+      JVM_step i JVM_Pop None (Some j)
+    | JVM_pop2 : forall i j,
       next m i = Some j ->
-      JVM_step i Pop2 None (Some j)
+      JVM_step i JVM_Pop2 None (Some j)
+(* DEX Object
     | putfield : forall i f j,
       next m i = Some j ->
       JVM_step i (Putfield f) None (Some j)
-(* DEX
+*)
+(* DEX Exception
     | putfield_np_caught : forall i t f,
       In np (throwableAt m i) ->
       handler i np = Some t ->
@@ -196,18 +210,20 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i np = None ->
       step i (Putfield f) (Some np) None
 *)
-    | return_ : forall i,
-      JVM_step i Return None None
-    | swap : forall i j,
+    | JVM_return_ : forall i,
+      JVM_step i JVM_Return None None
+    | JVM_swap : forall i j,
       next m i = Some j ->
-      JVM_step i Swap None (Some j)
-    | tableswitch : forall i d lo hi l o,
+      JVM_step i JVM_Swap None (Some j)
+    | JVM_tableswitch : forall i d lo hi l o,
       In o (d::l) ->
-      JVM_step i (Tableswitch d lo hi l) None (Some (JVM_OFFSET.jump i o))
+      JVM_step i (JVM_Tableswitch d lo hi l) None (Some (JVM_OFFSET.jump i o))
+(* DEX Object
     | vaload : forall i t j,
       next m i = Some j ->
       JVM_step i (Vaload t)  None (Some j)
-(* DEX
+*)
+(* DEX Exception
     | vaload_np_caught : forall i t te,
       In np (throwableAt m i) ->
       handler i np = Some te ->
@@ -225,10 +241,12 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i iob = None ->
       step i (Vaload t) (Some iob) None
 *)
+(* DEX Object
     | vastore : forall i t j,
       next m i = Some j ->
       JVM_step i (Vastore t) None (Some j)
-(* DEX
+*)
+(* DEX Exception
     | vastore_np_caught : forall i t te,
       In np (throwableAt m i) ->
       handler i np = Some te ->
@@ -254,46 +272,52 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
       handler i iob = None ->
       step i (Vastore t) (Some iob) None
 *)
-    | vload : forall i t x j,
+    | JVM_vload : forall i t x j,
       next m i = Some j ->
-      JVM_step i (Vload t x) None (Some j)
-    | vstore : forall i t x j,
+      JVM_step i (JVM_Vload t x) None (Some j)
+    | JVM_vstore : forall i t x j,
       next m i = Some j ->
-      JVM_step i (Vstore t x) None (Some j)
-    | vreturn : forall i x,
-      JVM_step i (Vreturn x) None None.
+      JVM_step i (JVM_Vstore t x) None (Some j)
+    | JVM_vreturn : forall i x,
+      JVM_step i (JVM_Vreturn x) None None.
 
     Definition get_steps (i:JVM_PC) (ins:JVM_Instruction) (next:option JVM_PC): list (JVM_tag * option JVM_PC) := 
       match ins with
-        | Arraylength => (None,next)::nil (* DEX ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)
+        (* DEX | Arraylength => (None,next)::nil (* DEX ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)*)
         (* DEX | Athrow => map (fun e => (Some e,handler i e)) (throwableAt m i) *)
         (* DEX | Checkcast _ => (None,next)::(Some cc,handler i cc)::nil *)
-        | Getfield _ => (None,next)::nil(* DEX ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)
-        | Ibinop op => (None,next)::nil(* DEX ::
+        (* DEX | Getfield _ => (None,next)::nil(* DEX ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *) *)
+        | JVM_Ibinop op => (None,next)::nil(* DEX ::
           (match op with
              | DivInt =>map (fun e => (Some e,handler i e)) (throwableAt m i)
              | RemInt => map (fun e => (Some e,handler i e)) (throwableAt m i)
              | _ => nil
            end) *)
+(* DEX Method
         | Invokestatic mid => 
           (None,next)::nil (* DEX ::(map (fun e => (Some e,handler i e)) ((throwableAt m i)++throwableBy p (snd mid))) *)
         | Invokevirtual mid =>
           (None,next)::nil (* DEX ::(map (fun e => (Some e,handler i e)) ((throwableAt m i)++throwableBy p (snd mid))) *)
-        | Lookupswitch d l =>
+*)
+        | JVM_Lookupswitch d l =>
           map (fun o => (None,Some (JVM_OFFSET.jump i o))) (d::@map _ _ (@snd _ _) l)
+(* DEX Object
         | Newarray _ =>  (None,next)::nil (* DEX ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)
         | Putfield _ => (None,next)::nil (* DEX ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)
-        | Return => (None,None)::nil
-        | Tableswitch d lo hi l =>
+*)
+        | JVM_Return => (None,None)::nil
+        | JVM_Tableswitch d lo hi l =>
           map (fun o => (None,Some (JVM_OFFSET.jump i o))) (d::l) 
+(* DEX Object
         | Vaload _ => (None,next)::nil (* ::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)
         | Vastore _ => (None,next)::nil (*::(map (fun e => (Some e,handler i e)) (throwableAt m i)) *)
-        | Vreturn _ => (None,None)::nil
-        | Goto o => (None,Some (JVM_OFFSET.jump i o))::nil
-        | If_acmp cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil
-        | If_icmp cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil
-        | If0 cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil
-        | Ifnull cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil
+*)
+        | JVM_Vreturn _ => (None,None)::nil
+        | JVM_Goto o => (None,Some (JVM_OFFSET.jump i o))::nil
+(* DEX Object        | If_acmp cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil*)
+        | JVM_If_icmp cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil
+        | JVM_If0 cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil
+(* DEX Object        | Ifnull cmp o => (None,next)::(None,Some (JVM_OFFSET.jump i o))::nil*)
         | _ => (None,next)::nil
       end.
 
@@ -333,8 +357,10 @@ Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
 *)
       destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
       destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
+(*
       destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
       destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes.
+*)
       destruct H0; subst.
       left; reflexivity.
       right; match goal with
