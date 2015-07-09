@@ -9,6 +9,8 @@ Import Level.L.
 Require DEX_step.
 Require DEX_typing_rules.
 
+(* Module BinMapN <: MAP with Definition key := N := BinMap. *)
+
 Module Step_final := DEX_step.Make MapN.
 Module Typing_final := DEX_typing_rules.Make MapN.
 
@@ -180,6 +182,225 @@ Section CheckTypable_Intermediate.
           locR sgn (se) (selift_int) (RT) i ins)
       (compiled_code)
     ).
-  
+
+  Lemma jump_address_eq : forall i a, jump_address i (Z_of_N a) = (a, (0)%N).
+  Proof.
+    admit.
+  Qed.
+
+  Lemma switch_next_0 : forall (code:DEX_Instruction*(option Step_int.address * list DEX_ClassName))
+    ins next_l next l bi j, (ins, next_l) = code ->
+    (next, l) = next_l ->
+    next = Some (bi, j) -> ~ (eq j 0)%N -> False.
+  Proof.
+    admit.
+  Qed.
+
+  Lemma all_ins_has_next : forall (code:DEX_Instruction*(option Step_int.address * list DEX_ClassName))
+    ins next_l next l, 
+    code = (ins, next_l) ->
+    ~ (ins = DEX_Return \/ exists k r, ins = DEX_VReturn k r) ->
+    next_l = (next, l) ->
+    next = None -> False.
+  Proof.
+    admit.
+  Qed.
+
+  Lemma PackedSwitch_successors : 
+  forall (l : list DEX_OFFSET.t) test rt firstKey size
+   next list_exc MapCode00 MapCode0 p,
+  p = (DEX_PackedSwitch rt firstKey size l, (next, list_exc)) ->
+  (forall (i : Step_int.address) (ins0 : DEX_Instruction) (tau : DEX_tag)
+      (oj : option Step_int.address),
+    Step_int.instructionAtAddress
+      (Some
+         (Some (DEX_PackedSwitch rt firstKey size l, (next, list_exc)),
+         MapCode00), MapCode0) i = Some ins0 ->
+    Step_int.DEX_step
+      (Some
+         (Some (DEX_PackedSwitch rt firstKey size l, (next, list_exc)),
+         MapCode00), MapCode0) jump_address i ins0 tau oj ->
+    test i ins0 tau oj = true) ->
+  (fix fold_right (l0 : list (DEX_tag * option Step_int.address)) : bool :=
+   match l0 with
+   | nil => true
+   | b :: t1 =>
+       (let (tau, oj) := b in
+        test (0%N, 0%N) (DEX_PackedSwitch rt firstKey size l) tau oj) &&
+       fold_right t1
+   end)
+  (map (fun o : DEX_OFFSET.t => (None, Some (jump_address (0%N, 0%N) o))) l) = true.
+  Proof.
+    intros.
+    set (l0 := (map (fun o : DEX_OFFSET.t => (None, Some 
+        (jump_address (0%N, 0%N) o))) l)
+        :list (DEX_tag * option Step_int.address) ) in *.
+    induction l0. auto. apply andb_true_intro. split.
+    destruct a eqn:Ha. 
+    apply H0 with (i := (0,0)%N). auto.
+    destruct d. admit.
+    destruct o. admit.
+    admit.
+    apply IHl0.
+  Qed.
+
+    Lemma for_all_steps_codes_true2 : forall codes
+      (test:Step_int.address -> DEX_Instruction -> DEX_tag -> option Step_int.address -> bool), 
+      (forall i ins tau oj,
+        Step_int.instructionAtAddress codes i = Some ins ->
+        Step_int.DEX_step (codes) (jump_address) i ins tau oj -> 
+        test i ins tau oj = true) ->
+        Step_int.for_all_steps_codes (jump_address) (test) (codes) = true.
+    Proof.
+      intros.
+      (* assert (T2:=Step_int.all_step_in_get_steps _ _ _ _ _ _ H0). *)
+      unfold Step_int.for_all_steps_codes.
+      unfold MapAddress.for_all.
+      unfold MapAddress'.fold.
+      unfold MapN.fold. unfold BinNatMap_Base.fold.
+      destruct codes as (code0, MapCode0) eqn:Hcodes. 
+      destruct code0 eqn:Hcode0.
+      destruct t0 as (code00, MapCode00)eqn:HMapCode00. 
+      destruct code00 eqn:Hcode00.
+      apply andb_true_intro. split.
+      destruct p as (ins, next_l) eqn:Hp.
+      destruct next_l as (next, list_exc) eqn:Hnext_l. 
+      unfold for_all.
+      unfold fold_right.
+(*      assert (T2:=Step_int.all_step_in_get_steps _ _ _ _ _ _). *)
+      unfold Step_int.get_steps.
+      destruct ins eqn:Hins;     
+      apply andb_true_intro; split; 
+      try (auto; fail);
+      (* Generic solution, will deal for sequential instructions *)
+      try (apply H with (i:=(0,0)%N); auto; destruct next eqn:Hnext;
+      (* No next instruction *)
+      try (apply False_ind; apply all_ins_has_next with (code:=p) (next:=next)
+        (next_l:=next_l) (l:=list_exc) (ins:=ins) in Hnext; try (subst; auto; fail); 
+        unfold not; intros; inversion H0; rewrite Hins in H1; inversion H1;
+        (*rewrite Hins in H1; inversion H1;*) inversion H2; inversion H3; fail);
+      (* Has next instruction *)
+      try (econstructor; auto; fail)).
+      (* end Generic solution *)
+      destruct a as (bi, j) eqn:Ha.
+      destruct (N.eq_dec j 0)%N.
+      rewrite e.
+      rewrite <- jump_address_eq with (i:=(0,0)%N).
+      apply Step_int.DEX_packedSwitch with 
+        (codes:=(Some (Some (DEX_PackedSwitch rt firstKey size l, 
+                (Some (jump_address (0%N, 0%N) (Z.of_N bi)), list_exc)), MapCode00), MapCode0))
+        (jump_label:=jump_address) (i:=(0,0)%N) (rt:=rt)
+        (firstKey:=firstKey) (size:=size) (l:=l) (d:=a).
+      left. split. 
+        unfold Step_int.nextAddress. simpl. rewrite jump_address_eq. rewrite Ha. rewrite e. auto.
+        rewrite jump_address_eq. rewrite <- e. apply Ha.
+        (* right *) apply False_ind. 
+        apply switch_next_0 with (code:=p) (ins:=DEX_PackedSwitch rt firstKey size l) (next_l:=next_l)
+        (next:=next) (bi:=bi) (j:=j) (l:=list_exc) in Hnext; try (subst; auto; fail).
+      (* switch list target *)
+      set (l' := (map (fun o : DEX_OFFSET.t => (None, 
+        Some (jump_address (0%N, 0%N) o))) l)) in *.
+     set (l0 := (map (fun o : DEX_OFFSET.t => (None, Some 
+        (jump_address (0%N, 0%N) o))) l)
+        :(list (option DEX_ClassName * option (N * N))) ) in *.
+      
+      apply PackedSwitch_successors with (rt:=rt) (firstKey:=firstKey)
+        (size:=size) (l:=l) (test:=test) (p:=p)
+        (next:=next) (list_exc:=list_exc) (MapCode00:=MapCode00) (MapCode0:=MapCode0).
+      auto. auto.
+      (* SparseSwitch *)
+      destruct a as (bi, j) eqn:Ha.
+      destruct (N.eq_dec j 0)%N.
+      rewrite e.
+      rewrite <- jump_address_eq with (i:=(0,0)%N).
+      apply Step_int.DEX_sparseSwitch with 
+        (codes:=(Some (Some (DEX_SparseSwitch rt size l, 
+                (Some (jump_address (0%N, 0%N) (Z.of_N bi)), list_exc)), MapCode00), MapCode0))
+        (jump_label:=jump_address) (i:=(0,0)%N) (rt:=rt)
+        (size:=size) (l:=l) (d:=a).
+      left. split. 
+        unfold Step_int.nextAddress. simpl. rewrite jump_address_eq. rewrite Ha. rewrite e. auto.
+        rewrite jump_address_eq. rewrite <- e. apply Ha.
+        (* right *) apply False_ind. 
+        apply switch_next_0 with (code:=p) (ins:=DEX_SparseSwitch rt size l) (next_l:=next_l)
+        (next:=next) (bi:=bi) (j:=j) (l:=list_exc) in Hnext; try (subst; auto; fail).
+      (* switch list target *)
+        admit.
+      (* Ifcmp *)
+      apply andb_true_intro. split; try (auto; fail).
+      apply H with (i:=(0,0)%N).
+      auto. econstructor. auto.
+      (* Ifz *) (*Basically the same as Ifcmp *)
+      apply andb_true_intro. split; try (auto; fail).
+      apply H with (i:=(0,0)%N).
+      auto. econstructor. auto.
+      
+      (* *)
+      unfold BinMap_Base.fold.
+      unfold fold. 
+      set (codes' := (fold_rec
+     (MapN.t
+        (DEX_Instruction * (option Step_int.address * list DEX_ClassName)))
+     bool
+     (fun (p0 : BinMap_Base.key)
+        (a : MapN.t
+               (DEX_Instruction *
+                (option Step_int.address * list DEX_ClassName))) (b : bool) =>
+      let (v, m) := a in
+      match v with
+      | Some v0 =>
+          (let (ins, next0) := v0 in
+           for_all (DEX_tag * option Step_int.address)
+             (fun tau_oj : DEX_tag * option Step_int.address =>
+              let (tau, oj) := tau_oj in test (N.pos p0, 0%N) ins tau oj)
+             (Step_int.get_steps jump_address (N.pos p0, 0%N) ins (fst next0))) &&
+          fold_rec
+            (DEX_Instruction * (option Step_int.address * list DEX_ClassName))
+            bool
+            (fun (p1 : BinMap_Base.key)
+               (a0 : DEX_Instruction *
+                     (option Step_int.address * list DEX_ClassName))
+               (b0 : bool) =>
+             (let (ins, next0) := a0 in
+              for_all (DEX_tag * option Step_int.address)
+                (fun tau_oj : DEX_tag * option Step_int.address =>
+                 let (tau, oj) := tau_oj in
+                 test (N.pos p0, N.pos p1) ins tau oj)
+                (Step_int.get_steps jump_address (N.pos p0, N.pos p1) ins
+                   (fst next0))) && b0) m 1 b
+      | None =>
+          fold_rec
+            (DEX_Instruction * (option Step_int.address * list DEX_ClassName))
+            bool
+            (fun (p1 : BinMap_Base.key)
+               (a0 : DEX_Instruction *
+                     (option Step_int.address * list DEX_ClassName))
+               (b0 : bool) =>
+             (let (ins, next0) := a0 in
+              for_all (DEX_tag * option Step_int.address)
+                (fun tau_oj : DEX_tag * option Step_int.address =>
+                 let (tau, oj) := tau_oj in
+                 test (N.pos p0, N.pos p1) ins tau oj)
+                (Step_int.get_steps jump_address (N.pos p0, N.pos p1) ins
+                   (fst next0))) && b0) m 1 b
+      end) MapCode0 1 true)). induction codes'. auto.
+      unfold fold_rec. split. apply andb_true_intro.
+
+        apply H with (i:=(0,0)%N).
+        assert (forall tau oj, test (0%N, 0%N) (DEX_PackedSwitch rt firstKey size (a :: l)) tau oj =
+          orb (test (0%N, 0%N) (DEX_PackedSwitch rt firstKey size l)  tau oj)
+          (test (0%N, 0%N) (DEX_PackedSwitch rt firstKey size (a :: nil)) tau oj)).
+            intros. destruct 
+        Eval compute in ((fix map (l0 : list DEX_OFFSET.t) :
+      list (option DEX_ClassName * option Step_int.address) :=
+      match l0 with
+      | nil => nil
+      | a0 :: t1 => (None, Some (jump_address (0%N, 0%N) a0)) :: map t1
+      end) l).
+        destruct (l0:list(DEX_tag * option Step_int.address)).
+      admit. admit. admit. admit. admit.
+      admit. admit. admit.
+    Qed.
+
 (* There was correctness check here *)
 End CheckTypable_Intermediate.

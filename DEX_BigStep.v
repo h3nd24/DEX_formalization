@@ -90,7 +90,7 @@ Module DEX_BigStep <: DEX_BIGSTEP.
     forall m s r, DEX_IntraStepStar p m s r -> P m s r.
    Proof.
      intros p P H0 Hr Hi (*Hcr Hc*).
-     fix fixp 4;intros m s' s Ht;case Ht;clear Ht s' s;intros.
+     fix fixp 4; intros m s' s Ht;case Ht;clear Ht s' s;intros.
      apply H0.
      generalize (IntraStep_ind_ p P H0 Hr Hi (*Hcr Hc*) _ _ _ H).
      case r;intros;trivial.

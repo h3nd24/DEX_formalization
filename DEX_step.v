@@ -179,7 +179,8 @@ Module Make (Ms:MAP).
         In (tau,oj) (get_steps i ins (nextAddress (*m*) i)).
     Proof.
       intros.
-      inversion_clear H; simpl get_steps; try rewrite H0;
+      inversion_clear H;
+      simpl get_steps; try rewrite H0;
       auto with datatypes;
       (* ifcmp and ifz cases *)
         try (destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes;
@@ -217,9 +218,9 @@ Module Make (Ms:MAP).
       codes.
 
     Lemma for_all_steps_codes_true : for_all_steps_codes codes = true ->
-      forall i ins tau oj,
+      (forall i ins tau oj, 
         instructionAtAddress i = Some ins ->
-        DEX_step i ins tau oj -> test i ins tau oj = true.
+        DEX_step i ins tau oj -> test i ins tau oj = true).
     Proof.
       intros.
       assert (T1:=Ms.for_all_true _ _ codes H).
@@ -239,6 +240,39 @@ Module Make (Ms:MAP).
       inversion_mine H0; auto.
       intros T3; rewrite T3 in H0; discriminate.
     Qed.
+(*
+    Lemma for_all_steps_codes_true2 :
+      forall i ins tau oj,
+        instructionAtAddress i = Some ins ->
+        DEX_step i ins tau oj -> 
+        test i ins tau oj = true ->
+        for_all_steps_codes codes = true.
+    Proof.
+      intros.
+      assert (T2:=all_step_in_get_steps _ _ _ _ H0).
+      unfold for_all_steps_codes.
+      apply Ms.for_all_spec.
+      
+
+
+      assert (T1:=Ms.for_all_true _ _ codes H).
+      assert (T2:=all_step_in_get_steps _ _ _ _ H1).
+      unfold instructionAtAddress in H0.
+      (*rewrite H in H1.*)
+      caseeq (Ms.get codes i).
+      intros (ins0,next0) T3.
+      rewrite T3 in H0.
+      generalize (T1 _ _ T3); clear T1; intros T1.
+      apply for_all_true with
+        (test:=(fun tau_oj : DEX_tag * option address =>
+          let (tau, oj) := tau_oj in test i ins tau oj))
+        (2:=T2).
+      unfold nextAddress.
+      rewrite T3; simpl.
+      inversion_mine H0; auto.
+      intros T3; rewrite T3 in H0; discriminate.
+    Qed.
+*)
 (*
   Definition for_all_steps_codes codes : bool :=
     match codes with
