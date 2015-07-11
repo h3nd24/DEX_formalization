@@ -7,6 +7,7 @@
 (** Big step semantics.
 
  @author David Pichardie *)
+(* Hendra : trim the system to contain only Arithmetic *)
 
 Require Export JVM_BigStepType.
 Require Export JVM_ImplemDomain.

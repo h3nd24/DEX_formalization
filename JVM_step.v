@@ -1,7 +1,7 @@
 (** Static Intra-method control flow step. We also implement an iterator on it *)
-
+(* Hendra : trim the system to contain only Arithmetic *)
 Require Export Annotated.
-Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_Dom JVM_Prog.
+Import JVM_BigStep.JVM_Dom JVM_Prog.
 
 
   Section JVM_S_section.   (** step relation **)

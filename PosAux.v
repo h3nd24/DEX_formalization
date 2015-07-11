@@ -31,12 +31,6 @@ Proof.
  injection H0;trivial.
 Qed.
 
-Theorem ex_falso_quodlibet : forall (P:Prop),
-  False -> P.
-Proof.
-  (* WORKED IN CLASS *)
-  intros P contra.
-  inversion contra.  Qed.
 
 Lemma Zeq_spec : forall (x y:Z), if Zeq_bool x y then x = y else x<>y.
 Proof.

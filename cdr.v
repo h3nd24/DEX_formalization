@@ -1,4 +1,5 @@
 (** * cdr.v: Control Dependence Region (interface) *)
+(* Hendra : Removed exception related SOAP *)
 Set Implicit Arguments.
 Section GRAPH.
 

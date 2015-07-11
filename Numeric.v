@@ -1,4 +1,5 @@
 (** * Bicolano: Number axiomatisation *)
+(* Hendra : added ``not'' *)
 
 Require Export ZArith.
 Require Export Bool.

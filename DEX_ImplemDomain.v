@@ -1,4 +1,7 @@
 (** * Bicolano: Semantic domains (interface implementation) *)
+(* Hendra : - Modified to suit DEX program (Removed Operand Stack).
+            - Removed Reference comparison. 
+            - Also trim the system to contain only Arithmetic *)
 
 Require Export DEX_ImplemProgramWithMap.
 Require Export DEX_Domain.

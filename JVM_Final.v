@@ -1,4 +1,5 @@
 (* Require Export JVM_Framework. *)
+(* Hendra : Used for method typability *)
 Require Export JVM_step.
 Require Export JVM_typing_rules.
 Require Export cdr.

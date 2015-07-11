@@ -1,4 +1,4 @@
-
+(* Hendra : trim the system to contain only Arithmetic *)
   Import JVM_Dom JVM_Prog.
 
   Open Scope type_scope.

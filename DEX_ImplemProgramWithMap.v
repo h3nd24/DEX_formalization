@@ -1,4 +1,7 @@
 (** * Bicolano: Program syntax (interface implementation with maps) *)
+(* Hendra : - Modified to suit DEX program. 
+            - DEX has different instructions list from JVM.
+            - Also trim the system to contain only Arithmetic *)
 
 Require Export DEX_Program.
 Require Export ImplemSubClass.

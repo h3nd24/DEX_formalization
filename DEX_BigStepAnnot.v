@@ -1,4 +1,6 @@
 (** BigStepAnnot.v: We constrain the Bicolano bigstep semantics to handle only the executions where exception thrown at a given point are in a predefined set. Such a set could be computed for example with a CHA static analysis. *)
+(* Hendra : - Modified to suit DEX program. 
+            - Also trim the system to contain only Arithmetic *)
 Require Export List.
 Require Export ZArith.
 Require Export LoadBicolano.
@@ -11,7 +13,7 @@ Implicit Arguments compat_op [A B].
 
 Module DEX_BigStepAnnot.
 
-Import DEX_BigStep.DEX_BigStep DEX_StaticHandler.DEX_StaticHandler DEX_Dom DEX_Prog.
+Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
 
 
 

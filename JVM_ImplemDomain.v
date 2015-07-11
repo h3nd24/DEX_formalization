@@ -1,5 +1,5 @@
 (** * Bicolano: Semantic domains (interface implementation) *)
-
+(* Hendra : trim the system to contain only Arithmetic *)
 Require Export JVM_ImplemProgramWithMap.
 Require Export JVM_Domain.
 

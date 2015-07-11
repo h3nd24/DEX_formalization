@@ -1,6 +1,10 @@
 (** Static Intra-method control flow step. We also implement an iterator on it *)
+(* Hendra : - Modified to suit DEX program. 
+            - DEX has different instructions list from JVM.
+            - Also trim the system to contain only Arithmetic
+            - Only retain the for_all_steps lemma *)
 Require Export Annotated.
-Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_Dom DEX_Prog.
+Import DEX_BigStep.DEX_Dom DEX_Prog.
 
 Module Make (Ms:MAP).
 
@@ -162,10 +166,10 @@ Module Make (Ms:MAP).
       match ins with
         | DEX_SparseSwitch r size l =>
           (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (@map _ _ (@snd _ _) l)*)
-          (None,next) :: map (fun o => (None,Some (jump_label i o))) (@map _ _ (@snd _ _) l)
+          (None,next) :: map (fun o => ((None:DEX_tag),Some (jump_label i o))) (@map _ _ (@snd _ _) l)
         | DEX_PackedSwitch r firstKey size l =>
           (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (l)*)
-          (None,next) :: map (fun o => (None,Some (jump_label i o))) (l)
+          (None,next) :: map (fun o => ((None:DEX_tag),(Some (jump_label i o):option address))) (l)
         | DEX_Return => (None,None)::nil
         | DEX_VReturn k rt => (None,None)::nil
         | DEX_Goto o => (None,Some ((*DEX_OFFSET.*)jump_label i o))::nil
@@ -192,7 +196,7 @@ Module Make (Ms:MAP).
         right. try match goal with
           [ |- In (_,_) (map ?F _) ] => 
           apply in_map with (f:=F); try assumption
-        end.
+        end. 
       (* SparseSwitch case *)
         (* default case : next instruction *)
         destruct H0. left. inversion H. rewrite <- H1. rewrite H0. reflexivity.

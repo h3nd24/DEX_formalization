@@ -12,6 +12,9 @@
 
  @author Frederic Besson and David Pichardie *)
 
+(* Hendra : - Modified to suit DEX program. 
+            - DEX has different instructions list from JVM.
+            - Also trim the system to contain only Arithmetic *)
 
 Require Import List.
 Require Import ZArith.

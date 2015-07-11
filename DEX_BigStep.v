@@ -8,6 +8,9 @@
 
  @author David Pichardie *)
 
+(* Hendra : - Modified to suit DEX program. 
+            - Also trim the system to contain only Arithmetic *)
+
 Require Export DEX_BigStepType.
 Require Export DEX_ImplemDomain.
 

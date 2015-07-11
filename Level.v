@@ -1,4 +1,5 @@
 (** * Level.v: Security levels *)
+(* Hendra : Added mechanism for registers typing. *)
 Require Export Lib.
 
 (** Security levels form a finite upper semilattice *)

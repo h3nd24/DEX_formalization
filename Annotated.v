@@ -1,4 +1,6 @@
 (** * Annotated.v: Syntax of JVM program extended with security type annotations *)
+
+(* Hendra: Added annotation for DEX program as well, but removed exceptions *)
 Require Export LoadBicolano.
 Require Export Level.
 Require Export Axioms.

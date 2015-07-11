@@ -7,7 +7,7 @@
 (** Big step semantics.
 
  @author Benjamin Gregoire *)
-
+(* Hendra : trim the system to contain only Arithmetic *)
 Require Export JVM_Domain.
 
 Set Implicit Arguments.

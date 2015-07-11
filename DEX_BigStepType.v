@@ -7,6 +7,8 @@
 (** Big step semantics.
 
  @author Benjamin Gregoire *)
+(* Hendra : - Modified to suit DEX program. 
+            - Also trim the system to contain only Arithmetic *)
 
 Require Export DEX_Domain.
 

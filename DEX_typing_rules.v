@@ -1,8 +1,11 @@
 (** typing_rules.v: Typing rules, plus an executable type checker *)
+(* Hendra : - Modified to suit DEX program. 
+            - DEX has different instructions list from JVM.
+            - Also trim the system to contain only Arithmetic *)
 Require Export DEX_BigStepAnnot.
 Require Export Bool.
 Require Export DEX_step.
-Import DEX_StaticHandler.DEX_StaticHandler DEX_BigStep.DEX_BigStep DEX_Dom.DEX_Prog.
+Import DEX_BigStep.DEX_BigStep DEX_Dom.DEX_Prog.
 
 Import Level.L.
 Import DEX_Dom.

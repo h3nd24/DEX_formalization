@@ -1,5 +1,5 @@
 (** * Bicolano: Program syntax (interface implementation with maps) *)
-
+(* Hendra : trim the system to contain only Arithmetic *)
 Require Export JVM_Program.
 Require Export ImplemSubClass.
 Require Export Relation_Operators.

@@ -1,4 +1,5 @@
 (** * check_cdr.v: executable CDR checker *)
+(* Hendra : Removed exception related SOAP *)
 Require Export Lib.
 Require Export cdr.
 Require Export ZArith.

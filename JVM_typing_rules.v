@@ -1,8 +1,9 @@
 (** typing_rules.v: Typing rules, plus an executable type checker *)
+(* Hendra : trim the system to contain only Arithmetic *)
 Require Export JVM_BigStepAnnot.
 Require Export Bool.
 Require Export JVM_step.
-Import JVM_StaticHandler.JVM_StaticHandler JVM_BigStep.JVM_BigStep JVM_Dom.JVM_Prog.
+Import JVM_BigStep.JVM_BigStep JVM_Dom.JVM_Prog.
 
 Import Level.L.
 Open Scope type_scope.

@@ -11,7 +11,7 @@
  classfile parser would implement this API.
 
  @author Frederic Besson and David Pichardie *)
-
+(* Hendra : trim the system to contain only Arithmetic *)
 
 Require Import List.
 Require Import ZArith.

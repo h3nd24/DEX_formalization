@@ -1,4 +1,5 @@
 (** BigStepAnnot.v: We constrain the Bicolano bigstep semantics to handle only the executions where exception thrown at a given point are in a predefined set. Such a set could be computed for example with a CHA static analysis. *)
+(* Hendra : trim the system to contain only Arithmetic *)
 Require Export List.
 Require Export ZArith.
 Require Export LoadBicolano.
@@ -11,7 +12,7 @@ Implicit Arguments compat_op [A B].
 
 Module JVM_BigStepAnnot.
 
-Import JVM_BigStep.JVM_BigStep JVM_StaticHandler.JVM_StaticHandler JVM_Dom JVM_Prog.
+Import JVM_BigStep.JVM_BigStep JVM_Dom JVM_Prog.
 
 
 

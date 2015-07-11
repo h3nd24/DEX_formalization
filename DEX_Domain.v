@@ -9,6 +9,9 @@
   Tim Lindholm, Frank Yellin"
 
  @author David Pichardie, ...  *)
+(* Hendra : - Modified to suit DEX program (removed operand stack).
+            - Removed reference comparison 
+            - Also trim the system to contain only Arithmetic *)
 
 Require Export DEX_Program.
 Require Export Numeric.
