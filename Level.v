@@ -310,5 +310,19 @@ Fixpoint tsub_rec (rt1 rt2 : BinNatMap.t L.t') (regs : list N) {struct regs} : b
     | reg :: t => (tsub_element (rt1) (rt2) (reg)) && (tsub_rec (rt1) (rt2) (t))
   end.
 
+Fixpoint Nseq (start:N) (len:nat) : list N :=
+    match len with
+      | O => nil
+      | S n => start :: Nseq (Nsucc start) (n)
+    end.
+
 Definition tsub_rt (rt1 rt2 : BinNatMap.t L.t') : bool :=
-  let keys := BinNatMap.dom _ rt2 in tsub_rec (rt1) (rt2) (keys).
+  (*let size := length (BinNatMap.dom _ rt2) in
+  let keys := Nseq (N0) (size) in *)
+  tsub_rec (rt1) (rt2) (BinNatMap.dom _ rt2).
+
+
+
+
+
+

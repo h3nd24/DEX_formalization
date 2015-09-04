@@ -404,6 +404,17 @@ Section for_all.
     rewrite H0 in H; auto; discriminate.
   Qed.
 
+  Lemma true_for_all : forall l,
+    (forall a, In a l -> test a = true) -> for_all l = true.
+  Proof.
+    unfold for_all.
+    induction l; auto.
+    intros.
+    replace (fold_right (fun a0 : A => andb (test a0)) true (a::l)) with
+    (test a && fold_right (fun a0 : A => andb (test a0)) true l); auto.
+    apply andb_true_intro; split. apply H; apply in_eq.
+    apply IHl. intros. apply H. apply in_cons; auto.
+  Qed.
 
 End for_all.
 

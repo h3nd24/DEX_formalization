@@ -94,7 +94,7 @@ Fixpoint base_rt_rec (max_locals:nat) (lvt:JVM_Var->L.t') (rt:TypeRegisters)
   : TypeRegisters := 
   match max_locals with
     | O => rt
-    | S n => VarMap.update _ rt (N_toVar n) (lvt (N_toVar n))
+    | S n => VarMap.update _ (base_rt_rec n lvt rt) (N_toVar n) (lvt (N_toVar n))
   end.
 
 Definition base_rt (max_locals:nat) (lvt:JVM_Var->L.t') : TypeRegisters :=
@@ -104,9 +104,13 @@ Fixpoint translate_st_rt_rec (st:TypeStack) (max_locals:nat) (rt:VarMap.t L.t')
   : TypeRegisters :=
   match st with
     | nil => rt
-    | h :: t => let newRT := VarMap.update _ rt (N_toVar (length st) + 
-                    N_toVar max_locals)%N h in
+    | h :: t => VarMap.update _ (translate_st_rt_rec (t) (max_locals) (rt))
+                  (N_toVar (length st) + N_toVar max_locals - 1)%N h
+(*
+                let newRT := VarMap.update _ rt (N_toVar (length st) + 
+                    N_toVar max_locals - 1)%N h in
                 translate_st_rt_rec (t) (max_locals) (newRT)
+*)
   end.
 
 Definition translate_st_rt (st:TypeStack) (max_locals:nat) 

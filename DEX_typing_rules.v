@@ -919,9 +919,10 @@ Module Make (M:MAP).
      flatten_bool; replace_selift. inversion H1. 
        (* default successor *)
        exists (lift_rt t0 (RT i)); split. apply DEX_packedSwitch.
-       apply Hr. apply H. inversion H0. unfold tsub_next in H3. 
+       apply Hr. apply H. inversion H0. unfold tsub_next in H3.
+        inversion H4.
        rewrite_nextAddress.
-       rewrite H4 in H3. rewrite <- H5. apply H3.
+       rewrite H5 in H3. rewrite <- H6. apply H3.
        (* other successors *)
        exists (lift_rt t0 (RT i)); split. apply DEX_packedSwitch.
        apply Hr. apply H. replace_for_all. apply H2.
@@ -931,8 +932,9 @@ Module Make (M:MAP).
        (* default successor *)
        exists (lift_rt t0 (RT i)); split. apply DEX_sparseSwitch.
        apply Hr. apply H. inversion H0. unfold tsub_next in H3.
+       inversion H4.
        rewrite_nextAddress. 
-       rewrite H4 in H3. rewrite <- H5. apply H3.
+       rewrite H5 in H3. rewrite <- H6. apply H3.
        (* other successors *)
        exists (lift_rt t0 (RT i)); split. apply DEX_sparseSwitch.
        apply Hr. apply H. replace_for_all. apply H2.

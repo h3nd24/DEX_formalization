@@ -148,18 +148,19 @@ Module Make (Ms:MAP).
       (* next m i = Some j -> *)
       nextAddress i = Some j ->
       DEX_step i (DEX_IbinopConst op rt r v) None (Some j)
-    | DEX_packedSwitch : forall i j d (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
+    | DEX_packedSwitch : forall i j (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
       (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ In j l ->*)
-      (nextAddress i = Some d /\ d = jump_label i j) \/ In j l ->
+      (*(nextAddress i = Some d /\ d = jump_label i j) \/ In j l -> *)
+      (exists d, nextAddress i = Some d /\ d = jump_label i j) \/ In j l ->
       (*DEX_step i (DEX_PackedSwitch rt firstKey size l) None (Some (DEX_OFFSET.jump i j))*)
       DEX_step i (DEX_PackedSwitch rt firstKey size l) None (Some (jump_label i j))
-    | DEX_sparseSwitch : forall i j d (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
+    | DEX_sparseSwitch : forall i j (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
       (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ *)
-      (nextAddress i = Some d /\ d = jump_label i j) \/ 
+      (exists d, nextAddress i = Some d /\ d = jump_label i j) \/ 
         In j (@map _ _ (@snd _ _) l) ->
       (*DEX_step i (DEX_SparseSwitch rt size l) None (Some (DEX_OFFSET.jump i j))*)
       DEX_step i (DEX_SparseSwitch rt size l) None (Some (jump_label i j))
-.
+.     
 
     (*Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list (DEX_tag * option DEX_PC) := *)
     Definition get_steps (i:address) (ins:DEX_Instruction) (next:option address): list (DEX_tag * option address) := 
@@ -178,6 +179,12 @@ Module Make (Ms:MAP).
         | _ => (None,next)::nil
       end.
 
+    (* TODO : needs to be instantiated from outside *)
+    Parameter next_as_jump : forall i j,
+      nextAddress i = Some j -> exists k, 
+        jump_label i k = j.
+      (*exists k, nextAddress i = Some (jump_label i k).*)
+
     Lemma all_step_in_get_steps : forall i ins tau oj,
         DEX_step i ins tau oj -> 
         In (tau,oj) (get_steps i ins (nextAddress (*m*) i)).
@@ -191,7 +198,7 @@ Module Make (Ms:MAP).
         right; subst; left; reflexivity).
       (* PackedSwitch case *)
         (* default case : next instruction *)
-        destruct H0. left. inversion H. rewrite <- H1. rewrite H0. reflexivity.
+        destruct H0. left. inversion H. inversion H0. rewrite H1. rewrite <- H2. reflexivity.
         (* other successors case *)
         right. try match goal with
           [ |- In (_,_) (map ?F _) ] => 
@@ -199,12 +206,85 @@ Module Make (Ms:MAP).
         end. 
       (* SparseSwitch case *)
         (* default case : next instruction *)
-        destruct H0. left. inversion H. rewrite <- H1. rewrite H0. reflexivity.
+        destruct H0. left. inversion H. inversion H0. rewrite H1. rewrite <- H2. reflexivity.
         (* other successors case *)
         right. try match goal with
           [ |- In (_,_) (map ?F _) ] => 
           apply in_map with (f:=F); try assumption
         end.
+    Qed.
+
+  Definition needs_next (ins:DEX_Instruction) : Prop :=
+    match ins with
+      | DEX_Return => False
+      | DEX_VReturn _ _ => False
+      | _ => True
+    end.  
+
+  (* For now it is assumed, maybe later on we can define what it means 
+  for a legal program which satisfies this property. Nevertheless, the
+  burden of proving is not in the scope of translation proof *)
+  Parameter all_ins_has_next : forall i ins, 
+    instructionAtAddress i = Some ins ->
+    needs_next (ins) ->
+    nextAddress i = None -> False.
+
+  Lemma in_get_steps_all_step : forall i ins tau oj, 
+        instructionAtAddress i = Some ins ->
+        In (tau,oj) (get_steps i ins (nextAddress (*m*) i)) ->
+        DEX_step i ins tau oj.
+    Proof.
+      intros.
+      unfold get_steps in H. destruct ins eqn:Hins;
+      (* Sequential Instruction *)
+      try (inversion H0; try (inversion H1); 
+      try (inversion H1; destruct oj; 
+        try (rewrite H4; constructor; auto);
+        try (apply all_ins_has_next with (ins:=ins) in H4; 
+          try (rewrite Hins; unfold needs_next; auto; fail); 
+          try (inversion H4))); fail);
+      (* Goto, Return and VReturn *)
+      try (inversion H0; try (inversion H1); constructor; fail);
+      (* If and Ifz *)
+      try (inversion H0; inversion H1; 
+        try (destruct oj;
+          try (rewrite H4; constructor; left; auto; fail); 
+          try (apply all_ins_has_next with (ins:=ins) in H4;
+            try (rewrite Hins; unfold needs_next; auto; fail); 
+            try (inversion H4); fail); fail);
+        try (inversion H2); constructor; right; auto; fail).
+      (* PackedSwitch *) 
+      inversion H0. inversion H1.
+      (* next successor *)
+      destruct oj. rewrite H4.
+      apply next_as_jump in H4.
+      destruct H4. rewrite <- H2.
+      constructor.
+      left. exists a; split; try (symmetry; auto); try (inversion H1; auto).
+      try (apply all_ins_has_next with (ins:=ins) in H4; 
+          try (rewrite Hins; unfold needs_next; auto; fail); 
+          try (inversion H4)).
+      (* successor is one of the list *)
+      apply in_map_inv in H1.
+      inversion H1. inversion H2. inversion H3. 
+      constructor.
+      right; auto.
+      (* SparseSwitch *) 
+      inversion H0. inversion H1.
+      (* next successor *)
+      destruct oj. rewrite H4.
+      apply next_as_jump in H4.
+      destruct H4. rewrite <- H2.
+      constructor.
+      left. exists a; split; try (symmetry; auto); try (inversion H1; auto).
+      try (apply all_ins_has_next with (ins:=ins) in H4; 
+          try (rewrite Hins; unfold needs_next; auto; fail); 
+          try (inversion H4)).
+      (* successor is one of the list *)
+      apply in_map_inv in H1.
+      inversion H1. inversion H2. inversion H3. 
+      constructor.
+      right; auto.
     Qed.
 
   Section for_all_steps.
@@ -244,39 +324,29 @@ Module Make (Ms:MAP).
       inversion_mine H0; auto.
       intros T3; rewrite T3 in H0; discriminate.
     Qed.
-(*
+
     Lemma for_all_steps_codes_true2 :
-      forall i ins tau oj,
+      (forall i ins tau oj,
         instructionAtAddress i = Some ins ->
         DEX_step i ins tau oj -> 
-        test i ins tau oj = true ->
+        test i ins tau oj = true) ->
         for_all_steps_codes codes = true.
     Proof.
       intros.
-      assert (T2:=all_step_in_get_steps _ _ _ _ H0).
+      (*assert (T2:=all_step_in_get_steps _ _ _ _ H0).*)
       unfold for_all_steps_codes.
-      apply Ms.for_all_spec.
-      
-
-
-      assert (T1:=Ms.for_all_true _ _ codes H).
-      assert (T2:=all_step_in_get_steps _ _ _ _ H1).
-      unfold instructionAtAddress in H0.
-      (*rewrite H in H1.*)
-      caseeq (Ms.get codes i).
-      intros (ins0,next0) T3.
-      rewrite T3 in H0.
-      generalize (T1 _ _ T3); clear T1; intros T1.
-      apply for_all_true with
-        (test:=(fun tau_oj : DEX_tag * option address =>
-          let (tau, oj) := tau_oj in test i ins tau oj))
-        (2:=T2).
-      unfold nextAddress.
-      rewrite T3; simpl.
-      inversion_mine H0; auto.
-      intros T3; rewrite T3 in H0; discriminate.
+      apply Ms.spec_all_for_true.
+      intros.
+      destruct a as [ins0 next0].
+      apply true_for_all. intros.
+      destruct a as [tau oj].
+      apply H; auto.
+      unfold instructionAtAddress. rewrite H0. auto.
+      apply in_get_steps_all_step; auto.
+      unfold instructionAtAddress. rewrite H0. auto.
+      unfold nextAddress. rewrite H0. simpl. auto.
     Qed.
-*)
+
 (*
   Definition for_all_steps_codes codes : bool :=
     match codes with

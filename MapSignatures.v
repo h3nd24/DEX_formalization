@@ -1,3 +1,4 @@
+
 Require Import EqBoolAux.
 Require Export ListAux.
 Require Import Bool.
@@ -103,6 +104,8 @@ Module Type MAP.
     if for_all A test m 
       then forall k a, get A m k = Some a -> test k a = true
       else ~forall k a, get A m k = Some a -> test k a = true.
+  Parameter spec_all_for_true : forall (A : Type) (test:key -> A -> bool) (m : t A),
+    (forall k a, get A m k = Some a -> test k a = true) -> for_all A test m = true.
   Parameter for_all_true : forall (A : Type) (test:key -> A -> bool) (m : t A),
     for_all A test m = true -> forall k a, get A m k = Some a -> test k a = true.
   Parameter for_all_false : forall (A : Type) (test:key -> A -> bool) (m : t A),
@@ -284,6 +287,33 @@ Module Map_Of_MapBase (M:MAP_BASE) <: MAP
       assert (false=true); auto; discriminate.    
     Qed.
 
+Lemma spec_all_for_aux : forall l,
+  (forall k a, In (k,a) l -> test k a = true) ->
+  (fold_right (fun (pa:key*A) b0 => let (p0, a) := pa in test p0 a && b0) true l = true).
+Proof.
+  intro l. induction l as [|x xs]. auto.
+  intros. destruct x.
+  replace (fold_right
+  (fun (pa : key * A) (b0 : bool) => let (p0, a) := pa in test p0 a && b0)
+  true ((k,a) :: xs)) with
+  (test (k) (a) && fold_right
+  (fun (pa : key * A) (b0 : bool) => let (p0, a) := pa in test p0 a && b0)
+  true (xs)); auto. apply andb_true_intro; auto. split.
+  apply H. left; auto. apply IHxs. intros k' a' I.
+  apply H. apply in_cons; auto.
+Qed.
+
+Lemma spec_all_for_true : forall m,
+      (forall k a, get A m k = Some a -> test k a = true) -> 
+      for_all m = true.
+    Proof.
+      intro m. unfold for_all. intros.
+      rewrite <- fold_prop.
+      apply spec_all_for_aux.
+      intros. apply in_elements_get_some in H0.
+      generalize H0. auto.
+Qed.
+
     Lemma for_all_spec : forall m,
       if for_all m 
         then forall k a, get A m k = Some a -> test k a = true
@@ -291,7 +321,7 @@ Module Map_Of_MapBase (M:MAP_BASE) <: MAP
     Proof.
       unfold for_all; intros.
       rewrite <- fold_prop.
-      generalize (for_all_spec_aux (M.elements m)); unfold key;
+      generalize (for_all_spec_aux (M.elements m)). unfold key.
         destruct (fold_right
          (fun (pa : M.key * A) (b0 : bool) =>
           let (p0, a) := pa in test p0 a && b0) true 
