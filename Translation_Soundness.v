@@ -10,6 +10,58 @@ Lemma silly : forall rt1 rt2 l a maxLocals lvt,
   tsub_rec rt1 rt2 (BinNatMap.dom _ (translate_st_rt (a::l) maxLocals lvt)) = true.
 *)
 
+Parameter random_sub : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
+    (i:DEX_PC), In i (s_t (t_s i)).
+
+(* TODO : Lemma random_sub2 : forall s_t t_s i j oj ins tau codes jump_address,
+  oj = Some j -> Step_final.DEX_step codes jump_address i ins tau oj ->
+  i <> last (s_t (t_s i)) (i) -> t_s i = t_s j.
+*)
+
+(* TODO : Lemma random2 : forall s_t t_s i j oj ins tau codes jump_address,
+  oj = Some j -> Step_final.DEX_step codes jump_address i ins tau oj ->
+  t_s i = t_s j -> tsub_rt (RT i) (RT j).
+*)
+
+Lemma random : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
+    (i j:DEX_PC) (oj:option DEX_PC) ins tau codes jump_address,
+  oj = Some j ->
+  Step_final.DEX_step codes jump_address i ins tau oj -> t_s i <> t_s j ->
+  i = last (s_t (t_s i)) (i).
+Proof.
+  intros s_t t_s i. assert (H:=random_sub s_t t_s i). induction (s_t (t_s i)); auto. 
+  destruct l. 
+  intros. simpl. 
+  (* case when there is only one instruction in the list *)
+  inversion H; auto. inversion H3.
+  destruct (N.eq_dec i a).
+  (* impossible case *) intros. admit.
+  apply in_inv in H. destruct H. unfold not in n.
+  symmetry in H; apply n in H; inversion H.
+  generalize H. 
+  assert (last (a :: d :: l) (t_s i) = last (d :: l) (t_s i)); auto.
+  (*destruct (last (a :: l) (t_s i)).*)
+Qed.
+
+(**)
+
+Definition pc_jvm_int : (MapN.t (list (N*N))) -> JVM_PC -> list (N*N) :=
+  (fun map source => match MapN.get _ map source with
+                | None => nil
+                | Some v => v
+              end).
+
+Definition dummy_map := MapN.empty (list (N*N)).
+
+Definition pc_jvm_in_int_prop (i:N) (j:N*N) : Prop :=
+  In j (pc_jvm_int dummy_map i).
+
+
+Inductive compile_to : N -> nat -> N -> N -> Prop :=
+  trans_i : forall i (m:nat) bi j,
+    nth_error (pc_jvm_int dummy_map i) m = Some (bi, j) ->
+    compile_to i m bi (j).
+
 Lemma cons_length : forall A (a:A) l, length (a :: l) = (1 + length l)%nat.
 Proof. auto. Qed.
 
@@ -736,12 +788,6 @@ Definition translate_se (jvm_se:JVM_PC -> L.t) (translate_pc':(N*N)->JVM_PC)
   : (N*N) -> L.t :=
   fun address => jvm_se (translate_pc' address).
 
-Definition pc_jvm_int : (MapN.t (list (N*N))) -> JVM_PC -> list (N*N) :=
-  (fun map source => match MapN.get _ map source with
-                | None => nil
-                | Some v => v
-              end).
-
 Definition create_int_jvm_map (map:MapN.t (list (N*N))) : MapAddress.t JVM_PC :=
   MapN.fold _ _ 
     (fun key l m => fold_left 
@@ -812,8 +858,9 @@ Definition create_RT (m:MapAddress.t TypeRegisters) : (N*N) -> TypeRegisters :=
 
 Lemma translation_soundness : forall p m bm insnList
   jvm_static_sign jvm_virtual_sign compiled_program type_result
-  jvm_se jvm_S jvm_reg trans_jvm_int trans_int_jvm RT, 
-  check p (jvm_se) (jvm_S) (jvm_reg) m = true 
+    jvm_se jvm_S (jvm_reg:CheckCdr.M.t (MapN.t bool)) 
+    trans_jvm_int trans_int_jvm RT, 
+  check p (jvm_se) (jvm_reg) (jvm_S) m = true 
   -> jvm_static_sign = JVM_static_signature p (JVM_METHOD.signature m)
   -> jvm_virtual_sign = JVM_virtual_signature p (JVM_METHOD.signature m)
   -> Some bm = JVM_METHOD.body m
@@ -851,6 +898,12 @@ Lemma translation_soundness : forall p m bm insnList
       rewrite <- nextAddress_same. rewrite H10.
       (*  clear H11; clear H13; clear H14; clear H10.*)
       rewrite <- H13 in H9. rewrite <- H14 in H9.
+      (* Nop *)
+      apply check_correct3 in H.
+(* breakpoint *)
+      apply   
+
+
       apply Step_int.DEX_nop in H9.
       unfold Step_int.for_all_steps_codes.
       unfold MapAddress.for_all.

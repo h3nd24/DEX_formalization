@@ -25,6 +25,15 @@ Section hyps.
   Variable cdr : forall m, CDR (step m).
   Definition stacktype : Set := TypeStack.
 
+  Record JVM_SignedMethod : Type := SM {JVM_unSign:JVM_Method; sign:JVM_sign}.
+  Coercion JVM_unSign :  JVM_SignedMethod >-> JVM_Method.
+
+  Inductive JVM_M : JVM_SignedMethod -> Prop :=
+    M_def : forall (m:JVM_Method) sgn,
+      (JVM_METHOD.isStatic m = true -> sgn = JVM_static_signature p (JVM_METHOD.signature m)) ->
+      (JVM_METHOD.isStatic m = false -> exists k, sgn = JVM_virtual_signature p (JVM_METHOD.signature m) k) ->
+      JVM_M (SM m sgn).
+
   Definition texec : forall m, JVM_sign -> (JVM_PC -> L.t) ->
     JVM_PC -> Tag -> stacktype -> option stacktype -> Prop :=
     fun m sgn se pc tau st ost =>
@@ -150,8 +159,31 @@ Section CheckTypable.
   Variable cdr_checked : forall m,
     check_cdr m (reg) (jun) = true.
 
+  Definition cdr_local : forall m, 
+    CDR (step p m) :=
+    fun m => let (cdr_local,_) := 
+      check_cdr_prop p m (reg) (jun)
+      (cdr_checked m) in cdr_local.
+
   Definition for_all_region : (*JVM_Method -> *)JVM_PC -> JVM_tag -> (JVM_PC->bool) -> bool :=
     (*fun m => *) CheckCdr.for_all_region2 (reg).
+
+  Lemma for_all_region_correct : forall i k test,
+    for_all_region i k test = true ->
+    forall j, CheckCdr.region (reg) i k j -> test j = true.
+  Proof.
+    unfold for_all_region; intros.
+    eapply CheckCdr.for_all_region2_true; eauto.
+  Qed.
+
+  Lemma cdr_prop : forall m,
+    forall i tau j,
+      region (cdr_local m) i tau j -> CheckCdr.region (reg) i tau j.
+  Proof.
+    intros m h; unfold cdr_local.
+    destruct check_cdr_prop.
+    auto.
+  Qed.
 
   Definition selift (*m sgn*) i (tau:JVM_tag) k :=
     for_all_region (*m*) i tau (fun j => L.leql_t k (se (*m sgn*) j)).
@@ -213,61 +245,69 @@ Section CheckTypable.
     (*generalize (leql'_test_prop a t); rewrite H0; auto.*)
   Qed.
 
-  Definition cdr_local : forall m, 
-    CDR (step p m) :=
-    fun m => let (cdr_local,_) := 
-      check_cdr_prop p m (reg) (jun)
-      (cdr_checked m) in cdr_local.
-
   Lemma check_m_true : forall m (test : JVM_METHOD.t -> JVM_sign -> bool), 
-    check_m m test = true ->
-    forall sgn, test m sgn = true.
+    check_m m test = true -> 
+    forall sgn, JVM_M p (SM m sgn) ->
+    test m sgn = true.
   Proof.
     unfold check_m; intros.
-    inversion H.
-    inversion_mine H.
+    inversion_mine H0.
     (*generalize (for_all_methods_true _ _ H _ H3).*)
     caseeq (JVM_METHOD.isStatic m); intros.
-    rewrite H in H1; auto. rewrite H1.
-    generalize (for_all_true _ _ _ H1); intros.
-    elim H5; auto.
+    rewrite H0 in H.
+    apply H3 in H0. rewrite H0; auto.
+    rewrite H0 in H.
+    generalize (for_all_true _ _ _ H); intros.
+    elim H4; auto.
     intros k Hk.
-    rewrite Hk; apply H2.
+    rewrite Hk. apply H1.
     apply L.all_in_all.
   Qed.
 
-
   Lemma check_correct3 : forall m, check m = true ->
-    forall sgn,
+    forall sgn (h:JVM_M p (SM m sgn)),
       forall i j kd,
         step p m i kd (Some j) ->
         exists st,
           texec p cdr_local m sgn (se) i kd (S i) (Some st) 
           /\ sub st (S j).
   Proof.
-    unfold check; unfold check_m; intros.
-    (*assert (T:=for_all_P_true _ _ H _ _ h).*)
-    destruct (JVM_METHOD.isStatic m).
-    destruct (andb_prop _ _ H) as [_ TT].
+    unfold check; intros.
+    assert (T:=check_m_true _ _ H _ h).
+    destruct (andb_prop _ _ T) as [_ TT].
     destruct H0 as [H0 [ins [H2 H3]]].
 
     assert (T':=for_all_steps_m_true _ _ TT _ _ _ _ H2 H3).
     elim tcheck_correct2 with 
       (se:=se) (region:=region (cdr_local m)) (sgn:=sgn) (m:=m)
-      (selift:=selift) (S:=S) (i:=i) (ins:=ins) (tau:=kd) (j:=j); auto.
+      (selift:=selift) (S:=S) (i:=i) (ins:=ins) (tau:=kd) (j:=j)
+      (2:=T') (3:=H3).
     intros st [T1 T2].
     exists st; split.
     exists ins; split; auto.
     apply tsub_sub; auto.
-    unfold selift; intros. auto.
-    admit. 
-    simpl in T'.
-    apply T'.
-    admit.
-  
-    (*assert (T2:=for_all_region_correct _ _ _ _ H1 _ (cdr_prop _ _ _ _ _ H4)).*)
-    generalize (L.leql_t_spec k (se j)).
-    rewrite T2; auto.
+    unfold selift; intros.
+    assert (T2:=for_all_region_correct _ _ _ H1).
+    apply cdr_prop in H4.
+    apply T2 in H4.
+    generalize (L.leql_t_spec k (se j0)).
+    rewrite H4; auto.
   Qed.
+
+  Lemma check_correct2 : forall m, check m = true ->
+    forall sgn (h:JVM_M p (SM m sgn)),
+      forall i kd,
+        step p m i kd None ->
+        texec p cdr_local m sgn se i kd (S i) None.
+  Proof.
+    unfold check; intros.
+    assert (T:=check_m_true _ _ H _ h).
+    destruct (andb_prop _ _ T) as [_ TT].
+    destruct H0 as [H0 [ins [H2 H3]]].
+    exists ins; split; [idtac|assumption].
+    assert (T':=for_all_steps_m_true _ _ TT _ _ _ _ H2 H3).
+    apply tcheck_correct1 with (selift:=selift) (m:=m); auto.
+  Qed.
+
 (* There was correctness check here *)
 End CheckTypable.
