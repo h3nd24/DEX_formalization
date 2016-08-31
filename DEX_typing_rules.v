@@ -12,9 +12,9 @@ Import DEX_Dom.
 
 Open Scope type_scope.
 
-Module Make (M:MAP).
+(* Module Make (M:MAP). *)
 
-  Module DEX_Step := DEX_step.Make M.
+(*   Module DEX_Step := DEX_step.Make M. *)
   Section DEX_typing_rules.   (** Typing rules **)
 (* DEX 
     Variable p : DEX_ExtendedProgram.
@@ -25,7 +25,7 @@ Module Make (M:MAP).
           else ~ subclass_name p.(DEX_prog) c1 c2.
     (*Variable m : DEX_Method.*)
 *)
-    Definition address := M.key.
+    (* Definition address := M.key.
     Variable codes : M.t (DEX_Instruction*(option address*list DEX_ClassName)).
     Variable jumpAddress : address -> DEX_OFFSET.t -> address.
 
@@ -41,13 +41,14 @@ Module Make (M:MAP).
       |None => None
     end.
 
-    Variable locR : list DEX_Reg.
+    Variable locR : list DEX_Reg. *)
     (*Variable m : MapN.t (DEX_Instruction*(option DEX_PC * list DEX_ClassName)).*)
     (*Definition method_signature := DEX_METHOD.signature m.*)
+    Variable m : DEX_Method.
     Variable sgn : DEX_sign.
-    Variable region : address -> DEX_tag -> address -> Prop.
-    Variable se : address -> L.t.
-    Variable selift : address -> DEX_tag -> L.t -> bool.
+    Variable region : DEX_PC -> DEX_tag -> DEX_PC -> Prop.
+    Variable se : DEX_PC -> L.t.
+    Variable selift : DEX_PC -> DEX_tag -> L.t -> bool.
     Variable ret : DEX_Reg.
 
     (* Notation handler := (handler subclass_test m). *)
@@ -57,24 +58,24 @@ Module Make (M:MAP).
     Infix "U'" := L.join' (at level 60, right associativity).
     Infix "U" := L.join (at level 60, right associativity).
 
-    (*Inductive texec : DEX_PC -> DEX_Instruction -> DEX_tag -> TypeRegisters -> option TypeRegisters -> Prop :=*)
-    Inductive texec : address -> DEX_Instruction -> DEX_tag -> TypeRegisters -> option TypeRegisters -> Prop :=
+    Inductive texec : DEX_PC -> DEX_Instruction -> DEX_tag -> TypeRegisters -> option TypeRegisters -> Prop :=
+(*     Inductive texec : address -> DEX_Instruction -> DEX_tag -> TypeRegisters -> option TypeRegisters -> Prop := *)
     | DEX_nop : forall i rt,
       texec i DEX_Nop None rt (Some rt)
 
-    | DEX_move_constrained : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
+    (* | DEX_move_constrained : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
       In r locR ->
       BinNatMap.get _ rt rs = Some k_rs ->
       se i <= sgn.(DEX_lvt) r ->
       k_rs <=' sgn.(DEX_lvt) r ->
       texec i (DEX_Move k r rs) None rt 
-       (Some (BinNatMap.update _ rt r ((se i) U' k_rs)))
+       (Some (BinNatMap.update _ rt r ((se i) U' k_rs))) *)
 
-    | DEX_move_unconstrained : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
-      ~In r locR ->
+    | DEX_move : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
+(*       ~In r locR -> *)
       BinNatMap.get _ rt rs = Some k_rs ->
       texec i (DEX_Move k r rs) None rt
-        (Some (BinNatMap.update _ rt r ((se i) U' k_rs)))
+        (Some (BinNatMap.update _ rt r ((se i) U k_rs)))
 
 (* DEX Method
     | moveResult_constrained : forall i (rt:TypeRegisters) k_res (k:DEX_ValKind) (r:DEX_Reg),
@@ -99,7 +100,7 @@ Module Make (M:MAP).
     | DEX_vReturn : forall i (rt:TypeRegisters) k_r kv (k:DEX_ValKind) (r:DEX_Reg),
       BinNatMap.get _ rt r = Some k_r ->
       sgn.(DEX_resType) = Some kv ->
-      (* DEX probably later ((se i) U' k_r) <=' kv -> *)
+      ((se i) U k_r) <= kv -> 
       texec i (DEX_VReturn k r) None rt None
 
     | DEX_const : forall i (rt:TypeRegisters) (k:DEX_ValKind) (r:DEX_Reg) (v:Z),
@@ -128,7 +129,7 @@ Module Make (M:MAP).
 
     | DEX_goto : forall i (rt:TypeRegisters) (o:DEX_OFFSET.t),
       texec i (DEX_Goto o) None rt (Some rt)
-
+(* Hendra 11082016 focus on DEX I
     | DEX_packedSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
       BinNatMap.get _ rt r = Some k ->
       (forall j, region i None j -> k <= se j) -> 
@@ -138,17 +139,18 @@ Module Make (M:MAP).
       BinNatMap.get _ rt r = Some k ->
       (forall j, region i None j -> k <= se j) -> 
       texec i (DEX_SparseSwitch r size l) None rt (Some (lift_rt k rt))
-    
+*)
+
     | DEX_ifcmp : forall i ka kb (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
       BinNatMap.get _ rt ra = Some ka ->
       BinNatMap.get _ rt rb = Some kb ->
       (forall j, region i None j -> (ka U kb) <= se j) -> 
-      texec i (DEX_Ifcmp cmp ra rb o) None rt (Some (lift_rt (ka U kb) rt))
+      texec i (DEX_Ifcmp cmp ra rb o) None rt (Some (*lift_rt (ka U kb)*) rt)
      
     | DEX_ifz : forall i k (rt:TypeRegisters) (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
       BinNatMap.get _ rt r = Some k ->
       (forall j, region i None j -> k <= se j) -> 
-      texec i (DEX_Ifz cmp r o) None rt (Some (lift_rt k rt))
+      texec i (DEX_Ifz cmp r o) None rt (Some (*lift_rt k rt*)rt)
 (* DEX object and method
     | aget : forall i ka kc ki (rt:TypeRegisters) 
        (k:DEX_ArrayKind) (r:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg),
@@ -241,10 +243,10 @@ Module Make (M:MAP).
     .
 
     Section DEX_RT.
-      Variable RT : address -> TypeRegisters.
+      Variable RT : DEX_PC -> TypeRegisters.
 
-    Definition tsub_next (i:address) rt : bool :=
-      match nextAddress i with
+    Definition tsub_next (i:DEX_PC) (rt:TypeRegisters) : bool :=
+      match next m i with
         | Some j => tsub_rt rt (RT j)
         | None => false
       end.
@@ -293,7 +295,7 @@ Module Make (M:MAP).
         end
         else true.
 *)
-
+(* 
     Fixpoint tcompat_type_rt_lvt_aux (s:DEX_sign) (rt:TypeRegisters) 
       (p:list DEX_Reg) (n:nat) {struct n} : bool :=
       match n with (* could be optimised *)
@@ -304,7 +306,7 @@ Module Make (M:MAP).
           | Some x =>
             match BinNatMap.get _ rt x with
             | None => false
-            | Some k => leql'_test k (DEX_lvt s (N_toReg (q)%nat))
+            | Some k => L.leql_t k (DEX_lvt s (N_toReg (q)%nat))
             end && tcompat_type_rt_lvt_aux s rt p q
           end
       end.
@@ -313,7 +315,7 @@ Module Make (M:MAP).
       tcompat_type_rt_lvt_aux s rt p n = true ->
       forall x, ((Reg_toN x)<n)%nat -> exists r k,
         nth_error p (Reg_toN x) = Some r /\ BinNatMap.get _ rt r = Some k /\
-        L.leql' k (DEX_lvt s x).
+        L.leql k (DEX_lvt s x).
     Proof.
       induction n. simpl.
       intros.
@@ -321,7 +323,7 @@ Module Make (M:MAP).
 
       caseeq (nth_error p n); intros.
       elim andb_prop with (1:=H0); clear H0; intros.
-      destruct (BinNatMap.get t' rt d) eqn:H3; intros.
+      destruct (BinNatMap.get t rt d) eqn:H3; intros.
       elim (eq_excluded_middle _ (Reg_toN x) n); intros; subst.
       (* replace (n0 - Reg_toN x - 1)%nat with (n0 - S (Reg_toN x))%nat. *)
       exists d; exists t0; split; auto. (* Hendra *)
@@ -342,7 +344,7 @@ Module Make (M:MAP).
     Proof.
       unfold tcompat_type_rt_lvt, compat_type_rt_lvt; intros.
       apply (tcompat_type_rt_lvt_aux_true _ _ _ _ H); auto.
-    Qed.
+    Qed. *)
 
     Definition tcompat_op (ot:option DEX_type) (ok:option L.t') : bool :=
       match ot,ok with
@@ -414,7 +416,7 @@ Module Make (M:MAP).
     repeat decide equality.
    Qed.
 
-   Definition DEX_tcheck (i:address) (ins:DEX_Instruction) : bool :=
+   Definition DEX_tcheck (i:DEX_PC) (ins:DEX_Instruction) : bool :=
       match ins, RT i with
         | DEX_Nop, rt1 =>
           tsub_next i rt1
@@ -422,11 +424,11 @@ Module Make (M:MAP).
         | DEX_Move _ r rs, rt1 =>
           match BinNatMap.get _ rt1 rs with
             | Some k_rs =>
-                (if in_dec Reg_eq_dec r locR then
+                (* (if in_dec Reg_eq_dec r locR then
                    L.leql_t (se i) (sgn.(DEX_lvt) r) &&
                    leql'_test k_rs (sgn.(DEX_lvt) r)
-                   else true) && 
-                tsub_next i (BinNatMap.update _ rt1 r (L.join' (se i) (k_rs)))
+                   else true) &&  *)
+                tsub_next i (BinNatMap.update _ rt1 r (L.join (se i) (k_rs)))
             | None => false
           end
 (* DEX Method        
@@ -455,7 +457,7 @@ Module Make (M:MAP).
             | Some kv => 
               match BinNatMap.get _ rt1 r with
                 | None => false
-                | Some k => leql'_test k kv 
+                | Some k => leql_t (se i U k) kv 
               end
           end
 
@@ -488,8 +490,9 @@ Module Make (M:MAP).
                 tsub_next i (BinNatMap.update _ rt1 r (L.Array k (DEX_newArT p (m,i))))
           end
 *)
-        | DEX_Goto o, rt1 => tsub_rt rt1 (RT (jumpAddress i o))
+        | DEX_Goto o, rt1 => tsub_rt rt1 (RT (DEX_OFFSET.jump i o))
 
+(* Hendra 11082016 focus on DEX I - 
         | DEX_PackedSwitch r _ _ l, rt1 =>
           match BinNatMap.get _ rt1 r with
             | None => false
@@ -506,13 +509,13 @@ Module Make (M:MAP).
                  (fun o => tsub_rt (lift_rt k rt1) (RT ((*DEX_OFFSET.*)jumpAddress i o)))
                  (@map _ _ (@snd _ _) l))
           end
-      
+*)    
         | DEX_Ifcmp _ ra rb o, rt1 =>
           match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 rb with
             | Some ka, Some kb =>
                 (selift i None (ka U kb)) && 
-                (tsub_next i (lift_rt (ka U kb) rt1)) &&
-                (tsub_rt (lift_rt (ka U kb) rt1) (RT ((*DEX_OFFSET.*)jumpAddress i o)))
+                (tsub_next i (*lift_rt (ka U kb) rt1*) rt1) &&
+                (tsub_rt (*lift_rt (ka U kb) rt1*) rt1 (RT (DEX_OFFSET.jump i o)))
             | _, _ => false
           end
 
@@ -520,8 +523,8 @@ Module Make (M:MAP).
           match BinNatMap.get _ rt1 r with
             | Some k => 
                 (selift i None k) && 
-                (tsub_next i (lift_rt k rt1)) &&
-                (tsub_rt (lift_rt k rt1) (RT ((*DEX_OFFSET.*)jumpAddress i o)))
+                (tsub_next i (*lift_rt k rt1*)rt1) &&
+                (tsub_rt (*lift_rt k rt1*) rt1 (RT (DEX_OFFSET.jump i o)))
             | None => false
           end        
 
@@ -723,7 +726,7 @@ Module Make (M:MAP).
 
    Lemma tcheck_correct1 : forall i ins,
      DEX_tcheck i ins = true ->
-     forall tau, DEX_Step.DEX_step (* p subclass_test *) codes jumpAddress i ins tau None ->
+     forall tau, DEX_step (* p subclass_test *) m i ins tau None ->
        texec i ins tau (RT i) None.
    Proof.
      intros.
@@ -735,16 +738,18 @@ Module Make (M:MAP).
 
      (* VReturn *)
      destruct (DEX_resType sgn) eqn:H1.
-     destruct (BinNatMap.get t' (RT i) rt) eqn:H2. 
+     destruct (BinNatMap.get t (RT i) rt) eqn:H2. 
      apply DEX_vReturn with (k_r:=t1) (kv:=t0). 
      rewrite H2; reflexivity. apply H1.
+    generalize (leql_t_spec (se i U t1) t0); intros.
+    rewrite H in H0; auto.
      inversion H.
      inversion H.
    Qed.
 
    Ltac replace_tsub_next :=
      try match goal with
-       [ id1 : tsub_next _ ?rt = true, id2 : nextAddress _ = _ |- _ ] =>
+       [ id1 : tsub_next _ ?rt = true, id2 : next _ _ = _ |- _ ] =>
          unfold tsub_next in id1; rewrite id2 in id1
      end.
 
@@ -753,7 +758,7 @@ Module Make (M:MAP).
        [ id1 : tsub_rt ?rt (RT _) = true |- _ ] =>
          exists rt; split; [clear id1 | exact id1]
          end.
-
+(* 
    Lemma option_same : 
    forall i,
      match M.get codes i with
@@ -772,14 +777,14 @@ Module Make (M:MAP).
    Proof.
      intros. unfold nextAddress, DEX_Step.nextAddress.
      apply option_same.
-   Qed.
+   Qed. *)
 
-   Ltac rewrite_nextAddress :=
+   (* Ltac rewrite_nextAddress :=
      try match goal with
        [ id1 : DEX_Step.nextAddress _ _ = _ |- _ ] => rewrite <- nextAddress_same in id1
          end.
-
-   Ltac flatten2 := flatten; rewrite_nextAddress; replace_tsub_next; search_tsub.
+ *)
+   Ltac flatten2 := flatten; (* rewrite_nextAddress; *) replace_tsub_next; search_tsub.
 
    Hint Constructors texec : texec.
 (*
@@ -797,7 +802,7 @@ Module Make (M:MAP).
 
    Lemma tcheck_correct2 : forall i ins,
      DEX_tcheck i ins = true ->
-     forall tau j, DEX_Step.DEX_step (* DEX p subclass_test *) codes jumpAddress i ins tau (Some j) ->
+     forall tau j, DEX_step (* DEX p subclass_test *) (* codes jumpAddress *) m i ins tau (Some j) ->
        exists rt,
        texec i ins tau (RT i) (Some rt)
        /\ tsub_rt rt (RT j) = true.
@@ -808,19 +813,22 @@ Module Make (M:MAP).
        try (split_match; intuition; subst; try discriminate; 
          flatten2; eauto with texec; fail);
     try (destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail);
-     flatten2; constructor; apply Hrs; fail).
+     flatten2; constructor; apply Hrs; fail);
+    try (
+     destruct (BinNatMap.get t (RT i) rs) eqn:Hrs; try (inversion H; fail);
+     split_match; intuition; try discriminate; flatten2; constructor; auto; fail).
      (* move *)
-     destruct (BinNatMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
-     split_match; intuition; try discriminate; flatten2.
-     destruct (in_dec Reg_eq_dec rt locR) eqn:HlocR.
-     flatten_bool. replace_leql.
-     apply DEX_move_constrained.
+     
+     (* (*destruct (in_dec Reg_eq_dec rt locR) eqn:HlocR.*)
+     (* flatten_bool. replace_leql.*)
+     (* apply DEX_move_constrained.
        apply i0.
        apply Hrs. 
        apply H. apply H3.
      apply DEX_move_unconstrained.
        apply n.
-       rewrite Hrs; reflexivity.
+       rewrite Hrs; reflexivity. *)
+    apply DEX_move; auto. *)
 (*
      (* moveresult *)
      destruct (BinNatMap.get t' (RT i) ret) eqn:Hrs; try (inversion H; fail).
@@ -850,24 +858,24 @@ Module Make (M:MAP).
      flatten2; apply newArray; apply Hrl.
  *) 
      (* Ifcmp *)
-     destruct (BinNatMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
-     destruct (BinNatMap.get t' (RT i) rb) eqn:Hrb; try (inversion H; fail).
+     destruct (BinNatMap.get t (RT i) ra) eqn:Hra; try (inversion H; fail).
+     destruct (BinNatMap.get t (RT i) rb) eqn:Hrb; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1.
        (* next successor *)
-       rewrite_nextAddress; replace_tsub_next; search_tsub.
-       apply DEX_ifcmp. apply Hra. apply Hrb. apply H.
+       replace_tsub_next; search_tsub.
+       apply DEX_ifcmp with (ka:=t0) (kb:=t1). apply Hra. apply Hrb. apply H.
        (* target successor *) 
-       rewrite H0. exists (lift_rt (t0 U t1) (RT i)). split. 
-       apply DEX_ifcmp. apply Hra. apply Hrb. apply H. exact H2.
+       rewrite H0. exists (*lift_rt (t0 U t1) (RT i)*) (RT i). split. 
+       apply DEX_ifcmp with (ka:=t0) (kb:=t1). apply Hra. apply Hrb. apply H. exact H2.
      (* Ifcmp *)
-     destruct (BinNatMap.get t' (RT i) r) eqn:Hr; try (inversion H; fail).
+     destruct (BinNatMap.get t (RT i) r) eqn:Hr; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1.
        (* next successor *)
-       rewrite_nextAddress; replace_tsub_next; search_tsub.
-       apply DEX_ifz. apply Hr. apply H.
+       (* rewrite_nextAddress; *) replace_tsub_next; search_tsub.
+       apply DEX_ifz with (k:=t0). apply Hr. apply H.
        (* target successor *) 
-       rewrite H0. exists (lift_rt t0 (RT i)). split. 
-       apply DEX_ifz. apply Hr. apply H. exact H2.
+       rewrite H0. exists (*lift_rt t0 (RT i)*) (RT i). split. 
+       apply DEX_ifz with (k:=t0). apply Hr. apply H. exact H2.
 (*
      (* Aget *)
      destruct (BinNatMap.get t' (RT i) ri) eqn:Hri; try (inversion H; fail).
@@ -908,12 +916,13 @@ Module Make (M:MAP).
      apply tcompat_op_true; auto.
 *)
      (* Ibinop *)
-     destruct (BinNatMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
-     destruct (BinNatMap.get t' (RT i) rb) eqn:Hrb; try (inversion H; fail).
+     destruct (BinNatMap.get t (RT i) ra) eqn:Hra; try (inversion H; fail).
+     destruct (BinNatMap.get t (RT i) rb) eqn:Hrb; try (inversion H; fail).
      flatten2; apply DEX_ibinop. apply Hra. apply Hrb.
      (* IbinopConst *)
-     destruct (BinNatMap.get t' (RT i) r) eqn:Hr; try (inversion H; fail);
+     destruct (BinNatMap.get t (RT i) r) eqn:Hr; try (inversion H; fail);
      flatten2; apply DEX_ibinopConst; apply Hr.
+(* Hendra 11082016 focus on DEX I - 
      (* PackedSwitch *)
      destruct (BinNatMap.get t' (RT i) rt) eqn:Hr; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1. 
@@ -938,8 +947,9 @@ Module Make (M:MAP).
        (* other successors *)
        exists (lift_rt t0 (RT i)); split. apply DEX_sparseSwitch.
        apply Hr. apply H. replace_for_all. apply H2.
+*)
    Qed.
  End DEX_RT.
 End DEX_typing_rules.
 
-End Make.
+(* End Make. *)

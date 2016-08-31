@@ -187,7 +187,7 @@ Section CheckTypable_Intermediate.
   Lemma jump_address_eq : forall i a, jump_address i (Z_of_N a) = (a, (0)%N).
   Proof.
     admit.
-  Qed.
+  Admitted.
 
   Lemma switch_next_0 : forall (code:DEX_Instruction*(option Step_int.address * list DEX_ClassName))
     ins next_l next l bi j, (ins, next_l) = code ->
@@ -195,7 +195,7 @@ Section CheckTypable_Intermediate.
     next = Some (bi, j) -> ~ (eq j 0)%N -> False.
   Proof.
     admit.
-  Qed.
+  Admitted.
 
   Lemma all_ins_has_next : forall (code:DEX_Instruction*(option Step_int.address * list DEX_ClassName))
     ins next_l next l, 
@@ -205,7 +205,7 @@ Section CheckTypable_Intermediate.
     next = None -> False.
   Proof.
     admit.
-  Qed.
+  Admitted.
 
 
     Lemma for_all_steps_codes_true2 : forall codes

@@ -53,9 +53,9 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
 .
 
   Inductive DEX_exec_return (p:DEX_Program) (m:DEX_Method) : option DEX_ClassName -> DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
-  | exec_return_normal : forall s h ov,
-     DEX_ReturnStep p m s (h,Normal ov) ->
-     DEX_exec_return p m None s (h,Normal ov)
+  | exec_return_normal : forall s (*h*) ov,
+     DEX_ReturnStep p m s (Normal ov)(*h,Normal ov*) ->
+     DEX_exec_return p m None s (Normal ov)(*h,Normal ov*)
 (*  | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1 e,
      ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
      UnCaughtException  p m (pc1,h2,loc2) ->

@@ -42,34 +42,41 @@ Module Type DEX_SEMANTIC_DOMAIN.
    | Sh : Short.t -> DEX_num.
  
  (** Location is the domain of adresses in the heap *)
+
+(* Hendra 10082016 - Only concerns DVM_I
  Parameter DEX_Location : Set.
  Parameter DEX_Location_dec : forall loc1 loc2:DEX_Location,{loc1=loc2}+{~loc1=loc2}.
+*)
 
  Inductive DEX_value : Set :=
    | Num : DEX_num -> DEX_value
+(* Hendra 10082016 - Only concerns DVM_I
    | Ref: DEX_Location -> DEX_value
-   | Null : DEX_value.
+   | Null : DEX_value*).
 
  Definition init_value (t:DEX_type) : DEX_value :=
     match t with
-     | DEX_ReferenceType _ => Null
+     (* Hendra 10082016 - Only concerns DVM_I | DEX_ReferenceType _ => Null*)
      | DEX_PrimitiveType _ => Num (I (Int.const 0))
     end.
 
+(* Hendra 10082016 - Only concerns DVM_I
  Definition init_field_value (f:DEX_Field) : DEX_value :=
    match DEX_FIELD.initValue f with
     | DEX_FIELD.Int z => Num (I (Int.const z))
     | DEX_FIELD.NULL => Null
     | DEX_FIELD.UNDEF => init_value (DEX_FIELDSIGNATURE.type (DEX_FIELD.signature f))
   end.
+*)
  
  (** Domain of local variables *)
  Module Type DEX_REGISTERS.
    Parameter t : Type.
    Parameter get : t-> DEX_Reg -> option DEX_value.
    Parameter update : t -> DEX_Reg -> DEX_value -> t.
-   Parameter ret : DEX_Reg.
-   Parameter r0 : DEX_Reg.
+   Parameter dom : t -> list DEX_Reg.
+   (*Parameter ret : DEX_Reg.*)
+   (* Hendra 10082016 Removed r0 requirements? Parameter r0 : DEX_Reg. *)
    Parameter get_update_new : forall l x v, get (update l x v) x = Some v.
    Parameter get_update_old : forall l x y v,
      x<>y -> get (update l x v) y = get l y.
@@ -109,6 +116,8 @@ Module Type DEX_SEMANTIC_DOMAIN.
      LocalVar.get (stack2localvar s n) x = OperandStack.get_nth s (n-(Var_toN x)-1)%nat.
  (** %%nat is a coq command for the notation system *)
 *)
+
+(* Hendra 10082016 - Only concerns DVM_I
  Module Type DEX_HEAP.
    Parameter t : Type.
 
@@ -206,6 +215,7 @@ Module Type DEX_SEMANTIC_DOMAIN.
 
  End DEX_HEAP.
  Declare Module DEX_Heap : DEX_HEAP.
+*)
 
   Inductive DEX_ReturnVal : Set :=
    | Normal : option DEX_value -> DEX_ReturnVal
@@ -234,16 +244,16 @@ Module Type DEX_SEMANTIC_DOMAIN.
  (** Domain of states *)
  Module Type DEX_STATE.
    Inductive t : Type := 
-      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t
+      normal : (* Hendra 10082016 - Only concerns DVM_I DEX_Heap.t ->*) DEX_Frame.t -> DEX_CallStack.t -> t
     (* DEX | exception : Heap.t -> ExceptionFrame.t -> DEX_CallStack.t -> t *).
    Definition get_sf (s:t) : DEX_CallStack.t :=
      match s with
-       normal _ _ sf => sf
+       normal (*_ *) _ sf => sf
      (* | exception _ _ sf => sf *)
      end.
    Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal _ (DEX_Frame.make m _ _)_ => m
+       normal (*_ *) (DEX_Frame.make m _ _)_ => m
      (* | exception _ (ExceptionFrame.make m _ _ _) _ => m *)
      end.
  End DEX_STATE.
@@ -255,7 +265,8 @@ Module Type DEX_SEMANTIC_DOMAIN.
  Notation Fr := DEX_Frame.make.
  (* DEX Notation FrE := DEX_ExceptionFrame.make. *)
 
-  (** compatibility between ArrayKind and type *) 
+  (** compatibility between ArrayKind and type *)
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive compat_ArrayKind_type : DEX_ArrayKind -> DEX_type -> Prop :=
     | compat_ArrayKind_type_ref : forall rt,
         compat_ArrayKind_type DEX_Aarray (DEX_ReferenceType rt)
@@ -267,19 +278,21 @@ Module Type DEX_SEMANTIC_DOMAIN.
         compat_ArrayKind_type DEX_Barray (DEX_PrimitiveType DEX_BOOLEAN)
     | compat_ArrayKind_type_short : 
         compat_ArrayKind_type DEX_Sarray (DEX_PrimitiveType DEX_SHORT).
-
+*)
+(*
   Inductive isReference : DEX_value -> Prop :=
   | isReference_null : isReference Null
   | isReference_ref : forall loc, isReference (Ref loc).
-
+*)
   (** compatibility between ValKind and value *) 
   Inductive compat_ValKind_value : DEX_ValKind -> DEX_value -> Prop :=
-    | compat_ValKind_value_ref : forall v,
-        isReference v -> compat_ValKind_value DEX_Aval v
+    (*| compat_ValKind_value_ref : forall v,
+        isReference v -> compat_ValKind_value DEX_Aval v*)
     | compat_ValKind_value_int : forall n,
         compat_ValKind_value DEX_Ival (Num (I n)).
 
   (** compatibility between ArrayKind and value *) 
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive compat_ArrayKind_value : DEX_ArrayKind -> DEX_value -> Prop :=
     | compat_ArrayKind_value_ref : forall v,
         isReference v -> compat_ArrayKind_value DEX_Aarray v
@@ -289,16 +302,18 @@ Module Type DEX_SEMANTIC_DOMAIN.
         compat_ArrayKind_value DEX_Barray (Num (B n))
     | compat_ArrayKind_value_short : forall n,
         compat_ArrayKind_value DEX_Sarray (Num (Sh n)).
+*)
 
   (* convert a value to be pushed on the stack *)
-  Definition conv_for_stack (v:DEX_value) : DEX_value :=
+(* Hendra 10082916 - Only concerns DVM I - Definition conv_for_stack (v:DEX_value) : DEX_value :=
     match v with
     | Num (B b) => Num (I (b2i b))
     | Num (Sh s) => Num (I (s2i s))
     | _ => v
-    end.
+    end. *)
 
   (* convert a value to be store in an array *)
+(* Hendra 10082016 - Only concerns DVM_I
   Definition conv_for_array (v:DEX_value) (t:DEX_type) : DEX_value :=
     match v with
     | Ref loc => v
@@ -312,7 +327,7 @@ Module Type DEX_SEMANTIC_DOMAIN.
        end
     | _ => v (* impossible case *)
     end.
-
+*)
   (** [assign_compatible_num source target] holds if a numeric value [source] can be 
     assigned to a variable of type [target]. This point is not clear in the JVM spec. *)
   Inductive assign_compatible_num : DEX_num -> DEX_primitiveType -> Prop :=
@@ -325,7 +340,8 @@ Module Type DEX_SEMANTIC_DOMAIN.
 
   (** [assign_compatible h source target] holds if a value [source] can be 
     assigned to a variable of type [target] *)
-  Inductive assign_compatible (p:DEX_Program) (h:DEX_Heap.t) : DEX_value -> DEX_type -> Prop :=
+  Inductive assign_compatible (p:DEX_Program) (*h:DEX_Heap.t*) : DEX_value -> DEX_type -> Prop :=
+  (* Hendra 10082016 - Only concerns DVM_I
    | assign_compatible_null : forall t, assign_compatible p h Null (DEX_ReferenceType t)
    | assign_compatible_ref_object_val : forall (loc:DEX_Location) (t:DEX_refType) (cn:DEX_ClassName), 
        DEX_Heap.typeof h loc = Some (DEX_Heap.LocationObject cn) ->
@@ -335,8 +351,9 @@ Module Type DEX_SEMANTIC_DOMAIN.
        DEX_Heap.typeof h loc = Some (DEX_Heap.LocationArray length tp a) ->
        compat_refType p (DEX_ArrayType tp) t ->
        assign_compatible p h (Ref loc) (DEX_ReferenceType t)
+  *)
    | assign_compatible_num_val : forall (n:DEX_num) (t:DEX_primitiveType),
-       assign_compatible_num n t -> assign_compatible p h (Num n) (DEX_PrimitiveType t).
+       assign_compatible_num n t -> assign_compatible p (*h*) (Num n) (DEX_PrimitiveType t).
 
 (* DEX
   Inductive SemCompRef : CompRef -> DEX_value -> DEX_value -> Prop :=

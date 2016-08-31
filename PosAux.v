@@ -31,7 +31,6 @@ Proof.
  injection H0;trivial.
 Qed.
 
-
 Lemma Zeq_spec : forall (x y:Z), if Zeq_bool x y then x = y else x<>y.
 Proof.
  unfold Zeq_bool; destruct x; destruct y; simpl; trivial;

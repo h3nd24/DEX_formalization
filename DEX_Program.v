@@ -84,12 +84,12 @@ Module Type DEX_PROGRAM.
     Package | Protected | Private | Public.
 
   Inductive DEX_type : Set :=
-      | DEX_ReferenceType (rt : DEX_refType)
+  (*    | DEX_ReferenceType (rt : DEX_refType) *)
       | DEX_PrimitiveType (pt: DEX_primitiveType)
-  with DEX_refType :Set := 
+  (*with DEX_refType :Set := 
       | DEX_ArrayType (typ:DEX_type) 
       | DEX_ClassType  (ct:DEX_ClassName)
-      | DEX_InterfaceType (it:DEX_InterfaceName)
+      | DEX_InterfaceType (it:DEX_InterfaceName) *)
   with  DEX_primitiveType : Set := 
       | DEX_BOOLEAN  | DEX_BYTE | DEX_SHORT | DEX_INT.
       (* + Int64, Float,Double *)
@@ -105,15 +105,17 @@ Module Type DEX_PROGRAM.
   | DEX_ShlInt | DEX_ShrInt | DEX_SubInt | DEX_UshrInt | DEX_XorInt.
 
   (* Type information used for Vaload and Saload *)
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive DEX_ArrayKind : Set :=
     | DEX_Aarray
     | DEX_Iarray
     | DEX_Barray
     | DEX_Sarray.
-    
-  (* Type information used for Vload, Vstore and Vreturn *)
+*)    
+
+  (* Type information used for Move and Vreturn *)
   Inductive DEX_ValKind : Set :=
-    | DEX_Aval
+    (* Hendra 10082016 - Only concerns DVM_I | DEX_Aval *)
     | DEX_Ival.
 
 
@@ -397,8 +399,10 @@ Module Type DEX_PROGRAM.
    | DEX_NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
 *)
    | DEX_Goto (o:DEX_OFFSET.t)
+(*   
    | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
    | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
+*)
    | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
    | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
 (* DEX Objects
@@ -770,7 +774,7 @@ Module Type DEX_PROGRAM.
   (** [compat_refType source target] holds if a reference value of type [source] can be 
     assigned to a reference variable of type [target]. See 
     #<a href=http://java.sun.com/docs/books/vmspec/2nd-edition/html/Concepts.doc.html##19674>assignment conversion rules</a># *)
-
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive compat_refType (p:DEX_Program) : DEX_refType -> DEX_refType -> Prop :=
    | compat_refType_class_class : forall clS clT,
        subclass_name p clS clT ->
@@ -793,7 +797,7 @@ Module Type DEX_PROGRAM.
    | compat_refType_array_array_reference_type : forall tpS tpT,       
        compat_refType p tpS tpT ->
        compat_refType p (DEX_ArrayType (DEX_ReferenceType tpS)) (DEX_ArrayType (DEX_ReferenceType tpT)).
-
+*)
 
   (** Extra tools for implementation *)
   Parameter DEX_PC_eq : DEX_PC -> DEX_PC -> bool.

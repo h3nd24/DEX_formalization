@@ -107,20 +107,20 @@ Module DEX_Make <: DEX_PROGRAM.
   Proof. exact (Aeq_dec _ eqVisibility eqVisibility_spec). Qed.
 
   Inductive DEX_type : Set :=
-      | DEX_ReferenceType (rt : DEX_refType)
+      (*Hendra 10082016 - Only concerns DVM_I | DEX_ReferenceType (rt : DEX_refType) *)
       | DEX_PrimitiveType (pt: DEX_primitiveType)
-  with DEX_refType :Set := 
+  (* Hendra 10082016 - Only concerns DVM_I with DEX_refType :Set := 
       | DEX_ArrayType (typ:DEX_type) 
       | DEX_ClassType  (ct:DEX_ClassName)
-      | DEX_InterfaceType (it:DEX_InterfaceName)
+      | DEX_InterfaceType (it:DEX_InterfaceName) *)
   with  DEX_primitiveType : Set := 
       | DEX_BOOLEAN  | DEX_BYTE | DEX_SHORT | DEX_INT.
  
   Scheme type_strong_rec := Induction for DEX_type Sort Set
-    with refType_strong_rec := Induction for DEX_refType Sort Set.
+    (*with refType_strong_rec := Induction for DEX_refType Sort Set*).
   
   Scheme type_strong_ind := Induction for DEX_type Sort Prop
-    with refType_strong_ind := Induction for DEX_refType Sort Prop.
+    (*with refType_strong_ind := Induction for DEX_refType Sort Prop*).
 
   Definition eq_primitiveType x y :=
     match x, y with
@@ -139,20 +139,27 @@ Module DEX_Make <: DEX_PROGRAM.
 
   Fixpoint eq_type (t1 t2:DEX_type) {struct t1} : bool := 
     match t1, t2 with 
-    | DEX_ReferenceType rt1, DEX_ReferenceType rt2 => eq_reftype rt1 rt2
+    (* Hendra 10082016 - Only concerns DVM_I | DEX_ReferenceType rt1, DEX_ReferenceType rt2 => eq_reftype rt1 rt2 *)
     | DEX_PrimitiveType pt1, DEX_PrimitiveType pt2 => eq_primitiveType pt1 pt2
-    | _, _ => false
+    (*| _, _ => false*)
     end
-  with eq_reftype (rt1 rt2: DEX_refType) {struct rt1} : bool := 
+  (* Hendra 10082016 - Only concerns DVM_I with eq_reftype (rt1 rt2: DEX_refType) {struct rt1} : bool := 
     match rt1, rt2 with
     | DEX_ArrayType t1, DEX_ArrayType t2 => eq_type t1 t2
     | DEX_ClassType cn1, DEX_ClassType cn2 => eqClassName cn1 cn2
     | DEX_InterfaceType in1, DEX_InterfaceType in2 => eqInterfaceName in1 in2
     |_, _ => false
-    end.
+    end*).
 
   Lemma eq_type_spec : forall t1 t2, if eq_type t1 t2 then t1 = t2 else t1 <> t2.
   Proof.
+   induction t1,t2. 
+   simpl. 
+   assert (UU := eq_primitiveType_spec pt pt0).
+   destruct eq_primitiveType. 
+   subst; trivial.
+   intro H. injection H. auto.
+(*
    induction t1 using type_strong_ind with 
         (P0:=
           fun rt1 => forall rt2, if eq_reftype rt1 rt2 then rt1 = rt2 else rt1 <> rt2);intros.
@@ -171,6 +178,7 @@ Module DEX_Make <: DEX_PROGRAM.
    destruct rt2;simpl;intros;try (intro;discriminate;fail).
    assert (UU := eqInterfaceName_spec it it0);destruct (eqInterfaceName it it0);subst;trivial.
    intro H;injection H;auto.
+*)
   Qed.
   Lemma type_dec : eq_dec DEX_type.
   Proof. exact (Aeq_dec _ eq_type eq_type_spec). Qed.
@@ -260,15 +268,15 @@ Module DEX_Make <: DEX_PROGRAM.
     Parameter eq_dec : forall mid1 mid2:DEX_ShortMethodSignature, mid1=mid2 \/~mid1=mid2.
   End DEX_METHODSIGNATURE_TYPE.
 
-  
+(* Hendra 10082016 - Only concerns DVM_I  
   Inductive DEX_ArrayKind : Set :=
     | DEX_Aarray
     | DEX_Iarray
     | DEX_Barray
     | DEX_Sarray.
-    
+*)    
   Inductive DEX_ValKind : Set :=
-    | DEX_Aval
+    (*| DEX_Aval*)
     | DEX_Ival.
 
   Inductive DEX_Instruction : Set :=
@@ -287,8 +295,8 @@ Module DEX_Make <: DEX_PROGRAM.
    | DEX_NewArray (rt:DEX_Reg) (rl:DEX_Reg) (t:DEX_type)
 *)
    | DEX_Goto (o:DEX_OFFSET.t)
-   | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
-   | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
+   (*| DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
+   | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))*)
    | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
    | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
 (* DEX Objects
@@ -1031,7 +1039,7 @@ Module DEX_Make <: DEX_PROGRAM.
   (** [compat_refType source target] holds if a reference value of type [source] can be 
     assigned to a reference variable of type [target]. See 
     #<a href=http://java.sun.com/docs/books/vmspec/2nd-edition/html/Concepts.doc.html##19674>assignment conversion rules</a># *)
-
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive compat_refType (p:DEX_Program) : DEX_refType -> DEX_refType -> Prop :=
    | compat_refType_class_class : forall clS clT,
        subclass_name p clS clT ->
@@ -1054,7 +1062,7 @@ Module DEX_Make <: DEX_PROGRAM.
    | compat_refType_array_array_reference_type : forall tpS tpT,       
        compat_refType p tpS tpT ->
        compat_refType p (DEX_ArrayType (DEX_ReferenceType tpS)) (DEX_ArrayType (DEX_ReferenceType tpT)).
-
+*)
   (* subclass_test TO BE PROVED CORRECT ! *)  
   Module Map2P' := MapPair_Base BinMap_Base BinMap_Base.
   Module Map2P <: MAP with Definition key := (positive*positive)%type :=
@@ -1143,9 +1151,3 @@ End DEX_MapFieldSignature_hash.
 Module DEX_MapFieldSignature_base := MapHash_Base DEX_MapFieldSignature_hash Map2P'.
 Module DEX_MapFieldSignature <: MAP with Definition key := DEX_FieldSignature :=
   Map_Of_MapBase DEX_MapFieldSignature_base.
-
-
-
-
-
-

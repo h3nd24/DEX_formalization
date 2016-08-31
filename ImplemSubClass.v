@@ -140,34 +140,6 @@ End SUBCLASS.
 
 (*
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Section __A__.
 Variable A : Set.
 Variable test : A -> A -> bool.

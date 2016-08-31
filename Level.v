@@ -296,15 +296,15 @@ Fixpoint tsub_st (l1 l2:list L.t') {struct l1} : bool :=
     | _,_ => false
   end.
 
-Definition tsub_element (rt1 rt2 : BinNatMap.t L.t') (reg : N) : bool :=
+Definition tsub_element (rt1 rt2 : BinNatMap.t L.t) (reg : N) : bool :=
   match BinNatMap.get _ rt1 reg, BinNatMap.get _ rt2 reg with
     | None, None => true
-    | Some k1, Some k2 => (leql'_test k1 k2)
+    | Some k1, Some k2 => (L.leql_t k1 k2)
     | None, Some k2 => false
     | Some k1, None => true
   end.
 
-Fixpoint tsub_rec (rt1 rt2 : BinNatMap.t L.t') (regs : list N) {struct regs} : bool :=
+Fixpoint tsub_rec (rt1 rt2 : BinNatMap.t L.t) (regs : list N) {struct regs} : bool :=
   match regs with
     | nil => true
     | reg :: t => (tsub_element (rt1) (rt2) (reg)) && (tsub_rec (rt1) (rt2) (t))
@@ -316,7 +316,7 @@ Fixpoint Nseq (start:N) (len:nat) : list N :=
       | S n => start :: Nseq (Nsucc start) (n)
     end.
 
-Definition tsub_rt (rt1 rt2 : BinNatMap.t L.t') : bool :=
+Definition tsub_rt (rt1 rt2 : BinNatMap.t L.t) : bool :=
   (*let size := length (BinNatMap.dom _ rt2) in
   let keys := Nseq (N0) (size) in *)
   tsub_rec (rt1) (rt2) (BinNatMap.dom _ rt2).

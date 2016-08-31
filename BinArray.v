@@ -1,4 +1,4 @@
-Add LoadPath "..".
+(*Add LoadPath "..".*)
 Require Import PosAux.
 Require Import EqBoolAux.
 Require Import Bool.
@@ -16,10 +16,10 @@ Fixpoint inv_pos (p1 p2:positive) {struct p1} : positive :=
 
 Fixpoint elements_rec (t : tree (option A)) (p:positive) (acc:list (positive*A)) {struct t} : list (positive*A) :=
   match t with
-  | leaf => acc
-  | node None tO tI =>
+  | leaf _ => acc
+  | node _ None tO tI =>
       elements_rec tI (xI p) (elements_rec tO (xO p) acc)
-  | node (Some a) tO tI =>
+  | node _ (Some a) tO tI =>
       elements_rec tI (xI p) (cons ((inv_pos p xH),a) (elements_rec tO (xO p) acc))
 end.
 
@@ -115,10 +115,10 @@ Variable f : positive -> A -> B -> B.
 
 Fixpoint fold_rec (t : tree (option A)) (p:positive) (acc:B) {struct t} : B :=
   match t with
-  | leaf => acc
-  | node None tO tI =>
+  | leaf _ => acc
+  | node _ None tO tI =>
       fold_rec tI (xI p) (fold_rec tO (xO p) acc)
-  | node (Some a) tO tI =>
+  | node _ (Some a) tO tI =>
       fold_rec tI (xI p) (f (inv_pos p xH) a (fold_rec tO (xO p) acc))
 end.
 
@@ -200,10 +200,10 @@ Section compare.
 
   Fixpoint compare (t1 t2 : tree (option A)) {struct t1} : bool :=
     match t1,t2 with
-      | leaf,leaf => true
-      | leaf,_ => forall_test (fun p => test2 None) t2
-      | node _ _ _,leaf => forall_test (fun p x => test2 x None) t1
-      | node a1 l1 r1, node a2 l2 r2 => 
+      | leaf _,leaf _ => true
+      | leaf _,_ => forall_test (fun p => test2 None) t2
+      | node _ _ _ _,leaf _ => forall_test (fun p x => test2 x None) t1
+      | node _ a1 l1 r1, node _ a2 l2 r2 => 
         test2 a1 a2 && compare l1 l2 && compare r1 r2
     end.
 
@@ -1417,8 +1417,8 @@ Module MapProj (P:PROJ with Definition key := positive) <: MAP_PROJ.
 
   Fixpoint elements_aux (t:tree(option element)) (res:list element){struct t} : list element  :=
     match t with 
-    | leaf => res
-    | node a t1 t2 => 
+    | leaf _ => res
+    | node _ a t1 t2 => 
        elements_aux t1 (elements_aux t2 (match a with Some e => e::res | None => res end))
     end.
  

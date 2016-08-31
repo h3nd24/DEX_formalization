@@ -4,39 +4,39 @@
 
   Open Scope type_scope.
   Definition DEX_InitCallState :=  DEX_Method * DEX_Registers.t.
-  Definition DEX_IntraNormalState := DEX_PC * (DEX_Heap.t * DEX_Registers.t).
+  Definition DEX_IntraNormalState := DEX_PC * ((*DEX_Heap.t **) DEX_Registers.t).
 (*  Definition IntraExceptionState := Heap.t * Location. *)
-  Definition DEX_ReturnState := DEX_Heap.t * DEX_ReturnVal.
+  Definition DEX_ReturnState := (*DEX_Heap.t **) DEX_ReturnVal.
 
 
   Inductive DEX_NormalStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState  -> Prop :=
-  | nop : forall h m pc pc' l,
+  | nop : forall (*h*) m pc pc' regs,
 
     instructionAt m pc = Some DEX_Nop ->
     next m pc = Some pc' ->
 
-    DEX_NormalStep p m (pc,(h, l)) (pc',(h, l))
+    DEX_NormalStep p m (pc, regs(*h, regs*)) (pc', regs(*h, regs*))
 
-  | const : forall h m pc pc' l l' k rt v,
+  | const : forall (*h*) m pc pc' regs regs' k rt v,
 
     instructionAt m pc = Some (DEX_Const k rt v) ->
     next m pc = Some pc' ->
     (-2^31 <= v < 2^31)%Z ->
     DEX_METHOD.valid_reg m rt ->
-    l' = DEX_Registers.update l rt (Num (I (Int.const v))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (Int.const v))) ->
 
-    DEX_NormalStep p m (pc,(h, l)) (pc',(h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
   
-  | move_step_ok : forall h m pc pc' l l' k rt rs v,
+  | move_step_ok : forall (*h*) m pc pc' regs regs' k rt rs v,
 
     instructionAt m pc = Some (DEX_Move k rt rs) ->
     next m pc = Some pc' ->
-    Some v = DEX_Registers.get l rs ->
+    Some v = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m rs ->
-    l' = DEX_Registers.update l rt v ->
+    regs' = DEX_Registers.update regs rt v ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 (* DEX Method  
   | moveresult_step_ok : forall h m pc pc' l l' k rt v,
 
@@ -115,12 +115,12 @@
     DEX_NormalStep p m (pc, (h, l)) (pc', (h_new, l'))
 *)
 
-  | goto_step_ok : forall h m pc l o,
+  | goto_step_ok : forall (*h*) m pc regs o,
 
     instructionAt m pc = Some (DEX_Goto o) ->
 
-    DEX_NormalStep p m (pc, (h, l)) ((DEX_OFFSET.jump pc o), (h, l))
-  
+    DEX_NormalStep p m (pc, regs(*h, l*)) ((DEX_OFFSET.jump pc o), regs(*h, l*))
+(*  
   | packedswitch_step_ok1 : forall h m pc l v r firstKey size list_offset n o,
     
     instructionAt m pc = Some (DEX_PackedSwitch r firstKey size list_offset) ->
@@ -165,47 +165,47 @@
     DEX_METHOD.valid_reg m r ->
 
     DEX_NormalStep p m (pc, (h, l)) (pc', (h, l))
-
-  | ifcmp_step_jump : forall h m pc l va vb cmp ra rb o,
+*)
+  | ifcmp_step_jump : forall (*h*) m pc regs va vb cmp ra rb o,
 
     instructionAt m pc = Some (DEX_Ifcmp cmp ra rb o) ->
-    Some (Num (I va)) = DEX_Registers.get l ra ->
-    Some (Num (I vb)) = DEX_Registers.get l rb ->
+    Some (Num (I va)) = DEX_Registers.get regs ra ->
+    Some (Num (I vb)) = DEX_Registers.get regs rb ->
     SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
     DEX_METHOD.valid_reg m ra ->
     DEX_METHOD.valid_reg m rb ->
     
-    DEX_NormalStep p m (pc, (h, l)) ((DEX_OFFSET.jump pc o), (h, l))
+    DEX_NormalStep p m (pc, regs(*h, l*)) ((DEX_OFFSET.jump pc o), regs(*h, l*))
 
-  | ifcmp_step_continue : forall h m pc pc' l va vb cmp ra rb o,
+  | ifcmp_step_continue : forall (*h*) m pc pc' regs va vb cmp ra rb o,
     
     instructionAt m pc = Some (DEX_Ifcmp cmp ra rb o) ->
-    Some (Num (I va)) = DEX_Registers.get l ra ->
-    Some (Num (I vb)) = DEX_Registers.get l rb ->
+    Some (Num (I va)) = DEX_Registers.get regs ra ->
+    Some (Num (I vb)) = DEX_Registers.get regs rb ->
     ~SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
     next m pc = Some pc' ->
     DEX_METHOD.valid_reg m ra ->
     DEX_METHOD.valid_reg m rb ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs(*h, l*))
 
-  | ifz_step_jump : forall h m pc l v cmp r o,
+  | ifz_step_jump : forall (*h*) m pc regs v cmp r o,
 
     instructionAt m pc = Some (DEX_Ifz cmp r o) ->
-    Some (Num (I v)) = DEX_Registers.get l r ->
+    Some (Num (I v)) = DEX_Registers.get regs r ->
     SemCompInt cmp (Int.toZ v) (0) ->
     DEX_METHOD.valid_reg m r ->
     
-    DEX_NormalStep p m (pc, (h, l)) ((DEX_OFFSET.jump pc o), (h, l))
+    DEX_NormalStep p m (pc, regs(*h, l*)) ((DEX_OFFSET.jump pc o), regs(*h, l*))
 
-  | ifz_step_continue : forall h m pc pc' l v cmp r o,
+  | ifz_step_continue : forall (*h*) m pc pc' regs v cmp r o,
     
     instructionAt m pc = Some (DEX_Ifz cmp r o) ->
-    Some (Num (I v)) = DEX_Registers.get l r ->
+    Some (Num (I v)) = DEX_Registers.get regs r ->
     ~SemCompInt cmp (Int.toZ v) (0) ->
     next m pc = Some pc' ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs(*h, l*))
 
 (* DEX Object
    (** Load value from array *)
@@ -280,78 +280,78 @@
 *)
 
   (** <addlink>ineg</addlink>: Negate [int] *)
-  | ineg_step : forall h m pc l l' pc' rt rs v,
+  | ineg_step : forall (*h*) m pc regs regs' pc' rt rs v,
 
     instructionAt m pc = Some (DEX_Ineg rt rs) ->
     next m pc = Some pc' ->
-    Some (Num (I v)) = DEX_Registers.get l rs ->
+    Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m rs ->
-    l' = DEX_Registers.update l rt (Num (I (Int.neg v))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (Int.neg v))) ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 
   (** <addlink>ineg</addlink>: Not [int] (one's complement) *)
-  | inot_step : forall h m pc l l' pc' rt rs v,
+  | inot_step : forall (*h*) m pc regs regs' pc' rt rs v,
 
     instructionAt m pc = Some (DEX_Inot rt rs) ->
     next m pc = Some pc' ->
-    Some (Num (I v)) = DEX_Registers.get l rs ->
+    Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m rs ->
-    l' = DEX_Registers.update l rt (Num (I (Int.not v))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (Int.not v))) ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 
   (** <addlink>i2b</addlink>: Convert [int] to [byte] *)
-  | i2b_step_ok : forall h m pc pc' l l' rt rs v,
+  | i2b_step_ok : forall (*h*) m pc pc' regs regs' rt rs v,
 
     instructionAt m pc = Some (DEX_I2b rt rs) ->
     next m pc = Some pc' ->
-    Some (Num (I v)) = DEX_Registers.get l rs ->
+    Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m rs ->
-    l' = DEX_Registers.update l rt (Num (I (b2i (i2b v)))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (b2i (i2b v)))) ->
     
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 
  (** <addlink>i2s</addlink>: Convert [int] to [short] *)
-  | i2s_step_ok : forall h m pc pc' l l' rt rs v,
+  | i2s_step_ok : forall (*h*) m pc pc' regs regs' rt rs v,
 
     instructionAt m pc = Some (DEX_I2s rt rs) ->
     next m pc = Some pc' ->
-    Some (Num (I v)) = DEX_Registers.get l rs ->
+    Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m rs ->
-    l' = DEX_Registers.update l rt (Num (I (s2i (i2s v)))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (s2i (i2s v)))) ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 
-  | ibinop_step_ok : forall h m pc pc' l l' op rt ra rb va vb,
+  | ibinop_step_ok : forall (*h*) m pc pc' regs regs' op rt ra rb va vb,
 
     instructionAt m pc = Some (DEX_Ibinop op rt ra rb) ->
     next m pc = Some pc' ->
     (*(op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0) -> at this moment there is no exception*)
-    Some (Num (I va)) = DEX_Registers.get l ra ->
-    Some (Num (I vb)) = DEX_Registers.get l rb ->
+    Some (Num (I va)) = DEX_Registers.get regs ra ->
+    Some (Num (I vb)) = DEX_Registers.get regs rb ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m ra ->
     DEX_METHOD.valid_reg m rb ->
-    l' = DEX_Registers.update l rt (Num (I (SemBinopInt op va vb))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (SemBinopInt op va vb))) ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 
-  | ibinopconst_step_ok : forall h m pc pc' l l' op rt r va v,
+  | ibinopconst_step_ok : forall (*h*) m pc pc' regs regs' op rt r va v,
 
     instructionAt m pc = Some (DEX_IbinopConst op rt r v) ->
     next m pc = Some pc' ->
     (*(op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0) -> at this moment there is no exception*)
-    Some (Num (I va)) = DEX_Registers.get l r ->
+    Some (Num (I va)) = DEX_Registers.get regs r ->
     DEX_METHOD.valid_reg m rt ->
     DEX_METHOD.valid_reg m r ->
-    l' = DEX_Registers.update l rt (Num (I (SemBinopInt op va (Int.const v)))) ->
+    regs' = DEX_Registers.update regs rt (Num (I (SemBinopInt op va (Int.const v)))) ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l'))
+    DEX_NormalStep p m (pc, regs(*h, l*)) (pc', regs'(*h, l'*))
 .
 
 
@@ -453,11 +453,6 @@
     JVMExceptionStep p m (pc,(h,(val::(Num (I i))::(Ref loc)::s),l)) ArrayStoreException
 .
 
-
-
-
-
-
   Inductive ExceptionStep (p:Program) : Method -> IntraNormalState -> IntraExceptionState -> Prop :=
   | athrow : forall h m pc s l loc cn,
 
@@ -502,22 +497,22 @@
 *)
 
   Inductive DEX_ReturnStep (p:DEX_Program) : DEX_Method -> DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
-  | void_return : forall h m pc l,
+  | void_return : forall (*h*) m pc regs,
 
     instructionAt m pc = Some DEX_Return -> 
     DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = None ->
 
-    DEX_ReturnStep p m (pc, (h, l)) (h, Normal None)
+    DEX_ReturnStep p m (pc, regs(*h, l*)) (Normal None)(*h, Normal None*)
 
-  | vreturn : forall h m pc l val t k rs,
+  | vreturn : forall (*h*) m pc regs val t k rs,
     (* Implicit in the assumption is that the register has a value in it *)
     instructionAt m pc = Some (DEX_VReturn k rs) ->
     DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = Some t ->
-    assign_compatible p h val t ->
+    assign_compatible p (*h*) val t ->
     compat_ValKind_value k val ->
-    Some val = DEX_Registers.get l rs ->
+    Some val = DEX_Registers.get regs rs ->
 
-    DEX_ReturnStep p m (pc, (h, l)) (h, Normal (Some val))
+    DEX_ReturnStep p m (pc, regs(*h, l*)) (Normal (Some val))(*h, Normal (Some val)*)
 .
 
 (* DEX Method
@@ -569,9 +564,9 @@
 .
 
   Inductive DEX_exec_return (p:DEX_Program) (m:DEX_Method) : DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
-  | exec_return_normal : forall s h ov,
-     DEX_ReturnStep p m s (h,Normal ov) ->
-     DEX_exec_return p m s (h,Normal ov)
+  | exec_return_normal : forall s (*h*) ov,
+     DEX_ReturnStep p m s (Normal ov)(*h,Normal ov*) ->
+     DEX_exec_return p m s (Normal ov)(*h,Normal ov*)
 (*  | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1,
      ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
      UnCaughtException  p m (pc1,h2,loc2) ->

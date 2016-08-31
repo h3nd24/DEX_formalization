@@ -39,35 +39,39 @@ Open Scope Z_scope.
    | Sh : Short.t -> DEX_num.
  
  (** Location is the domain of adresses in the heap *)
+(* Hendra 10082016 - Only concerns DVM_I
  Definition DEX_Location : Set := N.
  Definition DEX_Location_dec : forall loc1 loc2:DEX_Location,{loc1=loc2}+{~loc1=loc2} :=
    (Aeq_Dec _ _ Neq_spec).
+*)
 
  Inductive DEX_value : Set :=
    | Num : DEX_num -> DEX_value
-   | Ref: DEX_Location -> DEX_value
-   | Null : DEX_value.
+(* Hendra 10082016 - Only concerns DVM_I  | Ref: DEX_Location -> DEX_value
+   | Null : DEX_value *).
 
  Definition init_value (t:DEX_type) : DEX_value :=
     match t with
-     | DEX_ReferenceType _ => Null
+    (* Hendra 10082016 - Only concerns DVM_I | DEX_ReferenceType _ => Null *)
      | DEX_PrimitiveType _ => Num (I (Int.const 0))
     end.
-
+(* Hendra 10082016 - Only concerns DVM_I
  Definition init_field_value (f:DEX_Field) : DEX_value :=
    match DEX_FIELD.initValue f with
     | DEX_FIELD.Int z => Num (I (Int.const z))
     | DEX_FIELD.NULL => Null
     | DEX_FIELD.UNDEF => init_value (DEX_FIELDSIGNATURE.type (DEX_FIELD.signature f))
   end.
- 
+*) 
+
  (** Domain of local variables *)
  Module Type DEX_REGISTERS.
    Parameter t : Type.
    Parameter get : t-> DEX_Reg -> option DEX_value.
    Parameter update : t -> DEX_Reg -> DEX_value -> t.
-   Parameter ret : DEX_Reg.
-   Parameter r0 : DEX_Reg.
+   Parameter dom : t -> list DEX_Reg.
+   (*Parameter ret : DEX_Reg.*)
+   (* Hendra 10082016 - no need for r0? Parameter r0 : DEX_Reg. *)
    Parameter get_update_new : forall l x v, get (update l x v) x = Some v.
    Parameter get_update_old : forall l x y v,
      x<>y -> get (update l x v) y = get l y.
@@ -79,9 +83,10 @@ Open Scope Z_scope.
    Definition t := DEX_MapReg.t DEX_value.
    Definition get : t -> DEX_Reg -> option DEX_value := @DEX_MapReg.get DEX_value.
    Definition update : t -> DEX_Reg -> DEX_value -> t := @DEX_MapReg.update DEX_value.
-   Definition ret := Npos (xO (xO (xO (xO (xO (xO (xO (xO 
-     (xO (xO (xO (xO (xO (xO (xO (xO xH)))))))))))))))).
-   Definition r0 := (0)%N.
+   Definition dom : t -> list DEX_Reg := @DEX_MapReg.dom DEX_value.
+   (*Definition ret := Npos (xO (xO (xO (xO (xO (xO (xO (xO 
+     (xO (xO (xO (xO (xO (xO (xO (xO xH)))))))))))))))).*)
+(* Hendra 10082016 no need for r0?  Definition r0 := (0)%N. *)
 (*   Definition ex := Npos (xI (xO (xO (xO (xO (xO (xO (xO 
      (xO (xO (xO (xO (xO (xO (xO (xO xH)))))))))))))))).  *)
    Lemma get_update_new : forall l x v, get (update l x v) x = Some v.
@@ -113,100 +118,7 @@ Open Scope Z_scope.
    end.
  Definition listreg2regs (l_ori:DEX_Registers.t) (n:nat) (lv:list DEX_Reg)
    := listreg2regs_rec l_ori n lv DEX_Registers.empty.
-(*
- (* Domain of operand stacks *) 
- Module Type OPERANDSTACK.
-   Definition t : Set := list value.
-   Definition empty : t := nil.
-   Definition push : value -> t -> t := fun v t => cons v t.
-   Definition size : t -> nat := fun t  => length t .
-   Definition get_nth : t -> nat -> option value := fun s n => nth_error s n.
- End OPERANDSTACK.
 
- Module OperandStack <: OPERANDSTACK.
-   Definition t : Set := list value.
-   Definition empty : t := nil.
-   Definition push : value -> t -> t := fun v t => cons v t.
-   Definition size : t -> nat := fun t  => length t .
-   Definition get_nth : t -> nat -> option value := fun s n => nth_error s n.
-  End OperandStack.
-
- (** Transfert fonction between operand stack and local variables necessary for invoke instructions *)
-  
- Fixpoint stack2localvar_rec
-    (os:OperandStack.t) (n:nat) (l:LocalVar.t) {struct n}: LocalVar.t :=
-   match n with 
-   | O => l
-   | S n => 
-      match os with
-      | nil => l
-      | v::os => 
-         stack2localvar_rec os n (LocalVar.update l (N_toVar n) v)
-      end
-   end.
- Definition stack2localvar os n := stack2localvar_rec os n LocalVar.empty.
-
- Lemma stack2locvar_rec_prop1 :
-   forall n l os x, (n <= Var_toN x)%nat -> 
-     LocalVar.get (stack2localvar_rec  os n l) x = LocalVar.get l x.
- Proof.
-  induction n;simpl;intros;trivial.
-  destruct os;simpl;intros;trivial.
-  assert (n <= Var_toN x)%nat. omega.
-  rewrite IHn;trivial.
-  unfold LocalVar.get, LocalVar.update;rewrite MapVar.get_update2;trivial.
-  intro Heq;rewrite Heq in H.
-  rewrite Var_toN_bij2 in H;omega.
- Qed.
-
- Lemma stack2locvar_prop1 :
-   forall s n x, (n <= Var_toN x)%nat -> LocalVar.get (stack2localvar s n) x = None.
- Proof.
-   unfold stack2localvar;intros.
-   rewrite stack2locvar_rec_prop1;trivial.
-   exact (MapVar.get_empty _ _).
- Qed.
-
- Lemma stack2locvar_rec_prop2 :
-   forall n os l x, (Var_toN x < n)%nat ->
-     (forall y, (Var_toN y < n)%nat -> LocalVar.get l y = None) ->
-     LocalVar.get (stack2localvar_rec os n l) x = 
-       OperandStack.get_nth os (n-(Var_toN x)-1)%nat.
- Proof.
-   induction n;simpl;intros.
-   elimtype False;omega.
-   destruct os.
-   rewrite H0;trivial.
-   destruct (Var_toN x);simpl;trivial.
-   destruct (n-0)%nat;trivial.
-   destruct (n-n0-1)%nat;trivial.
-   change (match Var_toN x with
-   | O => (S n)
-   | S l0 => (n - l0)
-   end - 1)%nat with (S n- Var_toN x -1)%nat.
-   assert (Var_toN x = n \/ Var_toN x < n)%nat. omega.
-   destruct H1.
-   pattern n at 2;rewrite <- H1;rewrite Var_toN_bij1.
-   rewrite stack2locvar_rec_prop1. 2:omega.
-   rewrite LocalVar.get_update_new.
-   replace (S n - Var_toN x - 1)%nat with O;try omega.
-   simpl;trivial.
-   rewrite IHn;trivial.
-   replace (S n - Var_toN x - 1)%nat with (S (n - Var_toN x - 1))%nat;try omega.
-   simpl;trivial.
-   intros;rewrite LocalVar.get_update_old.
-   apply H0;omega.
-   intro Heq;rewrite <-Heq in H2;rewrite Var_toN_bij2 in H2;omega.
-  Qed.
-   
- Lemma stack2locvar_prop2 :
-   forall s n x, (Var_toN x < n)%nat ->
-     LocalVar.get (stack2localvar s n) x = OperandStack.get_nth s (n-(Var_toN x)-1)%nat.
- Proof.
-  unfold stack2localvar;intros;apply stack2locvar_rec_prop2;trivial.
-  intros;exact (MapVar.get_empty _ _).
- Qed.
-*)
 
  Fixpoint all_super_classes (p:DEX_Program) (c:DEX_Class) (n:nat) {struct n} : option (list DEX_Class) :=
    match n with
@@ -454,7 +366,7 @@ Proof.
 
 
 Set Implicit Arguments.
-
+(* Hendra 10082016 - Only concerns DVM_I
  Module Type DEX_HEAP.
    Parameter t : Type.
 
@@ -1397,6 +1309,7 @@ Module DEX_Heap <: DEX_HEAP.
  End DEX_Heap.
 
 Opaque DEX_Heap.update.
+*)
   Inductive DEX_ReturnVal : Set :=
    | Normal : option DEX_value -> DEX_ReturnVal
    (* DEX | Exception : DEX_Location -> DEX_ReturnVal *).
@@ -1434,32 +1347,32 @@ Opaque DEX_Heap.update.
  (** Domain of states *)
  Module Type DEX_STATE.
    Inductive t : Type := 
-      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t
+      normal : (* DEX_Heap.t -> *) DEX_Frame.t -> DEX_CallStack.t -> t
     (* DEX | exception : Heap.t -> ExceptionFrame.t -> CallStack.t -> t*).
    Definition get_sf  (s:t) : DEX_CallStack.t :=
      match s with
-       normal _ _ sf => sf
+       normal (*_ *) _ sf => sf
      (* DEX | exception _ _ sf => sf *)
      end.
    Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal _ (DEX_Frame.make m _ _)_ => m
+       normal (*_ *) (DEX_Frame.make m _ _)_ => m
      (* DEX | exception _ (ExceptionFrame.make m _ _ _) _ => m *)
      end.
  End DEX_STATE.
 
  Module DEX_State.
   Inductive t : Type := 
-      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t
+      normal : (*DEX_Heap.t ->*) DEX_Frame.t -> DEX_CallStack.t -> t
     (* DEX | exception : Heap.t -> ExceptionFrame.t -> CallStack.t -> t *).
    Definition get_sf (s:t) : DEX_CallStack.t :=
      match s with
-       normal _ _ sf => sf
+       normal (*_ *) _ sf => sf
      (* DEX | exception _ _ sf => sf *)
      end.
    Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal _ (DEX_Frame.make m _ _)_ => m
+       normal (*_*) (DEX_Frame.make m _ _)_ => m
      (* DEX | exception _ (ExceptionFrame.make m _ _ _) _ => m *)
      end.
  End DEX_State.
@@ -1470,6 +1383,7 @@ Opaque DEX_Heap.update.
 (* DEX Notation FrE := ExceptionFrame.make. *)
 
   (** compatibility between ArrayKind and type *) 
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive compat_ArrayKind_type : DEX_ArrayKind -> DEX_type -> Prop :=
     | compat_ArrayKind_type_ref : forall rt,
         compat_ArrayKind_type DEX_Aarray (DEX_ReferenceType rt)
@@ -1485,15 +1399,16 @@ Opaque DEX_Heap.update.
   Inductive isReference : DEX_value -> Prop :=
   | isReference_null : isReference Null
   | isReference_ref : forall loc, isReference (Ref loc).
-
+*)
   (** compatibility between ValKind and value *) 
   Inductive compat_ValKind_value : DEX_ValKind -> DEX_value -> Prop :=
-    | compat_ValKind_value_ref : forall v,
-        isReference v -> compat_ValKind_value DEX_Aval v
+    (* Hendra 10082016 - Only concerns DVM_I | compat_ValKind_value_ref : forall v,
+        isReference v -> compat_ValKind_value DEX_Aval v*)
     | compat_ValKind_value_int : forall n,
         compat_ValKind_value DEX_Ival (Num (I n)).
 
   (** compatibility between ArrayKind and value *) 
+(* Hendra 10082016 - Only concerns DVM_I
   Inductive compat_ArrayKind_value : DEX_ArrayKind -> DEX_value -> Prop :=
     | compat_ArrayKind_value_ref : forall v,
         isReference v -> compat_ArrayKind_value DEX_Aarray v
@@ -1503,7 +1418,9 @@ Opaque DEX_Heap.update.
         compat_ArrayKind_value DEX_Barray (Num (B n))
     | compat_ArrayKind_value_short : forall n,
         compat_ArrayKind_value DEX_Sarray (Num (Sh n)).
+*)
 
+(*
   (* convert a value to be pushed on the stack *)
   Definition conv_for_stack (v:DEX_value) : DEX_value :=
     match v with
@@ -1526,6 +1443,7 @@ Opaque DEX_Heap.update.
        end
     | _ => v (* impossible case *)
     end.
+*)
 
   (** [assign_compatible_num source target] holds if a numeric value [source] can be 
     assigned to a variable of type [target]. This point is not clear in the JVM spec. *)
@@ -1539,7 +1457,8 @@ Opaque DEX_Heap.update.
 
   (** [assign_compatible h source target] holds if a value [source] can be 
     assigned to a variable of type [target] *)
-  Inductive assign_compatible (p:DEX_Program) (h:DEX_Heap.t) : DEX_value -> DEX_type -> Prop :=
+  Inductive assign_compatible (p:DEX_Program) (*h:DEX_Heap.t*) : DEX_value -> DEX_type -> Prop :=
+  (* Hendra 10082016 - Only concerns DVM_I 
    | assign_compatible_null : forall t, assign_compatible p h Null (DEX_ReferenceType t)
    | assign_compatible_ref_object_val : forall (loc:DEX_Location) (t:DEX_refType) (cn:DEX_ClassName), 
        DEX_Heap.typeof h loc = Some (DEX_Heap.LocationObject cn) ->
@@ -1549,8 +1468,9 @@ Opaque DEX_Heap.update.
        DEX_Heap.typeof h loc = Some (DEX_Heap.LocationArray length tp a) ->
        compat_refType p (DEX_ArrayType tp) t ->
        assign_compatible p h (Ref loc) (DEX_ReferenceType t)
+  *)
    | assign_compatible_num_val : forall (n:DEX_num) (t:DEX_primitiveType),
-       assign_compatible_num n t -> assign_compatible p h (Num n) (DEX_PrimitiveType t).
+       assign_compatible_num n t -> assign_compatible p (*h*) (Num n) (DEX_PrimitiveType t).
 (* DEX
   Inductive SemCompRef : CompRef -> value -> value -> Prop :=
   | SemCompRef_eq : forall v1 v2,
