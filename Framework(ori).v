@@ -767,15 +767,32 @@ Proof.
   assumption.
 Qed.
 
-Variable execution_reach_junction_or_return_1 : forall m sgn ns i s res (H: P (SM m sgn)),
+Lemma execution_reach_junction_or_return_1 : forall m sgn ns i s res (H: P (SM m sgn)),
   region (cdr m (PM_P _ H)) i (pc s) ->
   evalsto m ns s res ->
   (exists u, exists ps,
     evalsto m ps u res /\ ps < ns /\
     junc (cdr m (PM_P _ H)) i (pc u))
   \/ (forall jun, ~junc (cdr m (PM_P _ H)) i jun).
+Proof.
+  intros m sgn ns.
+  pattern ns. apply lt_wf_ind.
+  clear ns; intros ns Hind; intros.  
+  inversion H1; auto.
+  right.
+  apply exec_step_none with (1:=PM_P _ H) in H2.
+  intros; apply soap3 with (k:=jun) in H0; auto.
+  elim (soap2 (cdr m (PM_P _ H))) with i (pc s) (pc s2); auto.
+  intros.
+  elim Hind with (m0:=n) (i:=i) (s:=s2) (res:=res) (H:=H); auto; try omega.
+  intros [U [ps [sH1 [sH2 sH3]]]].
+  left. exists U. exists ps. repeat (split; auto).
+  intros.
+  left. exists s2. exists n. repeat (split; auto).
+  apply exec_step_some with (1:=PM_P _ H) in H2; auto.
+Qed.
 
-Variable execution_reach_junction_or_return_2 : forall m sgn ns ns' i s s' res res' (H: P (SM m sgn)),
+Lemma execution_reach_junction_or_return_2 : forall m sgn ns ns' i s s' res res' (H: P (SM m sgn)),
   region (cdr m (PM_P _ H)) i (pc s) ->
   region (cdr m (PM_P _ H)) i (pc s') ->
   evalsto m ns s res ->
@@ -785,7 +802,17 @@ Variable execution_reach_junction_or_return_2 : forall m sgn ns ns' i s s' res r
     evalsto m ps' u' res' /\ ps' < ns' /\
     junc (cdr m (PM_P _ H)) i (pc u) /\ junc (cdr m (PM_P _ H)) i (pc u'))
   \/ (forall jun, ~junc (cdr m (PM_P _ H)) i jun).
-  
+Proof.
+    intros.
+  apply execution_reach_junction_or_return_1 with (sgn:=sgn) (i:=i) (H:=H) in H2; auto.
+  apply execution_reach_junction_or_return_1 with (sgn:=sgn) (i:=i) (H:=H) in H3; auto.
+  inversion H2; inversion H3; auto.
+  left.
+  inversion H4; inversion H6; inversion H5; inversion H8.
+  exists x; exists x1; exists x0; exists x2; auto.
+  Cleanexand.
+  repeat (split; auto).
+Qed. 
 
 Lemma execution_reach_junction_or_return : forall m sgn ns ns' s s' u u' res res' (H: P (SM m sgn)),
   pc s = pc s' ->  
@@ -833,11 +860,13 @@ Proof.
   exists u; exists u'; exists ns; exists ns'; repeat (split;auto).
   rewrite H0 in H6; auto.
 Qed.
+ 
 
 (* Lemma junction_indist_1_helper : forall m sgn ns s u rt v rtv res (H: P (SM m sgn)), *)
 
 
-Lemma junction_indist_1 : forall m sgn ns ns' ps ps' s s' u u' rt rt' v v' rtv rtv' res res' (H: P (SM m sgn)),
+Lemma junction_indist_1 : forall m sgn s s' rt rt' u u' ns ns' 
+    ps ps' v v' rtv rtv' res res' (H: P (SM m sgn)),
   pc s = pc s' ->  
   exec m s (inl u) -> exec m s' (inl u') -> 
   compat sgn s rt -> compat sgn s' rt' -> 
@@ -854,18 +883,16 @@ Lemma junction_indist_1 : forall m sgn ns ns' ps ps' s s' u u' rt rt' v v' rtv r
   evalsto m ps' v' res' -> ps' < ns' ->
   indist sgn rtv rtv' v v'.
 Proof.
-  intros m sgn.
-  intros ns ns'. 
- (* apply exec_step_some with (1:=PM_P _ H) in H1; apply exec_step_some with (1:=PM_P _ H) in H2; auto.
-  elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc u) (pc u'); try (rewrite H0; auto; fail); auto; intros;
-  elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc u') (pc u); try (rewrite H0; auto; fail); auto; intros.
-  (* both are in the region *)
-  generalize dependent s; generalize dependent s'; generalize dependent u; generalize dependent u'; 
-  generalize dependent v; generalize dependent v';
-  generalize dependent rt; generalize dependent rt'; generalize dependent rtv; generalize dependent rtv';
-  generalize dependent res; generalize dependent res'; generalize dependent H. *)
-  pattern ns, ns'. apply my_double_ind.
-  clear ns ns'; intros ns ns' Hind. intros.
+  intros m sgn s s' rt rt' u u' ns ns' ps ps'.
+  pattern (ns - ps), (ns' - ps'). apply my_double_ind.
+  (* clear ps ps';  *) intros ns_ps ns'_ps' Hind. intros.
+  (* assert (H8':=H8). assert (H9':=H9).
+  apply typable_evalsto with (m:=m) (n:=ns) (s:=u) (r:=res) (se:=se) (RT:=RT) 
+    (sgn:=sgn) (H:=PM_P _ H) (1:=(T m sgn) H) in H8'.
+  apply typable_evalsto with (m:=m) (n:=ns') (s:=u') (r:=res') (se:=se) (RT:=RT) 
+    (sgn:=sgn) (H:=PM_P _ H) (1:=(T m sgn) H) in H9'. *)
+  inversion H14; inversion H16; subst.
+  
   inversion H8; inversion H9; subst.
   apply exec_step_none with (1:=PM_P _ H) in H18.
   elim (soap3 (cdr m (PM_P _ H))) with (i:=pc s) (j:=pc u) (k:=pc v); auto.
@@ -874,9 +901,9 @@ Proof.
   apply exec_step_none with (1:=PM_P _ H) in H23.
   elim (soap3 (cdr m (PM_P _ H))) with (i:=pc s) (j:=pc u') (k:=pc v'); auto.
     rewrite H0; auto. rewrite H0; auto.
-  apply Hind with (p:=n) (q:=n0) (H:=H) (res:=res) (res':=res') (rt:=rt) (rt':=rt') (u:=s2) (u':=s3) (s:=s) 
-    (s':=s') (ps:=; auto.
-  
+  apply Hind with (p:=ps) (q:=ps') (ps:=n) (ps':=n0) (H:=H) (res:=res) (res':=res'); auto.
+  admit.
+  admit. admit.
   
 
 Lemma junction_indist : forall m sgn ns ns' s s' u u' rt rt' res res' (H: P (SM m sgn)),
