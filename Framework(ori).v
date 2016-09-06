@@ -385,6 +385,10 @@ Variable tevalsto_diff_high_result : forall m sgn se RT s s' p res res' (H:PM m)
   tevalsto m H sgn se RT 1 s res -> tevalsto m H sgn se RT p s' res' -> 
   high_result sgn res /\ high_result sgn res'.
 
+(* Variable tevalsto_high_result2 : forall m (H:PM m) sgn se RT s u res,
+  high_region m H sgn (pc s) ->
+  region (cdr m (PM_P _ H)) (pc s)  *)
+
 Variable high_result_indist : forall sgn res res0,
   high_result sgn res -> high_result sgn res0 -> rindist sgn res res0.
 
@@ -502,6 +506,10 @@ Variable se : Method -> Sign -> PC -> L.t.
 Variable RT : Method -> Sign -> PC -> typeregisters.
 Variable T : TypableProg se RT.
 
+Definition high_region m (h:PM m) sgn (i:PC) (*kd:Kind*) := 
+  forall j:PC, region (cdr m h) i (* kd *) j ->
+    ~ leql (se m sgn j) observable.
+
 Lemma wf_prop : forall m sgn s r p,
   P (SM m sgn) ->
   evalsto m p s r -> 
@@ -564,9 +572,7 @@ Proof.
 Qed.
 *)
 
-Definition high_region m (h:PM m) sgn (i:PC) (*kd:Kind*) := 
-  forall j:PC, region (cdr m h) i (* kd *) j ->
-    ~ leql (se m sgn j) observable.
+
 (* Step consistent on junction point *)
 (* Lemma bighighstep : forall m sgn i s0 s res ns kd
   (H:P (SM m sgn)),
@@ -864,9 +870,155 @@ Qed.
 
 (* Lemma junction_indist_1_helper : forall m sgn ns s u rt v rtv res (H: P (SM m sgn)), *)
 
+Lemma execution_indist : forall m sgn ns ns' s s' u u' res res' i (H: P (SM m sgn)),
+  compat sgn s (RT m sgn (pc s)) -> compat sgn s' (RT m sgn (pc s')) -> 
+  indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) s s' ->
+  exec m s (inl u) -> exec m s' (inl u') ->
+  region (cdr m (PM_P _ H)) i (pc u) ->
+  region (cdr m (PM_P _ H)) i (pc u') ->
+  high_region m (PM_P _ H) sgn i ->
+  evalsto m ns u res ->
+  evalsto m ns' u' res' ->
+  (exists v, exists v', exists ps, exists ps', exists rtv, exists rtv', 
+    evalsto m ps v res /\ ps <= ns /\
+    evalsto m ps' v' res' /\ ps' <= ns' /\
+    junc (cdr m (PM_P _ H)) i (pc v) /\ 
+    junc (cdr m (PM_P _ H)) i (pc v') /\
+    compat sgn v rtv /\ compat sgn v' rtv' /\ indist sgn rtv rtv' v v')
+  \/ (high_result sgn res /\ high_result sgn res').
+Proof.
+  intros m sgn ns ns'.
+  pattern ns, ns'; apply my_double_ind.
+  clear ns ns'; intros ns ns' Hind; intros.
+  apply typable_evalsto with (1:=(T m sgn) H) (se:=se) (RT:=RT) (sgn:=sgn) in H8.
+  apply typable_evalsto with (1:=(T m sgn) H) (se:=se) (RT:=RT) (sgn:=sgn) in H9.
+  assert (H3':=H3); assert (H4':=H4).
+  apply exec_step_some with (1:=PM_P _ H) in H4.
+  apply exec_step_some with (1:=PM_P _ H) in H3.
+  destruct ((T m sgn) H). Cleanexand.
+  apply H12 in H4; apply H12 in H3. Cleanexand.
+  (* applying the compat_exec_intras to get u and u' register types *)
+  assert (compat sgn u (RT m sgn (pc u))). 
+    apply compat_exec_intra with (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc s)) (rt':=x0) (H0:=H) in H3'; auto.
+    apply sub_compat with (rt2:=RT m sgn (pc u)) (rt1:=x0); auto.
+  assert (compat sgn u' (RT m sgn (pc u'))). 
+    apply compat_exec_intra with (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc s')) (rt':=x) (H0:=H) in H4'; auto.
+    apply sub_compat with (rt2:=RT m sgn (pc u')) (rt1:=x); auto.  
+  (* (* determine whether u and u' are in the region or junction points *)
+  elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc u) (pc u'); try (rewrite H0; auto; fail); auto; intros.
+  elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc u') (pc u); try (rewrite H0; auto; fail); auto; intros. *)
+  inversion_mine H8; inversion_mine H9.
+  (* both are return value *)
+  right. split.
+  apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u); auto.
+      constructor; auto.
+  apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u'); auto.
+      constructor; auto.
+  (* one is return value one is not *)
+  right. split.
+  apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u); auto.
+      constructor; auto.
+  apply final_bighighstep_aux with (m:=m) (i:=i) (p:=S n) (s:=u') (H:=H) (res:=res') in H16; auto.
+      constructor 2 with (s2:=s2); auto.
+      intros.
+      apply soap3 with (j:=pc u); auto. inversion H17. apply exec_step_none with (1:=PM_P _ H) in H19; auto.
+  (* one is not, one is return value *)    
+  right. split.
+  apply final_bighighstep_aux with (m:=m) (i:=i) (p:=S n) (s:=u) (H:=H) (res:=res) in H15; auto.
+      constructor 2 with (s2:=s2); auto.
+      intros.
+      apply soap3 with (j:=pc u'); auto. inversion H8. apply exec_step_none with (1:=PM_P _ H) in H19; auto.
+  apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u'); auto.
+      constructor; auto.
+  (* both are not return value *)
+  elim soap2 with PC (step m) (cdr m (PM_P _ H)) i (pc u) (pc s2); 
+  elim soap2 with PC (step m) (cdr m (PM_P _ H)) i (pc u) (pc s0); intros; auto.
+  (* both successors are in the region *)
+  elim Hind with (p:=n) (q:=n0) (s:=u) (s':=u') (u:=s2) (u':=s0) (res:=res) (res':=res') (H:=H) (i:=i); auto.
+  intros [v [v' [ps [ps' [rtv [rtv'[iH1 [iH2 [iH3 [iH4 [iH5 [iH6 [iH7 [iH8 iH9]]]]]]]]]]]]]].
+  left. exists v; exists v'; exists ps; exists ps'; exists rtv; exists rtv'; auto.
+  repeat (split; auto).
+  admit.
+  (* exec u v *)
+  inversion H17; auto.
+  inversion H8; auto.
+  (* *)
+  apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
+  apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
+  (* one junction and one region *)
+  (* apply execution_reach_junction_or_return_1 with (ns:=n) (res:=res) in H20; auto.
+  inversion_mine H20.
+  destruct H21 as [v [ps [iH1 [iH2 iH3]]]].
+  
+  apply Hind with (p:=n) (q:=n0) (s:=u) (s':=u') (u:=s2) (u':=s0) (res:=res) (res':=res') (i:=i) (H:=H) in H15.  *)
+  
+  elim Hind with (p:=n) (q:=n0) (s:=u) (s':=u') (u:=s2) (u':=s0) (res:=res) (res':=res') (H:=H) (i:=i); auto.
+  intros [v [v' [ps [ps' [rtv [rtv'[iH1 [iH2 [iH3 [iH4 [iH5 [iH6 [iH7 [iH8 iH9]]]]]]]]]]]]]].
+  assert (compat sgn s0 (RT m sgn (pc s0))). 
+    inversion H8.
+    apply compat_exec_intra with (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc u')) (rt':=rt') (H0:=H) in H22; auto.
+    apply sub_compat with (rt2:=RT m sgn (pc s0)) (rt1:=rt'); auto.  
+  left. exists v; exists s0; exists ps; exists n0; exists rtv; exists (RT m sgn (pc s0)); auto.
+  repeat (split; auto).
+  apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
+  admit.
+  inversion H17; auto. inversion H8; auto.
+  (* *)
+  apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
+  apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
 
-Lemma junction_indist_1 : forall m sgn s s' rt rt' u u' ns ns' 
+(* u and u' in the region *)
+    (* both are return value, and u and u' in the region *)
+    right.
+    split.
+      (* res is a high result *)
+      assert (forall j, region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) (pc s) j -> ~ leql (se m sgn j) observable).
+        apply soap2_basic_intra with (m:=m) (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc s)) (ut:=x) (ut':=x0) (s:=s) (s':=s') 
+          (u:=u) (u':=u') (h:=H); auto.
+        rewrite <- H0 in H3; auto. rewrite H0; auto. rewrite H0; auto.
+      apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u); auto.
+      constructor; auto.
+      (* res' is a high result *)
+      assert (forall j, region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) (pc s') j -> ~ leql (se m sgn j) observable).
+        apply soap2_basic_intra with (m:=m) (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc s)) (ut:=x0) (ut':=x) (s:=s') (s':=s) 
+          (u:=u') (u':=u) (h:=H); auto.
+        rewrite <- H0 in H3; auto. rewrite H0; auto. rewrite <- H0; auto. rewrite H0; auto.
+      rewrite H0; auto. rewrite <- H0 in H8. 
+      apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u'); auto.
+      constructor; auto.
+    (* u is a return value, u' is not*)
+    right.
+    split.
+    (* res is a high result *)
+      assert (forall j, region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) (pc s) j -> ~ leql (se m sgn j) observable).
+        apply soap2_basic_intra with (m:=m) (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc s)) (ut:=x) (ut':=x0) (s:=s) (s':=s') 
+          (u:=u) (u':=u') (h:=H); auto.
+        rewrite <- H0 in H3; auto. rewrite H0; auto. rewrite H0; auto.
+      apply tevalsto_high_result with (m:=m) (H:=PM_P _ H) (se:=se m sgn) (RT:=RT m sgn) (s:=u); auto.
+      constructor; auto.
+    (* res' is a high result *)
+      assert (forall j, region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) (pc s') j -> ~ leql (se m sgn j) observable).
+        apply soap2_basic_intra with (m:=m) (sgn:=sgn) (se:=se m sgn) (rt:=RT m sgn (pc s)) (ut:=x0) (ut':=x) (s:=s') (s':=s) 
+          (u:=u') (u':=u) (h:=H); auto.
+        rewrite <- H0 in H3; auto. rewrite H0; auto. rewrite <- H0; auto. rewrite H0; auto.
+        rewrite H0; auto.
+      apply final_bighighstep_aux with (m:=m) (i:=pc s) (p:=S n) (s:=u') (H:=H) (res:=res') in H15; auto.
+      constructor 2 with (s2:=s2); auto.
+      intros.
+      apply soap3 with (j:=pc u); auto. inversion H18. apply exec_step_none with (1:=PM_P _ H) in H21; auto.
+      rewrite H0; auto.
+    (* u is not, and u' is return value. adjust from previous one. *)
+    admit.
+    (* u and u' are not return value *)
+    elim Hind with (p:=n) (q:=n0) (u:=s2) (u':=s0) (res:=res) (res':=res') (H:=H); auto.
+    
+  (* both are in region, but both are return value *)
+  elim (soap3 (cdr m (PM_P _ H))) with (i:=pc s) (j:=pc u) (k:=pc v'); auto.
+
+
+Lemma junction_indist_1 : forall m sgn s s' rt rt' u u' ns ns' k 
     ps ps' v v' rtv rtv' res res' (H: P (SM m sgn)),
+  ((ns - ps) + (ns' - ps') <= k) ->
   pc s = pc s' ->  
   exec m s (inl u) -> exec m s' (inl u') -> 
   compat sgn s rt -> compat sgn s' rt' -> 
@@ -883,25 +1035,33 @@ Lemma junction_indist_1 : forall m sgn s s' rt rt' u u' ns ns'
   evalsto m ps' v' res' -> ps' < ns' ->
   indist sgn rtv rtv' v v'.
 Proof.
-  intros m sgn s s' rt rt' u u' ns ns' ps ps'.
-  pattern (ns - ps), (ns' - ps'). apply my_double_ind.
-  (* clear ps ps';  *) intros ns_ps ns'_ps' Hind. intros.
-  (* assert (H8':=H8). assert (H9':=H9).
-  apply typable_evalsto with (m:=m) (n:=ns) (s:=u) (r:=res) (se:=se) (RT:=RT) 
-    (sgn:=sgn) (H:=PM_P _ H) (1:=(T m sgn) H) in H8'.
-  apply typable_evalsto with (m:=m) (n:=ns') (s:=u') (r:=res') (se:=se) (RT:=RT) 
-    (sgn:=sgn) (H:=PM_P _ H) (1:=(T m sgn) H) in H9'. *)
-  inversion H14; inversion H16; subst.
-  
-  inversion H8; inversion H9; subst.
-  apply exec_step_none with (1:=PM_P _ H) in H18.
+  intros m sgn s s' rt rt' u u' ns ns' k.
+  pattern k. apply lt_wf_ind.
+  clear k; intros k Hind; intros.
+  (* (* base case *)
+  assert (ns = ps /\ ns' = ps').
+    apply Nat.le_0_r in H0.
+    assert (forall (a b:nat), (a + b)%nat = 0 -> a = 0 /\ b = 0). intros; omega. 
+    apply H19 in H0. inversion H0.
+    assert (forall (a b:nat), (a - b) = 0 -> a = b). intros; omega.
+    split; auto.
+  Cleanexand. apply False_ind; omega. *)
+  (* induction case *)
+  intros.
+(*   assert (forall n, n < n -> False). intros; omega.  *)
+(*   assert (forall n, S n < 1 -> False). intros; omega. *)
+  inversion_mine H9; inversion_mine H10.
+(*   inversion H9; inversion H10; subst. *)
+  apply exec_step_none with (1:=PM_P _ H) in H19.
   elim (soap3 (cdr m (PM_P _ H))) with (i:=pc s) (j:=pc u) (k:=pc v); auto.
-  apply exec_step_none with (1:=PM_P _ H) in H18.
+  apply exec_step_none with (1:=PM_P _ H) in H19.
   elim (soap3 (cdr m (PM_P _ H))) with (i:=pc s) (j:=pc u) (k:=pc v); auto.
-  apply exec_step_none with (1:=PM_P _ H) in H23.
+  apply exec_step_none with (1:=PM_P _ H) in H9.
   elim (soap3 (cdr m (PM_P _ H))) with (i:=pc s) (j:=pc u') (k:=pc v'); auto.
-    rewrite H0; auto. rewrite H0; auto.
-  apply Hind with (p:=ps) (q:=ps') (ps:=n) (ps':=n0) (H:=H) (res:=res) (res':=res'); auto.
+    rewrite H1; auto. rewrite H1; auto.
+  apply Hind with (m0:=((S n - ps) + (n0 - ps'))%nat) (H:=H) (res:=res) (res':=res')
+    (ps:=ps) (ps':=ps'); auto. omega. 
+  admit. auto.
   admit.
   admit. admit.
   
