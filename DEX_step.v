@@ -32,29 +32,29 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
 
     (* DEX Definition handler := handler subclass_test m.*)
 
-    Inductive DEX_step : DEX_PC -> DEX_Instruction -> DEX_tag -> option DEX_PC -> Prop := 
+    Inductive DEX_step : DEX_PC -> DEX_Instruction -> (* DEX_tag ->  *)option DEX_PC -> Prop := 
 (*     Inductive DEX_step : address -> DEX_Instruction -> DEX_tag -> option address -> Prop := *)
     | DEX_nop : forall i j,
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
-      DEX_step i DEX_Nop None (Some j)
+      DEX_step i DEX_Nop (* None *) (Some j)
     | DEX_move : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg),
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_Move k rt rs) None (Some j)
+      DEX_step i (DEX_Move k rt rs) (* None *) (Some j)
 (* DEX Method
     | moveResult : forall i j (k:DEX_ValKind) (rt:DEX_Reg),
       next m i = Some j ->
       DEX_step i (MoveResult k rt) None (Some j)
 *)
     | DEX_return_s : forall i,
-      DEX_step i DEX_Return None None
+      DEX_step i DEX_Return (* None *) None
     | DEX_vReturn : forall i (k:DEX_ValKind) (rt:DEX_Reg),
-      DEX_step i (DEX_VReturn k rt) None None
+      DEX_step i (DEX_VReturn k rt) (* None *) None
     | DEX_const : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (v:Z),
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_Const k rt v) None (Some j)
+      DEX_step i (DEX_Const k rt v) (* None *) (Some j)
 (* DEX Object
     | instanceOf : forall i j (rt:DEX_Reg) (r:DEX_Reg) (t:DEX_refType),
       next m i = Some j ->
@@ -70,7 +70,7 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
       DEX_step i (NewArray rt rl t) None (Some j)
 *)
     | DEX_goto : forall i (o:DEX_OFFSET.t),
-      DEX_step i (DEX_Goto o) None (Some (DEX_OFFSET.jump i o))
+      DEX_step i (DEX_Goto o) (* None *) (Some (DEX_OFFSET.jump i o))
 (*       DEX_step i (DEX_Goto o) None (Some (jump_label i o)) *)
 (* still experimental for PackedSwitch in that the next instruction is
    defined as the difference between i and j *)
@@ -84,11 +84,11 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
     | DEX_ifcmp : forall i j (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
      next m i = Some j \/ j = DEX_OFFSET.jump i o ->
 (*       nextAddress i = Some j \/ j = jump_label i o -> *)
-      DEX_step i (DEX_Ifcmp cmp ra rb o) None (Some j)
+      DEX_step i (DEX_Ifcmp cmp ra rb o) (* None *) (Some j)
     | DEX_ifz : forall i j (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
       next m i = Some j \/ j = DEX_OFFSET.jump i o ->
 (*       nextAddress i = Some j \/ j = jump_label i o -> *)
-      DEX_step i (DEX_Ifz cmp r o) None (Some j)
+      DEX_step i (DEX_Ifz cmp r o) (* None *) (Some j)
 (* DEX Object
     | aget : forall i j (k:DEX_ArrayKind) (rt:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg),
       next m i = Some j ->
@@ -127,27 +127,27 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
     | DEX_ineg : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_Ineg rt rs) None (Some j)
+      DEX_step i (DEX_Ineg rt rs) (* None *) (Some j)
     | DEX_inot : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_Inot rt rs) None (Some j)
+      DEX_step i (DEX_Inot rt rs) (* None *) (Some j)
     | DEX_i2b : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_I2b rt rs) None (Some j)
+      DEX_step i (DEX_I2b rt rs) (* None *) (Some j)
     | DEX_i2s : forall i j (rt:DEX_Reg) (rs:DEX_Reg),
        next m i = Some j -> 
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_I2s rt rs) None (Some j)
+      DEX_step i (DEX_I2s rt rs) (* None *) (Some j)
     | DEX_ibinop : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg),
        next m i = Some j -> 
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_Ibinop op rt ra rb) None (Some j)
+      DEX_step i (DEX_Ibinop op rt ra rb) (* None *) (Some j)
     | DEX_ibinopConst : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z),
        next m i = Some j -> 
 (*       nextAddress i = Some j -> *)
-      DEX_step i (DEX_IbinopConst op rt r v) None (Some j)
+      DEX_step i (DEX_IbinopConst op rt r v) (* None *) (Some j)
 (* Hendra 11082016 focus on DEX I
     | DEX_packedSwitch : forall i j (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
       (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ In j l ->*)
@@ -164,7 +164,7 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
 *)
 .     
 
-    Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list (DEX_tag * option DEX_PC) := 
+    Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list ((* DEX_tag *  *)option DEX_PC) := 
 (*     Definition get_steps (i:address) (ins:DEX_Instruction) (next:option address): list (DEX_tag * option address) :=  *)
       match ins with
 (* Hendra 11082016 focus on DEX I
@@ -175,12 +175,12 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
           (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (l)*)
           (None,next) :: map (fun o => ((None:DEX_tag),(Some (jump_label i o):option address))) (l)
 *)
-        | DEX_Return => (None,None)::nil
-        | DEX_VReturn k rt => (None,None)::nil
-        | DEX_Goto o => (None,Some (DEX_OFFSET.jump i o))::nil
-        | DEX_Ifcmp cmp ra rb o => (None,next)::(None,Some (DEX_OFFSET.jump i o))::nil
-        | DEX_Ifz cmp r o => (None,next)::(None,Some (DEX_OFFSET.jump i o))::nil
-        | _ => (None,next)::nil
+        | DEX_Return => ((* None, *)None)::nil
+        | DEX_VReturn k rt => ((* None, *)None)::nil
+        | DEX_Goto o => ((* None, *)Some (DEX_OFFSET.jump i o))::nil
+        | DEX_Ifcmp cmp ra rb o => ((* None, *)next)::((* None, *)Some (DEX_OFFSET.jump i o))::nil
+        | DEX_Ifz cmp r o => ((* None, *)next)::((* None, *)Some (DEX_OFFSET.jump i o))::nil
+        | _ => ((* None, *)next)::nil
       end.
 
 (*     (* TODO : needs to be instantiated from outside *)
@@ -189,9 +189,9 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
         jump_label i k = j.
       (*exists k, nextAddress i = Some (jump_label i k).*) *)
 
-    Lemma all_step_in_get_steps : forall i ins tau oj,
-        DEX_step i ins tau oj -> 
-        In (tau,oj) (get_steps i ins (next m i)).
+    Lemma all_step_in_get_steps : forall i ins (* tau *) oj,
+        DEX_step i ins (* tau *) oj -> 
+        In ((* tau, *)oj) (get_steps i ins (next m i)).
     Proof.
       intros.
       inversion_clear H;
@@ -296,7 +296,7 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
     Qed. *)
 
   Section for_all_steps.
-    Variable test : DEX_PC -> DEX_Instruction -> DEX_tag -> option DEX_PC -> bool.
+    Variable test : DEX_PC -> DEX_Instruction -> (* DEX_tag -> *) option DEX_PC -> bool.
 (*     Variable test : address -> DEX_Instruction -> DEX_tag -> option address -> bool. *)
 
 (* This is an attempt to mechanize the proof of translation -
@@ -393,23 +393,23 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
 
     Definition for_all_steps_bm (bm:DEX_BytecodeMethod) : bool :=
       MapN.for_all _
-      (fun i (ins_next:DEX_Instruction*(option DEX_PC*list DEX_ClassName)) =>
+      (fun i (ins_next:DEX_Instruction*(option DEX_PC *list DEX_ClassName )) =>
         let (ins,next) := ins_next in
           for_all _
-          (fun (tau_oj:DEX_tag*option DEX_PC) => let (tau,oj):=tau_oj in test i ins tau oj)
-          (get_steps i ins (fst next)))
+          (fun ((* tau_ *)oj:(* DEX_tag* *)option DEX_PC) => (* let (tau,oj):=tau_oj in *) test i ins (* tau *) oj)
+          (get_steps i ins ( fst  next)))
       bm.(DEX_BYTECODEMETHOD.instr).
 
     Lemma for_all_steps_bm_true : forall bm,
       DEX_METHOD.body m = Some bm ->
       for_all_steps_bm bm = true ->
-      forall i ins tau oj,
+      forall i ins (* tau *) oj,
         instructionAt m i = Some ins ->
-        DEX_step i ins tau oj -> test i ins tau oj = true.
+        DEX_step i ins (* tau *) oj -> test i ins (* tau *) oj = true.
     Proof.
       intros.
       assert (T1:=MapN.for_all_true _ _ _ H0).
-      assert (T2:=all_step_in_get_steps _ _ _ _ H2).
+      assert (T2:=all_step_in_get_steps _ _ _ H2).
       unfold instructionAt, DEX_BYTECODEMETHOD.instructionAt in H1.
       rewrite H in H1.
       caseeq (MapN.get (DEX_Instruction * (option DEX_PC*list DEX_ClassName)) (DEX_BYTECODEMETHOD.instr bm) i).
@@ -417,8 +417,8 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
       rewrite T3 in H1.
       generalize (T1 _ _ T3); clear T1; intros T1.
       apply for_all_true with
-        (test:=(fun tau_oj : DEX_tag * option DEX_PC =>
-          let (tau, oj) := tau_oj in test i ins tau oj))
+        (test:=(fun (* tau_ *)oj : (* DEX_tag * *) option DEX_PC =>
+          (* let (tau, oj) := tau_oj in *) test i ins (* tau *) oj))
         (2:=T2).
       unfold next, DEX_BYTECODEMETHOD.nextAddress.
       rewrite H; rewrite T3; simpl.
@@ -441,15 +441,15 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
         let (i,ins_next) := ins_next in
         let (ins,next) := ins_next in
           (i,for_all _
-            (fun (tau_oj:DEX_tag*option DEX_PC) => let (tau,oj):=tau_oj in test i ins tau oj)
+            (fun ((* tau_ *)oj:(* DEX_tag* *)option DEX_PC) => (* let (tau,oj):=tau_oj in *) test i ins (* tau *) oj)
             (get_steps i ins (fst next))))
       (MapN.elements _ bm.(DEX_BYTECODEMETHOD.instr))
     end.
 
   Lemma for_all_steps_m_true : for_all_steps_m = true ->
-      forall i ins tau oj,
+      forall i ins (* tau *) oj,
         instructionAt m i = Some ins ->
-        DEX_step i ins tau oj -> test i ins tau oj = true.
+        DEX_step i ins (* tau *) oj -> test i ins (* tau *) oj = true.
   Proof.
     unfold for_all_steps_m.
     generalize for_all_steps_bm_true.
@@ -461,26 +461,26 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
 
   Section for_all_succs.
     Variable pc:DEX_PC.
-    Variable test : DEX_tag -> option DEX_PC -> bool.
+    Variable test : (* DEX_tag -> *) option DEX_PC -> bool.
 
     Definition for_all_succs_bm (bm:DEX_BytecodeMethod) : bool :=
       match MapN.get _ bm.(DEX_BYTECODEMETHOD.instr) pc with
         | None => true
         | Some (ins,(op,l)) => 
           for_all _
-          (fun (tau_oj:DEX_tag*option DEX_PC) => let (tau,oj):=tau_oj in test tau oj)
+          (fun ((* tau_ *)oj:(* DEX_tag* *)option DEX_PC) => (* let (tau,oj):=tau_oj in *) test (* tau *) oj)
           (get_steps pc ins op)
       end.
 
     Lemma for_all_succs_bm_true : forall bm,
       DEX_METHOD.body m = Some bm ->
       for_all_succs_bm bm = true ->
-      forall ins tau oj,
+      forall ins (* tau *) oj,
         instructionAt m pc = Some ins ->
-        DEX_step pc ins tau oj -> test tau oj = true.
+        DEX_step pc ins (* tau *) oj -> test (* tau *) oj = true.
     Proof.
       unfold for_all_succs_bm; intros.
-      assert (T2:=all_step_in_get_steps _ _ _ _ H2).
+      assert (T2:=all_step_in_get_steps _ _ _ H2).
       unfold instructionAt, DEX_BYTECODEMETHOD.instructionAt in H1.
       rewrite H in H1.
       caseeq (MapN.get (DEX_Instruction * (option DEX_PC*list DEX_ClassName)) (DEX_BYTECODEMETHOD.instr bm) pc).
@@ -488,8 +488,8 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
       rewrite T3 in H1; rewrite T3 in H0.
       destruct next0.
       apply for_all_true with
-        (test:=(fun tau_oj : DEX_tag * option DEX_PC =>
-          let (tau, oj) := tau_oj in test tau oj))
+        (test:=(fun (* tau_ *)oj : (* DEX_tag * *) option DEX_PC =>
+          (* let (tau, oj) := tau_oj in *) test (* tau *) oj))
         (2:=T2).
       unfold next, DEX_BYTECODEMETHOD.nextAddress.
       inversion_mine H1.
@@ -505,9 +505,9 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
     end.
 
   Lemma for_all_succs_m_true : for_all_succs_m = true ->
-      forall ins tau oj,
+      forall ins (* tau *) oj,
         instructionAt m pc = Some ins ->
-        DEX_step pc ins tau oj -> test tau oj = true.
+        DEX_step pc ins (* tau *) oj -> test (* tau *) oj = true.
   Proof.
     unfold for_all_succs_m.
     generalize for_all_succs_bm_true.

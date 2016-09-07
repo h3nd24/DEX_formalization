@@ -15,7 +15,7 @@ Module DEX_BigStepWithTypes.
 
     Section annot.
       Variable se : DEX_PC -> L.t.
-      Variable region : DEX_PC -> option DEX_ClassName -> DEX_PC -> Prop.
+      Variable region : DEX_PC -> (* option DEX_ClassName -> *) DEX_PC -> Prop.
       (* focus on DEX I 
       Definition newb (k:L.t) (b:FFun.t Location) (loc:Location) : FFun.t Location :=
         if L.leql_dec k kobs then (FFun.extends b loc) 
@@ -123,7 +123,7 @@ Module DEX_BigStepWithTypes.
         Some k1 = VarMap.get _ rt ra ->
         Some k2 = VarMap.get _ rt rb ->
         SemCompInt cmp (Int.toZ i1) (Int.toZ i2) ->
-        (forall j, region pc None j -> (L.join k1 k2) <= (se j)) -> 
+        (forall j, region pc (* None *) j -> (L.join k1 k2) <= (se j)) -> 
 
         NormalStep_ifcmp cmp ra rb o m sgn 
         (pc,((*h,*)r)) rt (*b*) (DEX_OFFSET.jump pc o,((*h,*)r)) rt (*b*)
@@ -134,7 +134,7 @@ Module DEX_BigStepWithTypes.
         Some k1 = VarMap.get _ rt ra ->
         Some k2 = VarMap.get _ rt rb ->
         ~ SemCompInt cmp (Int.toZ i1) (Int.toZ i2) ->
-        (forall j, region pc None j -> (L.join k1 k2) <= (se j)) -> 
+        (forall j, region pc (* None *) j -> (L.join k1 k2) <= (se j)) -> 
 
         NormalStep_ifcmp cmp ra rb o m sgn 
         (pc,((*h,*)r)) rt (*b*) (pc',((*h,*)r)) rt (*b*).
@@ -146,15 +146,16 @@ Module DEX_BigStepWithTypes.
         Some (Num (I i)) = DEX_Registers.get r reg ->
         Some k = VarMap.get _ rt reg ->
         SemCompInt cmp (Int.toZ i) 0 ->
-        (forall j, region pc None j -> k <= (se j)) -> 
+        (forall j, region pc (* None *) j -> k <= (se j)) -> 
         NormalStep_ifz cmp reg o m sgn 
         (pc,((*h,*)r)) rt (*b*) (DEX_OFFSET.jump pc o,((*h,*)r)) rt (*b*)
       | ifz_continue : forall (*h*) pc pc' r i k rt (*b*),
 
         next m pc = Some pc' ->
+        Some (Num (I i)) = DEX_Registers.get r reg ->
         Some k = VarMap.get _ rt reg ->
         ~ SemCompInt cmp (Int.toZ i) 0 ->
-        (forall j, region pc None j -> k <= (se j)) -> 
+        (forall j, region pc (* None *) j -> k <= (se j)) -> 
 
         NormalStep_ifz cmp reg o m sgn 
         (pc,((*h,*)r)) rt (*b*) (pc',((*h,*)r)) rt (*b*).
@@ -299,12 +300,12 @@ Module DEX_BigStepWithTypes.
         ReturnStep m sgn (DEX_VReturn k reg) (pc,r) rt (Normal (Some val)).
 
       Inductive exec_intra (m:DEX_Method) (sgn:DEX_sign) (i:DEX_Instruction) :
-        option DEX_ClassName ->
+       (*  option DEX_ClassName -> *)
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*)
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | exec_intra_normal : forall r1 r2 rt1 rt2,
         NormalStep m sgn i r1 rt1 r2 rt2 ->
-        exec_intra m sgn i None r1 rt1 r2 rt2
+        exec_intra m sgn i (* None *) r1 rt1 r2 rt2
       (*| exec_exception : forall pc1 h1 h2 loc2 s1 l1 pc' st b1 k b2 e,
         ExceptionStep m sgn i (pc1,(h1,s1,l1)) st b1 (h2,loc2) k b2 e ->
         CaughtException p.(prog) m (pc1,h2,loc2) pc' ->
@@ -315,12 +316,12 @@ Module DEX_BigStepWithTypes.
         (pc',(h2,Ref loc2::OperandStack.empty,l1)) (L.Simple k::nil) b2*).
 
       Inductive exec_return (m:DEX_Method) (sgn:DEX_sign) (i:DEX_Instruction) :
-        option DEX_ClassName ->
+        (* option DEX_ClassName -> *)
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*)
         DEX_ReturnState -> (*FFun.t Location ->*) Prop :=
       | exec_return_normal : forall r ov rt,
         ReturnStep m sgn i r rt (Normal ov) ->
-        exec_return m sgn i None r rt (Normal ov)
+        exec_return m sgn i (* None *) r rt (Normal ov)
       (*| exec_return_exception : forall pc1 h1 h2 loc2 s1 l1 st b1 k b2 e,
         ExceptionStep m sgn i (pc1,(h1,s1,l1)) st b1 (h2,loc2) k b2 e ->
         UnCaughtException p.(prog) m (pc1,h2,loc2) ->
@@ -329,13 +330,13 @@ Module DEX_BigStepWithTypes.
         L.leql k (sgn.(resExceptionType) e) ->
         exec_return m sgn i (Some e) (pc1,(h1,s1,l1)) st b1 (h2,Exception loc2) b2*).
 
-      Inductive exec (m:DEX_Method) (sgn:DEX_sign) (i:DEX_Instruction) (kd:option DEX_ClassName) : state -> state -> Prop :=
+      Inductive exec (m:DEX_Method) (sgn:DEX_sign) (i:DEX_Instruction) (* (kd:option DEX_ClassName) *) : state -> state -> Prop :=
       | exec_intra_case : forall r1 rt1 r2 rt2,
-        exec_intra m sgn i kd r1 rt1 r2 rt2 ->
-        exec m sgn i kd (intra r1 rt1) (intra r2 rt2)
+        exec_intra m sgn i (* kd *) r1 rt1 r2 rt2 ->
+        exec m sgn i (* kd *) (intra r1 rt1) (intra r2 rt2)
       | exec_return_case : forall pc1 r1 rt1 v2,
-        exec_return m sgn i kd (pc1,r1) rt1 (v2) ->
-        exec m sgn i kd (intra (pc1,r1) rt1) (ret v2).
+        exec_return m sgn i (* kd *) (pc1,r1) rt1 (v2) ->
+        exec m sgn i (* kd *) (intra (pc1,r1) rt1) (ret v2).
 
     End annot.
   End p.

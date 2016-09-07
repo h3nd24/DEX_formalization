@@ -10,7 +10,7 @@ Section p.
 Variable kobs: L.t.
 Variable p:DEX_ExtendedProgram.
 Variable se : DEX_PC -> L.t.
-Variable reg : DEX_PC -> option DEX_ClassName -> DEX_PC -> Prop.
+Variable reg : DEX_PC -> (* option DEX_ClassName -> *) DEX_PC -> Prop.
 Variable m : DEX_Method.
 (* Variable lookupswitch_hyp : well_formed_lookupswitch m. *)
 
@@ -25,7 +25,7 @@ Lemma soap2_intra_normal :
    pc2 <> pc2' ->
    st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
 
-   (*high_st kobs s2 st2 /\*) forall j, reg pc None j -> ~ L.leql (se j) kobs.
+   (*high_st kobs s2 st2 /\*) forall j, reg pc (* None *) j -> ~ L.leql (se j) kobs.
 Proof.
   intros.
   destruct i; simpl in H, H0, H1, H3; 
@@ -33,23 +33,23 @@ Proof.
   inversion_clear H0 in H H1 H2 H3;
   inversion_clear H1 in H2 H3; subst;
 (*   destruct (inv_st_in H3) as [Rin]; clear H3; *)
-  apply inv_st_in in H3;  
-  DiscrimateEq; try (elim H2; reflexivity); try (contradiction). 
-  unfold not; intros.
+  apply inv_st_in in H3;
+  DiscrimateEq; try (elim H2; reflexivity); try (contradiction).
+(*   unfold not; intros.  *)
   (* If_icmp *)
   inversion H3.
-  apply H17 with (v':=Num (I i3)) (k:=k1) (k':=k0) in H5; auto .
     (* ra *)
+    apply H1 with (v':=Num (I i3)) (k:=k1) (k':=k0) in H5; auto .
     inversion H5. apply H16 in H4.
-    apply not_leql_trans with (k2:=se j) in H19; auto. 
+    apply not_leql_trans with (k2:=se j) in H18; auto. 
     apply leql_join_each in H4; inversion H4; auto.
     (* rb *)
-    apply H17 with (v':=Num (I i0)) (k:=k2) (k':=k3) in H6; auto.
+    apply H1 with (v':=Num (I i0)) (k:=k2) (k':=k3) in H6; auto.
     inversion H6. apply H10 in H4.
-    apply not_leql_trans with (k2:=se j) in H23; auto.
+    apply not_leql_trans with (k2:=se j) in H22; auto.
     apply leql_join_each in H4; inversion H4; auto.
     (* both are low *)
-    inversion H18. inversion H23.
+    inversion H17. inversion H22.
     subst; contradiction. 
   inversion H3.
   apply H1 with (v':=Num (I i3)) (k:=k1) (k':=k0) in H6; auto . 
@@ -64,6 +64,19 @@ Proof.
     apply leql_join_each in H4; inversion H4; auto.
     (* both are low *)
     inversion H17. inversion H22.
+    subst; contradiction. 
+  (* If_z *)
+  inversion H3.
+    apply H1 with (v':= Num (I i0)) (k:=k) (k':=k0) in H5; auto .
+    inversion H5. apply H12 in H4.
+    apply not_leql_trans with (k2:=se j) in H14; auto. 
+    inversion H13.
+    subst; contradiction. 
+  inversion H3.
+  apply H1 with (v':=Num (I i0)) (k:=k) (k':=k0) in H6; auto . 
+    inversion H6. apply H12 in H4.
+    apply not_leql_trans with (k2:=se j) in H14; auto. 
+    inversion H13.
     subst; contradiction. 
 Qed.
 (*

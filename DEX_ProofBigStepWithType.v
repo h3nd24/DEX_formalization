@@ -294,24 +294,24 @@ Hint Resolve L.join_least L.join_right L.join_left L.leql_trans L.leql_refl : la
 
 Lemma join_sym : forall a b, L.join a b = L.join b a. intros. destruct a, b; auto. Qed.
 
-Lemma well_types_imply_exec_return : forall (*sub_dec:ClassName->ClassName->bool*) se region m sgn i s1 rt1 rv2 tau,
-     DEX_BigStepAnnot.DEX_exec_return (* throwableAt *) p m tau s1 rv2 -> 
+Lemma well_types_imply_exec_return : forall (*sub_dec:ClassName->ClassName->bool*) se region m sgn i s1 rt1 rv2 (* tau *),
+     DEX_BigStepAnnot.DEX_exec_return (* throwableAt *) p m (* tau *) s1 rv2 -> 
      instructionAt m (fst s1) = Some i ->
-     DEX_typing_rules.texec (* p (* sub_dec *) m *) sgn region se (fst s1) i tau rt1 None ->
+     DEX_typing_rules.texec (* p (* sub_dec *) m *) sgn region se (fst s1) i (* tau *) rt1 None ->
 (*      compat_state p sgn s1 st1 -> *)
 (*      exists b2, *)
-     exec_return p se (* region *) m sgn i tau s1 rt1 rv2
+     exec_return p se (* region *) m sgn i (* tau *) s1 rt1 rv2
 (*      /\ border b1 b2. *).
 Proof.
-  intros (* sub_dec *) se region m sgn i s1 rt1 rv2 tau He.
+  intros (* sub_dec *) se region m sgn i s1 rt1 rv2 (* tau *) He.
   inversion_clear He; intros. 
   constructor.
   inversion_mine H; simpl in H0; DiscrimateEq; inversion_mine H1.
   constructor; auto. 
   constructor 2 with t k_r kv; auto.
-  simpl in H10. 
+  simpl in H11. 
 (*   assert (forall a b, L.join a b = L.join b a); intros. destruct a, b; auto. *)
-  rewrite join_sym in H10; auto.
+  rewrite join_sym in H11; auto.
   (* (* exceptions *)
   simpl in *.
   inversion_mine H; DiscrimateEq.
@@ -375,7 +375,7 @@ Qed.
 Lemma well_types_imply_NormalStep : forall (* sub_dec *) (* kobs *) se region m sgn i s1 rt1 s2 rt2,
      DEX_BigStep.DEX_NormalStep p m s1 s2  ->
      instructionAt m (fst s1) = Some i ->
-     texec (*p sub_dec m*) sgn region se (fst s1) i None rt1 (Some rt2) ->
+     texec (*p sub_dec m*) sgn region se (fst s1) i (* None *) rt1 (Some rt2) ->
 (*      compat_state p sgn s1 st1 -> *)
 (*      exists b2, *)
        NormalStep (* kobs *) (* p *) se region m sgn i s1 rt1 s2 rt2 
@@ -427,16 +427,16 @@ Proof.
   apply (vastore p se region k m sgn h pc pc' s l loc val i0 length0 tp kv ki ka mpc b1 st); DiscrimateEq; eauto. *)
 Qed.
 
-Lemma well_types_imply_exec_intra : forall (* (sub_dec:ClassName->ClassName->bool) kobs *) se region m sgn i s1 rt1 s2 rt2 tau,
-     DEX_BigStepAnnot.DEX_exec_intra (* throwableAt *) p m tau s1 s2  -> 
+Lemma well_types_imply_exec_intra : forall (* (sub_dec:ClassName->ClassName->bool) kobs *) se region m sgn i s1 rt1 s2 rt2 (* tau *),
+     DEX_BigStepAnnot.DEX_exec_intra (* throwableAt *) p m (* tau *) s1 s2  -> 
      instructionAt m (fst s1) = Some i ->
-     texec (* p sub_dec m *) sgn region se (fst s1) i tau rt1 (Some rt2) ->
+     texec (* p sub_dec m *) sgn region se (fst s1) i (* tau *) rt1 (Some rt2) ->
 (*      compat_state p sgn s1 rt1 -> *)
 (*      exists b2, *)
-       exec_intra (* kobs p *) se region m sgn i tau s1 rt1 s2 rt2.
+       exec_intra (* kobs p *) se region m sgn i (* tau *) s1 rt1 s2 rt2.
 (*        /\ border b1 b2. *)
 Proof.
-  intros (* sub_dec kobs *) se region m sgn i s1 rt1 s2 rt2 tau He.
+  intros (* sub_dec kobs *) se region m sgn i s1 rt1 s2 rt2 (* tau *) He.
   inversion_clear He; intros. 
   constructor; auto.
   apply well_types_imply_NormalStep; auto.

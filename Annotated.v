@@ -143,6 +143,37 @@ Definition compat_type_st_lvt (s:JVM_sign) (st:TypeStack) (n:nat) : Prop :=
     L.leql' k (JVM_lvt s x).
 *)
 
+Fixpoint make_rt_from_lvt_rec (s:DEX_sign) (p:list DEX_Reg) {struct p} : TypeRegisters:=
+  match p with
+    | r::t => let k := DEX_lvt s r in
+        VarMap.update _ (make_rt_from_lvt_rec s t) r k 
+    | nil => VarMap.empty L.t
+  end.
+
+Lemma lvt_rt : forall p r s rt k, 
+  make_rt_from_lvt_rec s p = rt ->
+  In r p -> 
+  VarMap.get _ rt r = Some k -> DEX_lvt s r = k.
+Proof. 
+  intro p.
+  induction p; intros. inversion H0.
+  unfold make_rt_from_lvt_rec in H.
+  assert (((fix make_rt_from_lvt_rec (s : DEX_sign) (p : list DEX_Reg) {struct p} : TypeRegisters :=
+          match p with
+          | nil => VarMap.empty L.t
+          | r :: t => VarMap.update L.t (make_rt_from_lvt_rec s t) r (DEX_lvt s r)
+          end) s p) = make_rt_from_lvt_rec s p). auto.
+  rewrite H2 in H. clear H2.  
+  destruct Reg_eq_dec with r a.
+  rewrite <- H in H1.
+  rewrite <- H2 in H1.
+  rewrite VarMap.get_update1 in H1. inversion H1; auto.
+  rewrite <- H in H1.
+  rewrite VarMap.get_update2 in H1; auto.
+  apply IHp with (rt:=make_rt_from_lvt_rec s p); auto.
+  inversion H0; auto. symmetry in H3; contradiction.
+Qed.
+
 Definition compat_type_rt_lvt (s:DEX_sign) (rt:TypeRegisters) 
   (p:list DEX_Reg) (n:nat) : Prop :=
   forall x, ((Reg_toN x)<n)%nat ->

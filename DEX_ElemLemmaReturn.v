@@ -17,11 +17,14 @@ Lemma indist1_return_normal :
   (* /\ h1=h2 *).
 Proof.
   intros.
-  inversion H0. rewrite -> H8 in H1. inversion H1.
-  subst. rewrite -> H10 in H1. 
-  inversion H1; subst; auto.
+  inversion H0. rewrite H9 in H1; inversion H1. 
+  (* rewrite -> H8 in H1. inversion H1.
+  subst. rewrite -> H10 in H1.*) 
+(*   inversion H1; subst; auto.  *)
   apply not_leql_trans with (k1:=(se pc)); auto.
-  apply leql_join_each in H13; inversion H13; auto.
+  apply leql_join_each in H14; inversion H14; auto.
+  rewrite H11 in H1; inversion H1.
+  rewrite <- H18; auto.
 Qed.
 
 (* Locally Respect *)
@@ -40,22 +43,23 @@ Proof.
   inversion H1.
   inversion H; inversion H0; DiscrimateEq; auto. 
   constructor; auto.
-  inversion H22; subst.
-  apply H2 with (k':=k2) (v':=val0) (v:=val) (k:=k1) in H6 ; auto.
+(*   inversion H22; subst. *)
+  apply H2 with (k':=k2) (v':=val0) (v:=val) (k:=k1) in H20 ; auto.
   constructor 1 with kr0; inversion H6; auto. 
   intros.
-  apply not_leql_join1 with (k2:=(se pc)) in H3.
-  apply L.leql_trans with (l3:=kobs) in H14; auto.
+  inversion H20; auto.
+  apply not_leql_join1 with (k2:=(se pc)) in H11.
+  apply L.leql_trans with (l3:=kobs) in H15; auto.
   contradiction.
 Qed.
 
 (* Implicit Arguments indist2_exception. *)
 (* collorary of locally respect? *)
 Lemma indist2_return : 
- forall kobs se reg m sgn pc i r1 rt1 r1' rt1' v2 v2' kd kd',
+ forall kobs se reg m sgn pc i r1 rt1 r1' rt1' v2 v2' (* kd *) (* kd' *),
 
-   exec_return se reg m sgn i kd (pc,r1) rt1 (v2) ->
-   exec_return se reg m sgn i kd' (pc,r1') rt1' (v2') ->
+   exec_return se reg m sgn i (* kd *) (pc,r1) rt1 (v2) ->
+   exec_return se reg m sgn i (* kd' *) (pc,r1') rt1' (v2') ->
 
    st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
 

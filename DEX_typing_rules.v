@@ -46,9 +46,9 @@ Open Scope type_scope.
     (*Definition method_signature := DEX_METHOD.signature m.*)
     Variable m : DEX_Method.
     Variable sgn : DEX_sign.
-    Variable region : DEX_PC -> DEX_tag -> DEX_PC -> Prop.
+    Variable region : DEX_PC -> (* DEX_tag -> *) DEX_PC -> Prop.
     Variable se : DEX_PC -> L.t.
-    Variable selift : DEX_PC -> DEX_tag -> L.t -> bool.
+    Variable selift : DEX_PC -> (* DEX_tag -> *) L.t -> bool. 
     Variable ret : DEX_Reg.
 
     (* Notation handler := (handler subclass_test m). *)
@@ -58,10 +58,10 @@ Open Scope type_scope.
     Infix "U'" := L.join' (at level 60, right associativity).
     Infix "U" := L.join (at level 60, right associativity).
 
-    Inductive texec : DEX_PC -> DEX_Instruction -> DEX_tag -> TypeRegisters -> option TypeRegisters -> Prop :=
+    Inductive texec : DEX_PC -> DEX_Instruction -> (* DEX_tag -> *) TypeRegisters -> option TypeRegisters -> Prop :=
 (*     Inductive texec : address -> DEX_Instruction -> DEX_tag -> TypeRegisters -> option TypeRegisters -> Prop := *)
     | DEX_nop : forall i rt,
-      texec i DEX_Nop None rt (Some rt)
+      texec i DEX_Nop (* None *) rt (Some rt)
 
     (* | DEX_move_constrained : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
       In r locR ->
@@ -74,7 +74,7 @@ Open Scope type_scope.
     | DEX_move : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
 (*       ~In r locR -> *)
       BinNatMap.get _ rt rs = Some k_rs ->
-      texec i (DEX_Move k r rs) None rt
+      texec i (DEX_Move k r rs) (* None *) rt
         (Some (BinNatMap.update _ rt r ((se i) U k_rs)))
 
 (* DEX Method
@@ -95,16 +95,16 @@ Open Scope type_scope.
 
     | DEX_return_ : forall i (rt:TypeRegisters),
       sgn.(DEX_resType) = None ->
-      texec i (DEX_Return) None rt None
+      texec i (DEX_Return) (* None *) rt None
 
     | DEX_vReturn : forall i (rt:TypeRegisters) k_r kv (k:DEX_ValKind) (r:DEX_Reg),
       BinNatMap.get _ rt r = Some k_r ->
       sgn.(DEX_resType) = Some kv ->
       ((se i) U k_r) <= kv -> 
-      texec i (DEX_VReturn k r) None rt None
+      texec i (DEX_VReturn k r) (* None *) rt None
 
     | DEX_const : forall i (rt:TypeRegisters) (k:DEX_ValKind) (r:DEX_Reg) (v:Z),
-      texec i (DEX_Const k r v) None rt (Some (BinNatMap.update _ rt r (L.Simple (se i))))
+      texec i (DEX_Const k r v) (* None *) rt (Some (BinNatMap.update _ rt r (L.Simple (se i))))
     
 (* DEX Object
     | instanceOf : forall i (rt:TypeRegisters) k (r:DEX_Reg) (ro:DEX_Reg) (t:DEX_refType),
@@ -128,7 +128,7 @@ Open Scope type_scope.
 *)
 
     | DEX_goto : forall i (rt:TypeRegisters) (o:DEX_OFFSET.t),
-      texec i (DEX_Goto o) None rt (Some rt)
+      texec i (DEX_Goto o) (* None *) rt (Some rt)
 (* Hendra 11082016 focus on DEX I
     | DEX_packedSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
       BinNatMap.get _ rt r = Some k ->
@@ -144,13 +144,13 @@ Open Scope type_scope.
     | DEX_ifcmp : forall i ka kb (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
       BinNatMap.get _ rt ra = Some ka ->
       BinNatMap.get _ rt rb = Some kb ->
-      (forall j, region i None j -> (ka U kb) <= se j) -> 
-      texec i (DEX_Ifcmp cmp ra rb o) None rt (Some (*lift_rt (ka U kb)*) rt)
+      (forall j, region i (* None *) j -> (ka U kb) <= se j) -> 
+      texec i (DEX_Ifcmp cmp ra rb o) (* None *) rt (Some (*lift_rt (ka U kb)*) rt)
      
     | DEX_ifz : forall i k (rt:TypeRegisters) (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
       BinNatMap.get _ rt r = Some k ->
-      (forall j, region i None j -> k <= se j) -> 
-      texec i (DEX_Ifz cmp r o) None rt (Some (*lift_rt k rt*)rt)
+      (forall j, region i (* None *) j -> k <= se j) -> 
+      texec i (DEX_Ifz cmp r o) (* None *) rt (Some (*lift_rt k rt*)rt)
 (* DEX object and method
     | aget : forall i ka kc ki (rt:TypeRegisters) 
        (k:DEX_ArrayKind) (r:DEX_Reg) (ra:DEX_Reg) (ri:DEX_Reg),
@@ -216,29 +216,29 @@ Open Scope type_scope.
 *)
     | DEX_ineg : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
       BinNatMap.get _ rt rs = Some ks ->
-      texec i (DEX_Ineg r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+      texec i (DEX_Ineg r rs) (* None *) rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | DEX_inot : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
       BinNatMap.get _ rt rs = Some ks ->
-      texec i (DEX_Inot r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+      texec i (DEX_Inot r rs) (* None *) rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | DEX_i2b : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
       BinNatMap.get _ rt rs = Some ks ->
-      texec i (DEX_I2b r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+      texec i (DEX_I2b r rs) (* None *) rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | DEX_i2s : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
       BinNatMap.get _ rt rs = Some ks ->
-      texec i (DEX_I2s r rs) None rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
+      texec i (DEX_I2s r rs) (* None *) rt (Some (BinNatMap.update _ rt r (L.Simple ((se i) U ks))))
 
     | DEX_ibinop : forall i ka kb (rt:TypeRegisters) (op:DEX_BinopInt) (r:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg),
       BinNatMap.get _ rt ra = Some ka ->
       BinNatMap.get _ rt rb = Some kb ->
-      texec i (DEX_Ibinop op r ra rb) None rt 
+      texec i (DEX_Ibinop op r ra rb) (* None *) rt 
        (Some (BinNatMap.update _ rt r (L.Simple ((ka U kb) U (se i)))))
     
     | DEX_ibinopConst : forall i ks (rt:TypeRegisters) (op:DEX_BinopInt) (r:DEX_Reg) (rs:DEX_Reg) (v:Z),
       BinNatMap.get _ rt rs = Some ks ->
-      texec i (DEX_IbinopConst op r rs v) None rt 
+      texec i (DEX_IbinopConst op r rs v) (* None *) rt 
        (Some (BinNatMap.update _ rt r (L.Simple (ks U (se i)))))   
     .
 
@@ -513,7 +513,7 @@ Open Scope type_scope.
         | DEX_Ifcmp _ ra rb o, rt1 =>
           match BinNatMap.get _ rt1 ra, BinNatMap.get _ rt1 rb with
             | Some ka, Some kb =>
-                (selift i None (ka U kb)) && 
+                (selift i (* None *) (ka U kb)) && 
                 (tsub_next i (*lift_rt (ka U kb) rt1*) rt1) &&
                 (tsub_rt (*lift_rt (ka U kb) rt1*) rt1 (RT (DEX_OFFSET.jump i o)))
             | _, _ => false
@@ -522,7 +522,7 @@ Open Scope type_scope.
         | DEX_Ifz _ r o, rt1 =>
           match BinNatMap.get _ rt1 r with
             | Some k => 
-                (selift i None k) && 
+                (selift i (* None *) k) && 
                 (tsub_next i (*lift_rt k rt1*)rt1) &&
                 (tsub_rt (*lift_rt k rt1*) rt1 (RT (DEX_OFFSET.jump i o)))
             | None => false
@@ -638,14 +638,14 @@ Open Scope type_scope.
        [ id : _ && _ = true |- _ ] =>  destruct (andb_prop _ _ id); clear id
      end.
 
-   Variable selift_prop : forall i tau k,
-     selift i tau k = true ->
-     forall j, region i tau j -> k <= (se j).
+   Variable selift_prop : forall i (* tau *) k,
+     selift i (* tau *) k = true ->
+     forall j, region i (* tau *) j -> k <= (se j).
 
    Ltac replace_selift :=
      repeat match goal with
-       [ id : selift _ _ _ = true |- _ ] =>  
-         generalize (selift_prop _ _ _ id);
+       [ id : selift _ _ = true |- _ ] =>  
+         generalize (selift_prop _ _ id);
            clear id; intros id
      end.
 
@@ -726,8 +726,8 @@ Open Scope type_scope.
 
    Lemma tcheck_correct1 : forall i ins,
      DEX_tcheck i ins = true ->
-     forall tau, DEX_step (* p subclass_test *) m i ins tau None ->
-       texec i ins tau (RT i) None.
+     (* forall tau,  *)DEX_step (* p subclass_test *) m i ins (* tau *) None ->
+       texec i ins (* tau *) (RT i) None.
    Proof.
      intros.
      inversion_clear H0 in H;
@@ -802,9 +802,9 @@ Open Scope type_scope.
 
    Lemma tcheck_correct2 : forall i ins,
      DEX_tcheck i ins = true ->
-     forall tau j, DEX_step (* DEX p subclass_test *) (* codes jumpAddress *) m i ins tau (Some j) ->
+     forall (* tau  *)j, DEX_step (* DEX p subclass_test *) (* codes jumpAddress *) m i ins (* tau *) (Some j) ->
        exists rt,
-       texec i ins tau (RT i) (Some rt)
+       texec i ins (* tau *) (RT i) (Some rt)
        /\ tsub_rt rt (RT j) = true.
    Proof.
      intros.

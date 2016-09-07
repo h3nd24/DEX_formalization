@@ -40,10 +40,10 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
 
     ExceptionStep p m (pc,(h,s,l)) (h',loc).
 *)
-  Inductive DEX_exec_intra (p:DEX_Program) (m:DEX_Method) : option DEX_ClassName -> DEX_IntraNormalState -> DEX_IntraNormalState -> Prop :=
+  Inductive DEX_exec_intra (p:DEX_Program) (m:DEX_Method) : (* option DEX_ClassName -> *) DEX_IntraNormalState -> DEX_IntraNormalState -> Prop :=
   | exec_intra_normal : forall s1 s2,
     DEX_NormalStep p m s1 s2 ->
-    DEX_exec_intra p m None s1 s2
+    DEX_exec_intra p m (* None *) s1 s2
 (*  | exec_exception : forall pc1 h1 h2 loc2 s1 l1 pc' e,
     ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
     CaughtException p m (pc1,h2,loc2) pc' ->
@@ -52,10 +52,10 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
 *)
 .
 
-  Inductive DEX_exec_return (p:DEX_Program) (m:DEX_Method) : option DEX_ClassName -> DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
+  Inductive DEX_exec_return (p:DEX_Program) (m:DEX_Method) : (* option DEX_ClassName -> *) DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
   | exec_return_normal : forall s (*h*) ov,
      DEX_ReturnStep p m s (Normal ov)(*h,Normal ov*) ->
-     DEX_exec_return p m None s (Normal ov)(*h,Normal ov*)
+     DEX_exec_return p m (* None *) s (Normal ov)(*h,Normal ov*)
 (*  | exec_return_exception : forall pc1 h1 h2 loc2 s1 l1 e,
      ExceptionStep p m (pc1,(h1,s1,l1)) (h2,loc2) ->
      UnCaughtException  p m (pc1,h2,loc2) ->
@@ -114,11 +114,11 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
 
  Inductive DEX_IntraStep (p:DEX_Program) : 
     DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState + DEX_ReturnState -> Prop :=
-  | IntraStep_res :forall m s ret tau,
-     DEX_exec_return p m tau s ret ->
+  | IntraStep_res :forall m s ret (* tau *),
+     DEX_exec_return p m (* tau *) s ret ->
      DEX_IntraStep p m s (inr _ ret)
-  | IntraStep_intra_step:forall m s1 s2 tau,
-     DEX_exec_intra p m tau s1 s2 ->
+  | IntraStep_intra_step:forall m s1 s2 (* tau *),
+     DEX_exec_intra p m (* tau *) s1 s2 ->
      DEX_IntraStep p m s1 (inl _ s2) 
 (* DEX Method
   | IntraStep_call :forall m m' s1 s' ret' r tau,
@@ -138,8 +138,8 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
       forall (p:DEX_Program) 
         (P:DEX_Method->DEX_IntraNormalState->DEX_IntraNormalState+DEX_ReturnState->Prop),
          (forall m s, P m s (inl _ s)) ->
-         (forall m tau s r, DEX_exec_return p m tau s r -> P m s (inr _ r)) ->
-         (forall m tau s s' , DEX_exec_intra p m tau s s' -> 
+         (forall m (* tau *) s r, DEX_exec_return p m (* tau *) s r -> P m s (inr _ r)) ->
+         (forall m (* tau *) s s' , DEX_exec_intra p m (* tau *) s s' -> 
             forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
             P m s r) ->
 (* DEX Method
@@ -163,7 +163,7 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
        intros prg Q H0 Hr Hi Hcr Hc.
        fix intra (*4*)2;intros (*m s*) r Hs;case Hs;clear (*m s*) r Hs;intros.
        eapply Hr; eauto.
-       apply Hi with tau s2;trivial. 
+       apply Hi with (* tau *) s2;trivial. 
      Qed.
 (* DEX Method
        assert (Q m' s' (inr DEX_IntraNormalState ret')).
@@ -185,8 +185,8 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
     forall (p:DEX_Program) 
      (P : DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState + DEX_ReturnState -> Prop),
        (forall m s, P m s (inl _ s)) ->
-       (forall m tau s r, DEX_exec_return p m tau s r -> P m s (inr _ r)) ->
-       (forall m tau s s' , DEX_exec_intra p m tau s s' -> 
+       (forall m (* tau *) s r, DEX_exec_return p m (* tau *) s r -> P m s (inr _ r)) ->
+       (forall m (* tau *) s s' , DEX_exec_intra p m (* tau *) s s' -> 
           forall r, DEX_IntraStepStar p m s' r -> P m s' r ->
           P m s r) ->
 (* DEX Method
