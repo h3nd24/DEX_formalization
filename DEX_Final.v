@@ -75,25 +75,26 @@ Section hyps.
 
   Definition istate : Type := DEX_IntraNormalState.
   Definition rstate : Type := DEX_ReturnState.
-  Inductive exec : Method -> nat (* -> Kind  *)-> istate -> istate + rstate -> Prop :=
+  Inductive exec : Method -> (*nat -> Kind ->*) istate -> istate + rstate -> Prop :=
   | exec_intra : forall (m:Method) (* tau *) s1 s2,
-(*     DEX_BigStepAnnot.exec_intra throwableAt p m tau s1 s2 -> *)
-    exec m O (* tau *) s1 (inl _ s2)
+    DEX_BigStepAnnot.DEX_exec_intra p m s1 s2 -> 
+    exec m (* tau *) s1 (inl _ s2)
   | exec_return : forall (m:Method) (* tau *) s ret,
-(*     BigStepAnnot.exec_return throwableAt p m tau s ret -> *)
-    exec m O (* tau *) s (inr _ ret)
+    DEX_BigStepAnnot.DEX_exec_return p m s ret ->
+    exec m (* tau *) s (inr _ ret).
   (* | exec_call : forall (m:Method) n tau s1 ret' (m':Method) s' r,
     BigStepAnnot.exec_call (throwableBy p) p m tau s1 ret' m' s' r ->
     evalsto m' n s' ret' ->
     exec m (S n) tau s1 r *)
-  with evalsto : Method -> nat -> istate -> rstate -> Prop :=
-  | evalsto_return : forall (m:Method) n (* tau *) s r,
-    exec m n (* tau *) s (inr _ r) ->
-    evalsto m n s r
-  | evalsto_intra : forall (m:Method) n1 n2 (* tau *) s1 s2 r,
-    exec m n1 (* tau *) s1 (inl _ s2) ->
-    evalsto m n2 s2 r ->
-    evalsto m (S (n1+n2)) s1 r.
+
+  Inductive evalsto : Method -> (* nat -> *) istate -> rstate -> Prop :=
+  | evalsto_return : forall (m:Method) (* tau *) s r,
+    exec m (* tau *) s (inr _ r) ->
+    evalsto m (* 1 *) s r
+  | evalsto_intra : forall (m:Method) (*n n1 n2 tau *) s1 s2 r,
+    exec m (* tau *) s1 (inl _ s2) ->
+    evalsto m (* n *) s2 r ->
+    evalsto m (* (S (n)) *) s1 r. 
 
 (*  Only focusing on DEX I 
 Lemma typeof_stable_trans : forall h1 h2 h3,
@@ -238,9 +239,14 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
       high_opstack st (pc,(h,s,l)). *)
 
   (* Definition s0 : stacktype := nil. *)
-  Definition rt0 : registertypes :=
+  Inductive rt0 (m:Method) : registertypes -> Prop := 
+    rt0_def : forall sgn bm, 
+      DEX_METHOD.body m = Some bm ->
+      P (SM _ _ m sgn) ->
+      rt0 m (Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm)).
 
-  Definition ni := ni _ _ _ _ _ _ exec pc stacktype pbij indist rindist compat s0 init_pc P border.
+
+  Definition ni := ni _ _ _ _ _ exec pc registertypes indist rindist compat rt0 init_pc P.
 
   Open Scope nat_scope.
 
@@ -256,112 +262,22 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
   Definition ses : nat -> Prop :=
     ses _ _ _ _ _ _ exec pc _ compat s0 init_pc side_effect P. *)
 
-  Lemma evalsto_Tevalsto : forall m n s r,
-    evalsto m n s r ->
-    exists p, Framework.evalsto Method Kind istate rstate exec m n p s r.
+  Lemma evalsto_Tevalsto : forall m s r,
+    evalsto m s r ->
+    exists p, DEX_Framework.evalsto Method istate rstate exec m p s r.
   Proof.
-    intros m n; pattern n; apply lt_wf_ind; clear n; intros.
-    inversion_mine H0.
-    exists 1; constructor 1 with tau; auto.
-    elim H with (2:=H2).
-    intros p2 H3.
-    exists (S p2).
-    constructor 2 with tau s2; auto.
-    omega.
+(*     intros m n; pattern n; apply lt_wf_ind; clear n; intros. *)
+    intros.
+    induction H.
+    exists 1; constructor 1; auto.
+    inversion IHevalsto.
+    exists (S x). constructor 2 with (s2:=s2); auto.
   Qed.
 
-(*   Lemma  side_effect_exec_intra : forall m sgn se n kd s1 s2 st1 st2,
-    (forall k, k<n -> ses k) ->
-    forall (H0:P (SM _ _ m sgn)),
-      exec m n kd s1 (inl _ s2) -> 
-      texec m (PM_P _ H0) sgn se (pc s1) kd st1 (Some st2) ->
-      compat sgn s1 st1 ->
-      side_effect sgn s1 (inl _ s2).
+  Lemma tcc0 : forall m s s',
+    PM p m -> exec m s (inl rstate s') -> step m (pc s) (Some (pc s')).
   Proof.
-    intros until n; 
-      generalize m;
-        generalize sgn;
-          generalize se; clear m sgn se; 
-            pattern n; apply lt_wf_ind; clear n; intros.
-    inversion_mine H2.
-    destruct H3 as [i [H3 Hi]].
-    elim well_types_imply_exec_intra with (kobs:=kobs) (1:=H10) (2:= Hi) (3:= H3) (b1:=FFun.empty Location); auto.
-    intros b2 [T1 T2].  
-    clear H10 H H3 Hi.
-    inversion_mine T1.
-    destruct s1 as [pc1 [[h1 s1] l1]].
-    destruct s2 as [pc2 [[h2 s2] l2]].
-    simpl.
-    apply side_effect_NormalStep with (1:=H).
-    apply side_effect_ExceptionStep with (1:=H).
-    destruct H3 as [i [T1 T2]].
-    elim well_types_imply_CalledSign_normal with (1:=H5) (2:=T2) (3:=T1); intros sgn2 Hsgn2.
-    elim well_types_imply_CallStep_normal with (1:=H5) (2:=T2) (3:=T1) (b1:=FFun.empty Location) (br:=FFun.empty Location) (sgn2:=sgn2) (kobs:=kobs).
-    intros b3 [U1 U2].
-    unfold ses, Framework.ses in H0.
-    elim evalsto_Tevalsto with (1:=H6).
-    intros pp Hp.
-    assert (side_effect sgn2 s' (inr istate ret')).
-    apply (H0 n0) with (5:=Hp); auto.
-    eapply P_exec_call; eauto.
-    eapply init_pc_exec_call; eauto.
-    apply compat_call_init with (p:=p) (1:=U1); auto.
-    destruct s1 as [pc1 [[h1 s1] l1]].
-    destruct s' as [pc0 [[h0 os0] l0]].
-    destruct s2 as [pc2 [[h2 os2] l2]].
-    destruct ret' as [h' ov'].
-    apply side_effect_exec_call_inl with (1:=U1); auto.
-    auto.
-  Qed.
-
-  Lemma  side_effect_exec_return : forall m sgn se n kd s st r,
-    (forall k, k<n -> ses k) ->
-    forall (H0:P (SM _ _ m sgn)),
-      exec m n kd s (inr _ r) -> 
-      texec m (PM_P _ H0) sgn se (pc s) kd st None ->
-      compat sgn s st ->
-      side_effect sgn s (inr _ r).
-  Proof.
-    intros until n; 
-      generalize m;
-        generalize sgn;
-          generalize se; clear m sgn se; 
-            pattern n; apply lt_wf_ind; clear n; intros.
-    destruct H3 as [i [H3 Hi]].
-    inversion_mine H2.
-    destruct r.
-    elim well_types_imply_exec_return with (1:=H10) (2:= Hi) (3:= H3) (b1:=FFun.empty Location) (kobs:=kobs); auto.
-    intros b2 [T1 T2].  
-    clear H10 H H3 Hi.
-    inversion_mine T1.
-    destruct s as [ppc [[h s] l]].
-    simpl.
-    apply side_effect_ReturnStep with (1:=H9).
-    apply side_effect_ExceptionStep with (1:=H3).
-    destruct s as [pc1 [[h1 s1] l1]].
-    elim well_types_imply_CalledSign_return with (1:=H5) (2:=Hi) (3:=H3).
-    intros sign2 Hs2.
-    elim well_types_imply_CallStep_return with (1:=H5) (2:=Hi) (3:=H3) (b1:=FFun.empty Location) (br:=FFun.empty Location) (sgn2:=sign2) (kobs:=kobs).
-    intros b3 [U1 U2].
-    unfold ses, Framework.ses in H0.
-    elim evalsto_Tevalsto with (1:=H6).
-    intros pp Hp.
-    assert (side_effect sign2 s' (inr istate ret')).
-    apply (H0 n0) with (5:=Hp); auto.
-    eapply P_exec_call; eauto.
-    eapply init_pc_exec_call; eauto.
-    apply compat_call_init with (p:=p) (1:=U1); auto.
-    destruct s' as [pc0 [[h0 os0] l0]].
-    destruct r as [h v].
-    destruct ret' as [h' ov'].
-    apply side_effect_exec_call_inr with (1:=U1); auto.
-    auto.
-  Qed. *)
-
-  Lemma tcc0 : forall m n kd s s',
-    PM p m -> exec m n kd s (inl rstate s') -> step m (pc s) kd (Some (pc s')).
-  Proof.
-    intros m n kd s s' HP H.
+    intros m s s' HP H.
     split.
     auto.
     inversion_clear H.
@@ -372,82 +288,18 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
           exists i; simpl; split; [assumption|idtac]; constructor; 
             simpl; auto
       end.
-    right.
-    set (f:=snd (A:=Z) (B:=OFFSET.t)).
-    replace o' with (f (i',o')).
-    apply in_map; auto.
-    auto.
-    right.
-    apply  in_nth_error with n0; auto.
-  (**)
-    inversion_mine H.
-    exists Athrow; DiscrimateEq; split; [assumption|idtac]; constructor; auto.
-    simpl.
-    apply StaticHandlerProp.CaughtException_handler with (3:=H1); auto.
-  (**)
-    generalize (@Heap.new_typeof _ _ _ _ _ H10); intros; DiscrimateEq.
-    inversion_mine H6;
-    match goal with
-      | [ id : instructionAt _ _ = Some ?i |- _] =>
-        exists i; simpl; try (split; [assumption|idtac]; constructor; auto);
-          try apply StaticHandlerProp.CaughtException_handler with (3:=H1); auto
-    end.
-    apply in_or_app; auto.
-    inversion_mine H0.
-    inversion_mine H2.
-    exists (Invokestatic mid); simpl; split; auto; constructor; auto.
-    exists (Invokevirtual (cn,mid)); simpl; split; auto; constructor; auto.
-    inversion_mine H2.
-    exists (Invokestatic mid); simpl; split; auto; constructor; auto.
-    rewrite <- (findMethod_signature _ _ _ H14) in H11; assumption.
-    apply StaticHandlerProp.CaughtException_handler with (3:=H4); auto.
-    exists (Invokevirtual (cn0,mid)); simpl; split; auto; constructor; auto.
-    apply in_or_app.
-    right.
-    generalize (lookup_signature _ _ _ _ H14); simpl; intros; subst; auto.
-    apply StaticHandlerProp.CaughtException_handler with (3:=H4); auto.
   Qed.
 
-  Lemma tcc1 : forall m n kd s s',
-    PM p m -> exec m n kd s (inr istate s') -> step m (pc s) kd None.
+  Lemma tcc1 : forall m s s',
+    PM p m -> exec m s (inr istate s') -> step m (pc s) None.
   Proof.
-    intros m n kd s s' HM H.
+    intros m s s' HM H.
     split; auto.
     inversion_clear H.
     inversion_clear H0.
     inversion_clear H.
-    exists Return; simpl; split; auto; constructor.
-    exists (Vreturn k); simpl; split; auto; constructor.
-    assert (handler subclass_test m pc1 e = None).
-    apply StaticHandlerProp.no_CaughtException_no_handler with (p:=p.(prog)) (2:=H2); auto.
-    inversion_mine H1.
-    do 2 intro.
-    inversion_mine H0.
-    DiscrimateEq.
-    elim H8 with pc'; auto.
-    inversion_mine H.
-    exists Athrow; DiscrimateEq; split; auto; constructor; auto.
-    generalize (@Heap.new_typeof _ _ _ _ _ H11); intros; DiscrimateEq.
-    inversion_mine H7;
-    match goal with
-      | [ id : instructionAt _ _ = Some ?i |- _] =>
-        exists i; simpl; try (split; auto; constructor; auto)
-    end.
-    apply in_or_app; auto.
-    inversion_mine H0.
-    assert (handler subclass_test m pc1 cn = None).
-    apply StaticHandlerProp.no_CaughtException_no_handler with (p:=p.(prog)) (2:=H5); auto.
-    inversion_mine H4.
-    do 2 intro.
-    inversion_mine H.
-    DiscrimateEq.
-    elim H10 with pc'; auto.
-    inversion_mine H2.
-    exists (Invokestatic mid); simpl; split; auto; constructor; auto.
-    rewrite <- (findMethod_signature _ _ _ H15) in H11; assumption.
-    exists (Invokevirtual (cn0,mid)); simpl; split; auto; constructor; auto.
-    apply in_or_app.
-    generalize (lookup_signature _ _ _ _ H15); simpl; intros; subst; auto.
+    exists DEX_Return; simpl; split; auto; constructor.
+    exists (DEX_VReturn k rs); simpl; split; auto; constructor.
   Qed.
 
 (*   Lemma side_effect_trans : forall (m : Sign) (s1 s2 : istate) (s3 : istate + rstate),
@@ -460,100 +312,89 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     apply side_effect_trans.
   Qed. *)
 
-  Lemma tcc6 : forall sgn m se n kd s s' st st',
-    (forall k : nat, (k < n)%nat ->
-      cmp _ _ _ _ _ _ exec pc stacktype compat compat_res s0 init_pc P k) ->
+  Lemma tcc6 : forall sgn m se s s' rt rt',
+    ((* forall k : nat, (k < n)%nat -> *)
+      cmp _ _ _ _ _ exec pc registertypes compat compat_res rt0 init_pc P) ->
     forall H0:P (SM Method Sign m sgn),
-      exec m n kd s (inl rstate s') ->
-      texec m (PM_P _ H0) sgn se (pc s) kd st (Some st') ->
-      compat sgn s st -> 
-      compat sgn s' st'.
+      exec m s (inl rstate s') ->
+      texec m (PM_P _ H0) sgn se (pc s) rt (Some rt') ->
+      compat sgn s rt -> 
+      compat sgn s' rt'.
   Proof.
     intros.
     destruct H2 as [i [H2 Hi]].
     inversion_mine H1.
-    elim well_types_imply_exec_intra with (1:=H9) (2:=Hi) (3:=H2) (b1:=FFun.empty Location) (kobs:=kobs); auto.
-    intros b2 [T1 T2].  
-    eapply compat_intra with (p:=p); eauto.
-    elim well_types_imply_CalledSign_normal with (1:=H4) (2:=Hi) (3:=H2).
-    intros sgn2 Hs2.
-    elim well_types_imply_CallStep_normal with (1:=H4) (2:=Hi) (3:=H2) (b1:=FFun.empty Location) (br:=FFun.empty Location) (sgn2:=sgn2) (kobs:=kobs).
-    intros b3 [U1 U2].
-    eapply compat_call with (p:=p); eauto.
-    elim evalsto_Tevalsto with (1:=H5); intros p' Hp.
-    apply (H n0) with (5:=Hp); auto.
-    eapply P_exec_call; eauto.
-    eapply init_pc_exec_call; eauto.
-    eapply compat_call_init with (p:=p) (1:=U1); auto.
-    eapply evalsto_typeof_stable; eauto.
-    auto.
+    (* eelim well_types_imply_exec_intra with (1:=H7) (2:=Hi) (3:=H2); eauto. *)
+    assert (DEX_BigStepWithTypes.NormalStep se (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
+        m sgn i s rt s' rt').
+      elim well_types_imply_exec_intra with (1:=H7) (2:=Hi) (3:=H2); eauto.
+    eapply DEX_compat.compat_intra; eauto.
+    econstructor; eauto.
   Qed.
 
-  Lemma tcc7 : forall sgn m se n kd s r st,
-    (forall k : nat,
-      (k < n)%nat ->
-      cmp _ _ _ _ _ _ exec pc stacktype compat compat_res s0 init_pc P k) ->
+  Lemma tcc7 : forall sgn m se s r rt,
+    ((* forall k : nat,
+      (k < n)%nat -> *)
+      cmp _ _ _ _ _ exec pc registertypes compat compat_res rt0 init_pc P) ->
     forall H0:P (SM Method Sign m sgn),
-      exec m n kd s (inr istate r) ->
-      texec m (PM_P _ H0) sgn se (pc s) kd st None ->
-      compat sgn s st -> compat_res sgn r.
+      exec m s (inr istate r) ->
+      texec m (PM_P _ H0) sgn se (pc s) rt None ->
+      compat sgn s rt -> compat_res sgn r.
   Proof.
     intros.
     destruct H2 as [i [H2 Hi]].
     inversion_mine H1.
     destruct r.
-    elim well_types_imply_exec_return with (1:=H9) (2:=Hi) (3:=H2) (b1:=FFun.empty Location) (kobs:=kobs); auto.
-    intros b2 [T1 T2].  
-    eapply compat_return with (p:=p); eauto.
-    elim well_types_imply_CalledSign_return with (1:=H4) (2:=Hi) (3:=H2).
-    intros sgn2 Hs2.
-    elim well_types_imply_CallStep_return with (sgn2:=sgn2) (1:=H4) (2:=Hi) (3:=H2) (b1:=FFun.empty Location) (br:=FFun.empty Location) (kobs:=kobs).
-    intros b3 [U1 U2].
-    eapply compat_call_ret with (p:=p); eauto.
-    elim evalsto_Tevalsto with (1:=H5); intros p' Hp.
-    apply (H n0) with (5:=Hp); auto.
-    eapply P_exec_call; eauto.
-    eapply init_pc_exec_call; eauto.
-    eapply compat_call_init with (p:=p) (1:=U1); auto.
-    eapply evalsto_typeof_stable; eauto.
-    auto.
+    assert (DEX_BigStepWithTypes.ReturnStep p se m sgn i s rt (Normal o)).
+      elim well_types_imply_exec_return with (1:=H7) (2:=Hi) (3:=H2); eauto.
+    eapply DEX_compat.compat_return; eauto. econstructor; eauto.
   Qed.
 
-  Inductive sub : stacktype -> stacktype -> Prop :=
+  (* Inductive sub : stacktype -> stacktype -> Prop :=
   | sub_nil : sub nil nil
   | sub_cons : forall x1 x2 st1 st2,
-    L.leql' x1 x2 -> sub st1 st2 -> sub (x1::st1) (x2::st2).
+    L.leql' x1 x2 -> sub st1 st2 -> sub (x1::st1) (x2::st2). *)
+  Inductive sub : registertypes -> registertypes -> Prop :=
+    forall_sub : forall rt1 rt2, 
+      (forall r k1 k2, Some k1 = VarMap.get _ rt1 r -> Some k2 = VarMap.get _ rt2 r -> L.leql k1 k2) 
+      -> sub rt1 rt2. 
 
-  Lemma compat_operandstack_sub : forall h (st1 st2 : stacktype),
-    sub st1 st2 -> forall s,
-      compat_operandstack p h s st1 ->
-      compat_operandstack p h s st2.
-  Proof.
-    induction 1; destruct s; simpl; intuition.
-    eapply compat_value_leql'; eauto.
+  Lemma sub_forall : forall rt rt', sub rt rt' -> 
+    (forall r k1 k2, 
+      Some k1 = VarMap.get _ rt r /\ Some k2 = VarMap.get _ rt' r -> 
+    L.leql k1 k2).
+  Proof. intros. inversion H0; auto.
+    inversion H; subst. apply H3 with (r:=r); auto.
   Qed.
 
-  Lemma compat_sub : forall (sgn : Sign) (s : istate) (st1 st2 : stacktype),
-    sub st1 st2 -> compat sgn s st1 -> compat sgn s st2.
+  Lemma compat_register_sub : forall (rt1 rt2 : registertypes),
+    sub rt1 rt2 -> forall r,
+      DEX_compat.compat_registers r rt1 ->
+      DEX_compat.compat_registers r rt2.
   Proof.
-    induction 1; intros.
-    destruct s as [pp [[h s] l]].
-    destruct s; simpl in H; simpl; auto.
-    destruct s as [pp [[h s] l]].
-    destruct s; simpl in H1; simpl; intuition.
-    eapply compat_value_leql'; eauto.
-    eapply compat_operandstack_sub; eauto.
+    induction 1; simpl; intuition.
+    unfold DEX_compat.compat_registers in H0.
+    unfold DEX_compat.compat_registers. 
+    intros. destruct v; constructor; auto. 
   Qed.
 
-  Definition TypableProg := TypableProg PC Method Kind step (PM p) Sign stacktype texec s0 init_pc P PM_P sub.
+  Lemma compat_sub : forall (sgn : Sign) (s : istate) (rt1 rt2 : registertypes),
+    sub rt1 rt2 -> compat sgn s rt1 -> compat sgn s rt2.
+  Proof.
+    intros.
+    destruct s.
+    apply compat_register_sub with (r:=t) in H; auto.
+  Qed.
+
+  Definition TypableProg := TypableProg PC Method step (PM p) Sign registertypes texec rt0 init_pc P PM_P sub.
 
   Section TypableProg.
 
     Variable se : Method -> Sign -> PC -> L.t.
-    Variable S : Method -> Sign -> PC -> stacktype.
-    Variable typable_hyp : TypableProg se S.
+    Variable RT : Method -> Sign -> PC -> registertypes.
+    Variable typable_hyp : TypableProg se RT.
 
-    Theorem safe_ses : forall m sgn s r n,
+(*     Theorem safe_ses : forall m sgn s r n,
       P (SM _ _ m sgn) ->
       init_pc m (pc s) ->
       compat sgn s s0 ->
@@ -571,243 +412,84 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         side_effect_exec_intra
         side_effect_exec_return
         _ compat_sub); eauto.
-    Qed.
+    Qed. *)
 
-    Lemma indist2_intra : forall m sgn se st ut ut' b b' s s' u u' N n n' kd kd',
-      (forall k, (k<N)%nat -> ni k) ->
+    Lemma indist2_intra : forall m sgn se rt ut ut' s s' u u',
+(*       (forall k, (k<N)%nat -> ni k) -> *)
       forall H0:P (SM _ _ m sgn),
-        indist sgn st st b b' s s' ->
+        indist sgn rt rt (* b b' *) s s' ->
         pc s = pc s' ->
-        exec m n kd s (inl _ u) -> n<=N ->
-        exec m n' kd' s' (inl _ u')-> n'<=N ->
-        texec m (PM_P _ H0) sgn se (pc s) kd st (Some ut) ->
-        texec m (PM_P _ H0) sgn se (pc s) kd' st (Some ut') ->
-        compat sgn s st ->
-        compat sgn s' st ->
-        exists bu, exists bu',
+        exec m s (inl _ u) ->
+        exec m s' (inl _ u') ->
+        texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
+        texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
+        compat sgn s rt ->
+        compat sgn s' rt ->
+(*         exists bu, exists bu',
           border b bu /\
-          border b' bu' /\
-          indist sgn ut ut' bu bu' u u'.
+          border b' bu' /\ *)
+          indist sgn ut ut' (* bu bu'  *) u u'.
     Proof.
       unfold pc; intros.
-      inversion_mine H3; inversion_mine H5.
+      inversion_mine H2. inversion_mine H3.
   (**)
-      elim exec_intra_instructionAt with (1:=H16); intros i Hi.
-      destruct H7 as [i' [Ti Ti']]; DiscrimateEq.
-      elim well_types_imply_exec_intra with (1:=H16) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      destruct H8 as [i' [Ui Ui']]; DiscrimateEq.
-      rewrite H2 in Ui.
-      elim well_types_imply_exec_intra with (1:=H15) (3:=Ui) (b1:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; repeat split; auto.
-      inversion_mine H1; simpl in *; subst.
-      destruct u as [pu [[hu su] lu]].
-      destruct u' as [pu' [[hu' su'] lu']].
+      elim DEX_BigStepWithTypes.exec_intra_instructionAt with (1:=H11); intros i Hi.
+      destruct H4 as [i' [Ti Ti']]; DiscrimateEq.
+      
+(*       elim well_types_imply_exec_intra with (1:=H11) (3:=Ti); auto. *)
+      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) m sgn i s rt u ut).
+        elim well_types_imply_exec_intra with (1:=H11) (3:=Ti); eauto. 
+(*       intros b2 [T1 T2]. *)
+      destruct H5 as [i' [Ui Ui']]; DiscrimateEq.
+      rewrite H1 in Ui.
+(*       elim well_types_imply_exec_intra with (1:=H10) (3:=Ui); auto. *)
+      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) m sgn i s' rt u' ut').
+        elim well_types_imply_exec_intra with (1:=H10) (3:=Ui); eauto.
+      rewrite H1 in Ui'; auto. 
+      inversion_mine H.
+      destruct u as [pu ru].
+      destruct u' as [pu' ru'].
       constructor.
-      eapply indist2_intra; eauto.
-      rewrite <- H2; auto.
-  (**)
-      elim exec_intra_instructionAt with (1:=H16); intros i Hi.
-      destruct H7 as [i' [Ti Ti']]; DiscrimateEq.
-      elim well_types_imply_exec_intra with (1:=H16) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      destruct H8 as [i' [Ui Ui']]; DiscrimateEq.
-      rewrite H2 in Ui.
-      elim well_types_imply_CalledSign_normal with (1:=H3) (3:=Ui).
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; repeat split; auto.
-      destruct T2'; subst; apply border_refl.
-      inversion_mine H1; simpl in *; subst.
-      destruct u as [pu [[hu su] lu]].
-      destruct u' as [pu' [[hu' su'] lu']].
-      constructor.
-      destruct ret'.
-      eapply intra_call_normal with (1:=T1) (2:=T1'); eauto.
-      destruct s'0 as [p0 [[h0 os0] l0]].
-      assert (h0=h2).
-      inversion_mine H3; auto.
-      subst.
-      apply (safe_ses m' sgn' (p0, (h2, os0, l0)) (t,r) n); auto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      apply compat_call_init with (p:=p) (1:=T1'); auto.
-      rewrite <- H2; auto.
-      rewrite <- H2; auto.
-  (**)
-      destruct H7 as [i' [Ti Ti']].
-      destruct H8 as [i [Ui Ui']]; DiscrimateEq.
-      rewrite H2 in Ui.
-      elim well_types_imply_exec_intra with (1:=H17) (3:=Ui) (b1:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      elim well_types_imply_CalledSign_normal with (1:=H11) (3:=Ti).
-      intros sgn2 Hs2.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2) (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      exists b2; exists b2'; repeat split; auto.
-      destruct T2; subst; apply border_refl.
-      inversion_mine H1; simpl in *; subst.
-      destruct u as [pu [[hu su] lu]].
-      destruct u' as [pu' [[hu' su'] lu']].
-      constructor.
-      destruct ret'.
-      apply st_in_sym.
-      eapply intra_call_normal with (1:=T1') (2:=T1); eauto.
-      apply st_in_sym; auto.
-      destruct s'0 as [p0 [[h0 os0] l0]].
-      assert (h0=h1).
-      inversion_mine T1; auto.
-      subst.
-      apply (safe_ses m' sgn2 (p0, (h1, os0, l0)) (t,r) n0); auto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      apply compat_call_init with (p:=p) (1:=T1); auto.
-      auto.
-      rewrite <- H2; auto.
-  (**)
-      destruct H7 as [i' [Ti Ti']].
-      destruct H8 as [i [Ui Ui']]; DiscrimateEq.
-      rewrite H2 in Ui.
-      elim well_types_imply_CalledSign_normal with (1:=H11) (3:=Ti).
-      intros sgn2 Hs2.
-      elim well_types_imply_CalledSign_normal with (1:=H3) (3:=Ui).
-      intros sgn2' Hs2'.
-      assert ((m'=m'0/\sgn2=sgn2')\/(m'<>m'0\/sgn2' <> sgn2)).
-      destruct (excluded_middle (m'=m'0)); intros.
-      destruct (excluded_middle (sgn2=sgn2')); intros.
-      left; auto.
-      right; auto.
-      right; auto.
-      destruct u as [pu [[hu su] lu]].
-      destruct u' as [pu' [[hu' su'] lu']].
-      destruct ret'.
-      destruct ret'0.
-      destruct s'1 as [p0' [[h0' os0'] l0']].
-      destruct s'0 as [pp0 [[h0 os0] l0]].
-      assert (side_effect sgn2' (pp0, (h0, os0, l0)) (inr _ (t,r))).
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      assert (side_effect sgn2 (p0', (h0', os0', l0')) (inr _ (t0,r0))).
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2) (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      congruence.
-      elim evalsto_Tevalsto with (1:=H12); intros p0 Hp0.
-      elim evalsto_Tevalsto with (1:=H13); intros p'0 Hp'0.
-      destruct H5.
-      destruct H5; subst.
-      unfold ni, Framework.ni in H.
-      elim (H (max n n0)) with (7:=Hp0) (9:=Hp'0) (b:=b) (b':=b') (sgn:=sgn2'); auto with arith.
-      clear H; intros br [br' [V1 [V2 V3]]].
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=br) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=br') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split; [idtac|split]; auto.
-      destruct T2; subst; auto; apply border_refl.
-      destruct T2'; subst; auto; apply border_refl.
-      inversion_mine H1; simpl in *; subst.
-      constructor.
-      inversion_mine V3.
-      eapply indist2_return_normal; eauto.
-      congruence.
-      apply max_case2; omega.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply P_exec_call; eauto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      inversion_mine H1; simpl in H2; subst.
-      constructor.
-      eapply indist2_call with (1:=T1) (2:=T1'); eauto.
-      congruence.
-      inversion_mine H3; inversion_mine H11; simpl in *; DiscrimateEq; auto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply init_pc_exec_call; eauto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b')  (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      eapply init_pc_exec_call; eauto.
-      rewrite <- H2; auto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply compat_call_init with (p:=p); eauto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      eapply compat_call_init with (p:=p); eauto.
-      rewrite <- H2; auto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H11) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2) (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split.
-      destruct T2; subst; apply border_refl.
-      split.
-      destruct T2'; subst; apply border_refl.
-      constructor.
-      inversion_mine H1.
-      simpl in *; subst.
-      eapply indist2_call_distinct_meth_normal; eauto.
-      apply border_refl.
-      apply border_refl.
-      congruence.
-      congruence.
-      congruence.
+      eapply indist2_intra; eauto. 
+      constructor; eauto.
+      rewrite H1; constructor; eauto.
+      simpl. simpl in H1.
+      rewrite <- H1 in H4; auto.
     Qed.
 
-    Lemma tcc2 : forall m  st1 st2 st3 b1 b2 b3 s1 s2 s3,
-      indist m st1 st2 b1 b2 s1 s2 ->
-      indist m st2 st3 b2 b3 s2 s3 -> indist m st1 st3 b1 b3 s1 s3.
+(*     Lemma tcc2 : forall m  rt1 rt2 rt3 s1 s2 s3,
+      indist m rt1 rt2 s1 s2 ->
+      indist m rt2 rt3 s2 s3 -> indist m rt1 rt3 s1 s3.
     Proof.
       intros.
       inversion_mine H; inversion_mine H0.
-      inversion_mine H1; inversion_mine H11; do 2 constructor.
-      apply localvar_in_trans with (2:=H3); auto.
-      inversion_clear H10; auto.
-      apply os_in_trans with (1:=H9); auto.
+      inversion_mine H1; inversion_mine H7; do 2 constructor.
+(*       apply localvar_in_trans with (2:=H3); auto. *)
+(*       inversion_clear H10; auto. *)
+      apply reg_in_trans with (1:=H0); auto.
       inversion_clear H10; auto.
       apply hp_in_trans with (1:=H10); auto.
-    Qed.
+    Qed. *)
     
-    Lemma tcc3 : forall m st1 st2 b1 b2 s1 s2,
-      indist m st1 st2 b1 b2 s1 s2 -> indist m st2 st1 b2 b1 s2 s1.
+    Lemma tcc3 : forall m rt1 rt2 s1 s2,
+      indist m rt1 rt2 s1 s2 -> indist m rt2 rt1 s2 s1.
     Proof.
       intros.
       inversion_clear H; constructor.
       apply st_in_sym; auto.
     Qed.
 
-    Lemma tcc4 : forall m b1 b2 s1 s2,
-      rindist m b1 b2 s1 s2 -> rindist m b2 b1 s2 s1.
+    Lemma tcc4 : forall m s1 s2,
+      rindist m s1 s2 -> rindist m s2 s1.
     Proof.
       intros. 
       inversion_clear H; constructor.
-      apply hp_in_sym; auto.
-      inversion_clear H1; try constructor; auto.
-      constructor 1 with k; auto.
-      intros; apply Value_in_sym; auto.
-      assert (Heap.typeof h1 loc1=Heap.typeof h2 loc2).
-      eapply indist_same_class; eauto.
-      constructor 3 with cn; auto.
-      congruence.
-      apply Value_in_sym; auto.
-      constructor 5 with cn; auto.
-      constructor 4 with cn; auto.
-      constructor 6 with cn2 cn1; auto.
+      inversion H0.
+      constructor 1 with k; auto. intros; apply Value_in_sym; auto.
+      constructor 2; auto.
     Qed.
 
-    Lemma tcc5 : forall m st st' b b' br br' s s' res res',
+(*     Lemma tcc5 : forall m st st' b b' br br' s s' res res',
       indist m st st' b b' s s' ->
       irindist m st b br s res ->
       irindist m st' b' br' s' res' -> rindist m br br' res res'.
@@ -835,575 +517,75 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     Proof.
       unfold border, beta_pre_order; intros.
       firstorder.
-    Qed.
+    Qed. *)
 
 
-    Lemma indist_return_value_sym : forall sgn hu' hu vu' vu b2' b,
-      hp_in kobs (newArT p) (ft p) b b2' hu hu' ->
-      indist_return_value kobs sgn hu' hu vu' vu b2' b ->
-      indist_return_value kobs sgn hu hu' vu vu' b b2'.
+    Lemma indist_return_value_sym : forall sgn vu' vu,
+(*       hp_in kobs (newArT p) (ft p) b b2' hu hu' -> *)
+      indist_return_value kobs sgn vu' vu ->
+      indist_return_value kobs sgn vu vu'.
     Proof.
       intros.
-      inversion_clear H0.
+      inversion_clear H.
       constructor 1 with k; auto; intros.
       apply Value_in_sym; auto.
       constructor; auto.
-      constructor 3 with cn; auto.
+      (* constructor 3 with cn; auto.
       rewrite <- H1.
       eapply indist_same_class; eauto.
       apply Value_in_sym; auto.
       apply Value_in_sym; auto.
       constructor 5 with cn; auto.
       constructor 4 with cn; auto.
-      constructor 6 with cn2 cn1; auto.
+      constructor 6 with cn2 cn1; auto. *)
     Qed.
 
     Lemma indist2_return : forall (m : Method) (sgn : Sign) (se : PC -> L.t) 
-      (st : stacktype) (b b' : pbij) (s s' : istate) 
-      (u u' : rstate) (N n n' : nat) (kd kd' : Kind),
-      (forall k : nat,
+      (rt : registertypes) (*b b' : pbij*) (s s' : istate) 
+      (u u' : rstate) (*N n n' : nat*) (*kd kd' : Kind*),
+      (* (forall k : nat,
         k < N ->
         Framework.ni PC Method Kind Sign istate rstate exec pc stacktype pbij indist
-        rindist compat s0 init_pc P border k) ->
+        rindist compat s0 init_pc P border k) -> *)
       forall H:P (SM Method Sign m sgn),
-        indist sgn st st b b' s s' ->
+        indist sgn rt rt s s' ->
         pc s = pc s' ->
-        exec m n kd s (inr istate u) ->
-        n <= N ->
-        exec m n' kd' s' (inr istate u') ->
-        n' <= N ->
-        texec m (PM_P _ H) sgn se (pc s) kd st None ->
-        texec m (PM_P _ H) sgn se (pc s) kd' st None ->
-        compat sgn s st ->
-        compat sgn s' st ->
-        exists bu : pbij,
+        exec m s (inr istate u) ->
+(*         n <= N -> *)
+        exec m s' (inr istate u') ->
+(*         n' <= N -> *)
+        texec m (PM_P _ H) sgn se (pc s) rt None ->
+        texec m (PM_P _ H) sgn se (pc s) rt None ->
+        compat sgn s rt ->
+        compat sgn s' rt ->
+        (* exists bu : pbij,
           (exists bu' : pbij,
-            border b bu /\ border b' bu' /\ rindist sgn bu bu' u u').
+            border b bu /\ border b' bu' /\  *)rindist sgn (* bu bu' *) u u'.
     Proof.
       unfold pc; intros.
-      destruct H7 as [i' [Ti Ti']].
-      destruct H8 as [i [Ui Ui']]; DiscrimateEq.
-      destruct s as [pp [[h os] l]].
-      destruct s' as [pp' [[h' os'] l']].
-      simpl in H2; subst; simpl in *.
-      destruct u as [hu vu].
-      destruct u' as [hu' vu'].
-      inversion_mine H1;
-      inversion_mine H3; inversion_mine H5.
+      destruct H4 as [i' [Ti Ti']].
+      destruct H5 as [i [Ui Ui']]; DiscrimateEq.
+      destruct s as [pp regs].
+      destruct s' as [pp' regs'].
+      simpl in H1; subst; simpl in *.
+      destruct u as [vu].
+      destruct u' as [vu'].
+      inversion_mine H0;
+      inversion_mine H2; inversion_mine H3.
   (**)
-      elim well_types_imply_exec_return with (1:=H12) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_exec_return with (1:=H11) (3:=Ui) (b1:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split; [idtac|split]; auto.
-      elim indist2_return with (1:=T1) (2:=T1') (3:=H14); eauto; intros.
-      constructor; auto.
-  (**)
-      elim well_types_imply_exec_return with (1:=H12) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ui) ; auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_return with (sgn2:=sgn') (1:=H1) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split.
-      destruct T2'; subst; auto.
-      split.
-      destruct T2'; subst; apply border_refl.
-      destruct ret'.
-      assert (b2' = b').
-      destruct T2'; auto.
-      subst.
-      elim return_call_return with (1:=T1) (2:=T1') (3:=H14); intros.
-      constructor; auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-  (**)
-      elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ti); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_return with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_exec_return with (1:=H13) (3:=Ui) (b1:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      assert (b2=b).
-      destruct T2; auto.
-      clear T2; subst.
-      exists b; exists b2'; split.
-      apply border_refl.
-      split; auto.
-      destruct ret'.
-      elim return_call_return with (1:=T1') (2:=T1) (3:=st_in_sym _ _ _ _ _ _ _ _ _ H14); intros.
-      constructor; auto.
-      apply hp_in_sym; auto.
-      apply indist_return_value_sym; eauto.
-      apply hp_in_sym; auto.  
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-  (**)
-      elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ti).
-      intros sgn2 Hs2.
-      elim well_types_imply_CalledSign_return with (1:=H3) (3:=Ui).
-      intros sgn2' Hs2'.
-      assert ((m'=m'0/\sgn2=sgn2')\/(m'<>m'0\/sgn2' <> sgn2)).
-      destruct (excluded_middle (m'=m'0)); intros.
-      destruct (excluded_middle (sgn2=sgn2')); intros.
-      left; auto.
-      right; auto.
-      right; auto.
-      destruct ret'.
-      destruct ret'0.
-      assert (side_effect sgn2' s' (inr _ (t,r))).
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      assert (side_effect sgn2 s'0 (inr _ (t0,r0))).
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2) (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      elim evalsto_Tevalsto with (1:=H2); intros p0 Hp0.
-      elim evalsto_Tevalsto with (1:=H7); intros p'0 Hp'0.
-      destruct H5.
-      destruct H5; subst.
-      unfold ni, Framework.ni in H.
-      assert (indist sgn2' s0 s0 b b' s' s'0).
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      destruct s' as [p0' [[h0' os0'] l0']].
-      destruct s'0 as [pp0 [[h0 os0] l0]].
-      constructor.
-      eapply indist2_call with (1:=T1) (2:=T1'); eauto.
-      elim (H (max n n0)) with (7:=Hp0) (9:=Hp'0) (b:=b) (b':=b') (sgn:=sgn2'); auto with arith.
-      clear H; intros br [br' [V1 [V2 V3]]].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=br) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=br') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split; [idtac|split]; auto.
-      destruct T2; subst; auto.
-      apply border_refl.
-      destruct T2'; subst; auto.
-      apply border_refl.
-      inversion_mine H5.
-      elim indist2_return_return with (1:=T1) (2:=T1') (3:=H14); auto.
-      intros; constructor; auto.
-      inversion_mine V3; auto.
-      inversion_mine V3; auto.
-      apply max_case2; omega.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply P_exec_call; eauto.
-      inversion_mine H3; inversion_mine H1; simpl in *; DiscrimateEq; auto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply init_pc_exec_call; eauto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      eapply init_pc_exec_call; eauto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply compat_call_init with (p:=p); eauto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      eapply compat_call_init with (p:=p); eauto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2) (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split.
-      destruct T2; subst; apply border_refl.
-      split.
-      destruct T2'; subst; apply border_refl.
-      destruct s' as [p0' [[h0' os0'] l0']].
-      destruct s'0 as [pp0 [[h0 os0] l0]].
-      elim indist2_call_distinct_meth_return with (1:=T1) (2:=T1') (3:=H14); auto.
-      constructor; auto.
-      apply border_refl.
-      apply border_refl.
-      auto.  
-      auto.
+      (* elim well_types_imply_exec_return with (1:=H5) (3:=Ti); auto.
+      intros. (*  [T1 T2]. *) *)
+      assert (DEX_BigStepWithTypes.ReturnStep p se0 m sgn i (pp', regs) rt (Normal vu)).
+        elim well_types_imply_exec_return with (1:=H5) (3:=Ti); auto.
+      assert (DEX_BigStepWithTypes.ReturnStep p se0 m sgn i (pp', regs') rt (Normal vu')).
+        elim well_types_imply_exec_return with (1:=H4) (3:=Ui); auto.
+      apply DEX_BigStepWithTypes.exec_return_normal in H0.
+      apply DEX_BigStepWithTypes.exec_return_normal in H1.
+      constructor. 
+      apply indist2_return with (1:=H0) (2:=H1) (3:=H9). 
     Qed.
 
-(*     Lemma indist2_intra_return : forall (m : Method) (sgn : Sign) (se : PC -> L.t) 
-      (st ut : stacktype) (b b' : pbij) (s s' u : istate) 
-      (u' : rstate) (N n n' : nat) (kd kd' : Kind),
-      (forall k : nat,
-        k < N ->
-        Framework.ni PC Method Kind Sign istate rstate exec pc stacktype pbij indist
-        rindist compat s0 init_pc P border k) ->
-      forall H:P (SM Method Sign m sgn),
-        indist sgn st st b b' s s' ->
-        pc s = pc s' ->
-        exec m n kd s (inl rstate u) ->
-        n <= N ->
-        exec m n' kd' s' (inr istate u') ->
-        n' <= N ->
-        texec m (PM_P _ H) sgn se (pc s) kd st (Some ut) ->
-        texec m (PM_P _ H) sgn se (pc s) kd' st None ->
-        compat sgn s st ->
-        compat sgn s' st ->
-        exists bu : pbij,
-          (exists bu' : pbij,
-            border b bu /\ border b' bu' /\ irindist sgn ut bu bu' u u').
-    Proof.
-      unfold pc; intros.
-      destruct H7 as [i' [Ti Ti']].
-      destruct H8 as [i [Ui Ui']]; DiscrimateEq.
-      destruct s as [pp [[h os] l]].
-      destruct s' as [pp' [[h' os'] l']].
-      simpl in H2; subst; simpl in *.
-      destruct u as [ppu [[hu su]lu]].
-      destruct u' as [hu' vu'].
-      inversion_mine H1;
-      inversion_mine H3; inversion_mine H5.
-  (**)
-      elim well_types_imply_exec_intra with (1:=H12) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_exec_return with (1:=H11) (3:=Ui) (b1:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split; [idtac|split]; auto.
-      elim indist2_intra_return_exception with (1:=T1) (2:=T1') (3:=H14); eauto; intros.
-      inversion_mine H1; constructor; auto.
-      constructor; auto.
-  (**)
-      elim well_types_imply_exec_intra with (1:=H12) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ui); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_return with (sgn2:=sgn') (1:=H1) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split.
-      destruct T2'; subst; auto.
-      split.
-      destruct T2'; subst; apply border_refl.
-      destruct ret'.
-      assert (b2' = b').
-      destruct T2'; auto.
-      subst.
-      constructor.
-      apply intra_call_return with (1:=T1) (2:=T1') (3:=H14); auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-  (**)
-      elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_exec_return with (1:=H13) (3:=Ui) (b1:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      assert (b2=b).
-      destruct T2; auto.
-      clear T2; subst.
-      exists b; exists b2'; split.
-      apply border_refl.
-      split; auto.
-      destruct ret'.
-      elim return_call_normal with (1:=T1') (2:=T1) (3:=st_in_sym _ _ _ _ _ _ _ _ _ H14); intros.
-      constructor; auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-  (**)
-      elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti); auto.
-      intros sgn2 Hs2.
-      elim well_types_imply_CalledSign_return with (1:=H3) (3:=Ui); auto.
-      intros sgn2' Hs2'.
-      assert ((m'=m'0/\sgn2=sgn2')\/(m'<>m'0\/sgn2' <> sgn2)).
-      destruct (excluded_middle (m'=m'0)); intros.
-      destruct (excluded_middle (sgn2=sgn2')); intros.
-      left; auto.
-      right; auto.
-      right; auto.
-      destruct ret'.
-      destruct ret'0.
-      assert (side_effect sgn2' s' (inr _ (t,r))).
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      assert (side_effect sgn2 s'0 (inr _ (t0,r0))).
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2) (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      elim evalsto_Tevalsto with (1:=H2); intros p0 Hp0.
-      elim evalsto_Tevalsto with (1:=H7); intros p'0 Hp'0.
-      destruct H5.
-      destruct H5; subst.
-      unfold ni, Framework.ni in H.
-      assert (indist sgn2' s0 s0 b b' s' s'0).
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      destruct s' as [p0' [[h0' os0'] l0']].
-      destruct s'0 as [pp0 [[h0 os0] l0]].
-      constructor.
-      eapply indist2_call with (1:=T1) (2:=T1'); eauto.
-      elim (H (max n n0)) with (7:=Hp0) (9:=Hp'0) (b:=b) (b':=b') (sgn:=sgn2'); auto with arith.
-      clear H; intros br [br' [V1 [V2 V3]]].
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=br) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=br') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split; [idtac|split]; auto.
-      destruct T2; subst; auto.
-      apply border_refl.
-      destruct T2'; subst; auto.
-      apply border_refl.
-      inversion_mine H5.
-      constructor.
-      elim indist2_return_return_normal with (1:=T1) (2:=T1') (3:=H14); auto.
-      intros; constructor; auto.
-      inversion_mine V3; auto.
-      inversion_mine V3; auto.
-      apply max_case2; omega.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply P_exec_call; eauto.
-      inversion_mine H3; inversion_mine H1; simpl in *; DiscrimateEq; auto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply init_pc_exec_call; eauto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      eapply init_pc_exec_call; eauto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      eapply compat_call_init with (p:=p); eauto.
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      eapply compat_call_init with (p:=p); eauto.
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      elim well_types_imply_CallStep_return with (sgn2:=sgn2) (1:=H3) (3:=Ui) (b1:=b') (br:=b') (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      exists b2; exists b2'; split.
-      destruct T2; subst; apply border_refl.
-      split.
-      destruct T2'; subst; apply border_refl.
-      destruct s' as [p0' [[h0' os0'] l0']].
-      destruct s'0 as [pp0 [[h0 os0] l0]].
-      constructor.
-      apply indist2_call_distinct_meth_return_intra with (1:=T1) (2:=T1') (3:=H14); auto.
-      apply border_refl.
-      apply border_refl.
-    Qed. *)
-
-
-(*     Lemma indist1_intra : forall (m : Method) (sgn : Sign) (se : PC -> L.t) 
-      (b bu : pbij) (st ut ut' : stacktype) (s u u' : istate) 
-      (n : nat) (kd : Kind),
-      forall H:P (SM Method Sign m sgn),
-        ~ L.leql (se (pc u)) kobs ->
-        high_opstack ut u ->
-        indist sgn st ut b bu s u ->
-        exec m n kd u (inl rstate u') ->
-        texec m (PM_P _ H) sgn se (pc u) kd ut (Some ut') ->
-        compat sgn u ut -> indist sgn st ut' b bu s u'.
-    Proof.
-      unfold pc; intros until kd; intro HP; intros.
-      destruct H3 as [i [Ti Ti']].
-      destruct s as [pp [[h os] l]].
-      destruct u as [ppu [[hu su]lu]].
-      destruct u' as [ppu' [[hu' su']lu']].
-      constructor.
-      simpl in *.
-      inversion_mine H0.
-      inversion_mine H1.
-      inversion_mine H2.
-      elim well_types_imply_exec_intra with (1:=H8) (3:=Ti) (b1:=bu) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      assert (bu=b2).
-      apply high_exec_intra with (4:=T1); eauto.
-      subst.
-      eapply indist1_intra with (4:=T1); eauto.
-  (**)
-      elim well_types_imply_CalledSign_normal with (1:=H0) (3:=Ti); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H0) (3:=Ti) (b1:=bu) (br:=bu) (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      assert (b2' = bu); [destruct T2'; auto|clear T2'; subst].
-      destruct ret'.
-      apply indist1_call_normal with (3:=T1'); auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H0; simpl in H2; auto.
-    Qed.
-    
-
-    Lemma indist1_intra_return : forall m sgn se st ut b bu s u u' n kd
-      (H:P (SM _ _ m sgn)),
-      ~ L.leql (se (pc u)) kobs ->
-      high_opstack ut u ->
-      indist sgn st ut b bu s u ->
-      exec m n kd u (inr _ u') ->
-      texec m (PM_P _ H) sgn se (pc u) kd ut None ->
-      compat sgn u ut ->
-      irindist sgn st b bu s u'.
-    Proof.
-      unfold pc; intros.
-      destruct H4 as [i [Ti Ti']].
-      destruct s as [pp [[h os] l]].
-      destruct u as [ppu [[hu su]lu]].
-      destruct u' as [hu' vu'].
-      constructor.
-      simpl in *.
-      inversion_mine H1.
-      inversion_mine H2.
-      inversion_mine H3.
-      elim well_types_imply_exec_return with (1:=H9) (3:=Ti) (b1:=bu) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      assert (bu=b2).
-      apply high_exec_return with (3:=T1); eauto.
-      subst.
-      elim indist1_return with (3:=T1) (4:=H11); auto.
-  (**)
-      elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ti); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_return with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=bu) (br:=bu) (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      assert (b2' = bu); [destruct T2'; auto|clear T2'; subst].
-      destruct ret'.
-      apply indist1_call_return with (3:=T1'); auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-    Qed.
-
-
-    Lemma indist1_return_intra : forall m sgn se ut ut' b bu s u u' n kd
-      (H:P (SM _ _ m sgn)),
-      ~ L.leql (se (pc u)) kobs ->
-      high_opstack ut u ->
-      irindist sgn ut bu b u s ->
-      exec m n kd u (inl _ u') ->
-      texec m (PM_P _ H) sgn se (pc u) kd ut (Some ut') ->
-      compat sgn u ut ->
-      irindist sgn ut' bu b u' s.
-    Proof.
-      unfold pc; intros.
-      destruct H4 as [i [Ti Ti']].
-      destruct s as [h v].
-      destruct u as [ppu [[hu su]lu]].
-      destruct u' as [ppu' [[hu' su']lu']].
-      constructor.
-      simpl in *.
-      inversion_mine H1.
-      inversion_mine H2.
-      inversion_mine H3.
-      elim well_types_imply_exec_intra with (1:=H9) (3:=Ti) (b1:=bu) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      assert (bu=b2).
-      apply high_exec_intra with (4:=T1); eauto.
-      subst.
-      inversion_mine T1.
-      eapply indist1_return_intra_normal; eauto.
-      inversion_mine H11; constructor; auto.
-      apply hp_in_sym.
-      eapply opstack1_exception_heap; eauto.
-      apply hp_in_sym; auto.
-      repeat constructor.
-      simpl; eapply opstack1_exception; eauto.
-  (**)
-      elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=bu) (br:=bu) (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      assert (b2' = bu); [destruct T2'; auto|clear T2'; subst].
-      destruct ret'.
-      apply indist1_call_return_normal with (3:=T1'); auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-    Qed.
-
-    Lemma indist1_return : forall m sgn se ut b bu s u u' n kd
-      (H : P (SM _ _ m sgn)),
-      ~ L.leql (se (pc u)) kobs ->
-      high_opstack ut u ->
-      irindist sgn ut bu b u s ->
-      exec m n kd u (inr _ u') ->
-      texec m (PM_P _ H) sgn se (pc u) kd ut None ->
-      compat sgn u ut ->
-      rindist sgn bu b u' s.
-    Proof.
-      unfold pc; intros.
-      destruct H4 as [i [Ti Ti']].
-      destruct s as [h v].
-      destruct u as [ppu [[hu su]lu]].
-      destruct u' as [hu' vu'].
-      simpl in *.
-      inversion_mine H1.
-      inversion_mine H2.
-      inversion_mine H3.
-      elim well_types_imply_exec_return with (1:=H9) (3:=Ti) (b1:=bu) (kobs:=kobs); auto.
-      intros b2 [T1 T2].
-      assert (bu=b2).
-      apply high_exec_return with (3:=T1); eauto.
-      subst.
-      elim indist1_return_return with (3:=T1) (4:=H11); auto; intros.
-      constructor.
-      apply hp_in_sym; auto.
-      apply indist_return_value_sym; auto.
-      apply hp_in_sym; auto.
-  (**)
-      elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ti); auto.
-      intros sgn' Hs'.  
-      elim well_types_imply_CallStep_return with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=bu) (br:=bu) (kobs:=kobs); auto.
-      intros b2' [T1' T2'].
-      assert (b2' = bu); [destruct T2'; auto|clear T2'; subst].
-      destruct ret'.
-      elim indist1_call_return_return with (3:=T1') (4:=H11); auto; intros.
-      constructor; auto.
-      apply hp_in_sym; auto.
-      apply indist_return_value_sym; auto.
-      apply hp_in_sym; auto.
-      assert (side_effect sgn' s' (inr _ (t,r))).
-      eapply safe_ses; eauto.
-      eapply P_exec_call; eauto.
-      eapply init_pc_exec_call; eauto.
-      eapply compat_call_init with (p:=p); eauto.
-      inversion_mine H1; simpl in H3; auto.
-    Qed. *)
-
-
-
-    Lemma opstack1: forall m sgn se st st' n k s s' (H:P (SM _ _ m sgn)),
+(*     Lemma opstack1: forall m sgn se st st' n k s s' (H:P (SM _ _ m sgn)),
       ~ L.leql (se (pc s)) kobs ->
       high_opstack st s ->
       exec m n k s (inl _ s') -> 
@@ -1428,262 +610,80 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
       intros b2' [T1' T2'].
       eapply opstack1_exec_call with (3:=T1'); eauto.
       inversion_mine H1; auto.
-    Qed.
+    Qed. *)
 
     Section well_formed_lookupswitch.
 
-      Variable hyp : forall m sgn, P (SM _ _ m sgn) -> well_formed_lookupswitch m.
+      (* Variable hyp : forall m sgn, P (SM _ _ m sgn) -> well_formed_lookupswitch m. *)
 
-      Lemma soap2_basic_intra : forall m sgn se st ut ut' b b' s s' u u' kd kd' n n' N,
-        (forall k, k<N -> ni k) ->
+      Lemma soap2_basic_intra : forall m sgn se rt ut ut' s s' u u',
+(*         (forall k, k<N -> ni k) -> *)
         forall H0:P (SM _ _ m sgn),
-          indist sgn st st b b' s s' -> 
+          indist sgn rt rt s s' -> 
           pc s = pc s' ->
-          exec m n kd s (inl _ u) -> n<=N ->
-          exec m n' kd' s' (inl _ u') -> n'<=N ->
-          texec m (PM_P _ H0) sgn se (pc s) kd st (Some ut) ->
-          texec m (PM_P _ H0) sgn se (pc s) kd' st (Some ut') ->
-          compat sgn s st ->
-          compat sgn s' st ->
+          exec m s (inl _ u) ->
+          exec m s' (inl _ u') -> 
+          texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
+          texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
+          compat sgn s rt ->
+          compat sgn s' rt ->
           pc u <> pc u' -> 
-          high_opstack ut u /\
-          forall j:PC, region (cdr m (PM_P _ H0)) (pc s) kd j -> ~ L.leql (se j) kobs.
+(*           high_opstack ut u /\ *)
+          forall j:PC, region (cdr m (PM_P _ H0)) (pc s) j -> ~ L.leql (se j) kobs.
       Proof.
         intros.
-        destruct H7 as [i' [Ti Ui]].
-        destruct H8 as [i [Ti' Ui']]; DiscrimateEq.
-        inversion_mine H1.
-        destruct u as [ppu [[hu su]lu]].
-        destruct u' as [ppu' [[hu' su']lu']].
-        inversion_mine H5; inversion_mine H3; simpl in *; subst.
+        destruct H4 as [i' [Ti Ui]].
+        destruct H5 as [i [Ti' Ui']]. DiscrimateEq.
+        inversion_mine H.
+        destruct u as [ppu regs].
+        destruct u' as [ppu' regs'].
+        inversion_mine H3; inversion_mine H2; simpl in *; subst.
   (**)
-        elim well_types_imply_exec_intra with (1:=H14) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_exec_intra with (1:=H15) (3:=Ti') (b1:=b') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        elim soap2_intra with (3:=T1) (4:=T1') (6:= H7); auto.
-        intros; split; auto.
-        constructor; auto.
-        eapply hyp; eauto.
-  (**)
-        elim well_types_imply_exec_intra with (1:=H15) (3:=Ti') (b1:=b') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti); auto.
-        intros sgn' Hs'.  
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        destruct ret'.
-        split.
-        elim soap2_basic_call_intra_opstack with (1:=T1') (2:=T1) (3:=st_in_sym _ _ _ _ _ _ _ _ _ H7); intros.
-        constructor; auto.
-        elim soap2_basic_call_intra_region with (1:=T1') (2:=T1) (3:=st_in_sym _ _ _ _ _ _ _ _ _ H7); auto.
-  (**)
-        elim well_types_imply_exec_intra with (1:=H16) (3:=Ti) (b1:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti'); auto.
-        intros sgn' Hs'.  
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H1) (3:=Ti') (b1:=b') (br:=b') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        destruct ret'.
-        split.
-        elim soap2_basic_call_intra_opstack with (1:=T1) (2:=T1') (3:=H7); intros.
-        constructor; auto.
-        elim soap2_basic_call_intra_region with (1:=T1) (2:=T1') (3:=H7); auto.
-  (**)
-        elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti'); auto.
-        intros sgn2' Hs2'.  
-        elim well_types_imply_CalledSign_normal with (1:=H5) (3:=Ti); auto.
-        intros sgn2 Hs2.  
-        rename m'0 into m2; rename m' into m2'.
-        assert ((m2=m2'/\sgn2=sgn2')\/(m2<>m2'\/sgn2 <> sgn2')).
-        destruct (excluded_middle (m2=m2')); intros.
-        destruct (excluded_middle (sgn2=sgn2')); intros.
-        left; auto.
-        right; auto.
-        right; auto.
-        destruct ret'0 as [hr v].
-        destruct ret' as [hr' v'].
-        elim evalsto_Tevalsto with (1:=H12); intros p0 Hp0.
-        elim evalsto_Tevalsto with (1:=H8); intros p'0 Hp'0.
-        destruct H2.
-        destruct H2; subst.
-        unfold ni, Framework.ni in H.
-        elim (H (max n1 n0)) with (7:=Hp0) (9:=Hp'0) (b:=b) (b':=b') (sgn:=sgn2'); auto with arith.
-        clear H; intros br [br' [V1 [V2 V3]]].
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=br') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=br) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        destruct s'0 as [pp0 [[h0 os0] l0]].
-        destruct s' as [pp0' [[h0' os0'] l0']].
-        inversion_mine V3.
-        split.
-        constructor.
-        apply soap2_basic_call_region_opstack_normal with (1:=T1) (2:=T1') (3:=H7); eauto.
-        apply soap2_basic_call_region_region_normal with (1:=T1) (2:=T1') (3:=H7); eauto.
-        apply max_case2; omega.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        eapply P_exec_call; eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        destruct s'0 as [pp0 [[h0 os0] l0]].
-        destruct s' as [pp0' [[h0' os0'] l0']].
-        constructor; eapply indist2_call; eauto.
-        inversion_mine H5; inversion_mine H1; simpl in *; DiscrimateEq; auto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        eapply init_pc_exec_call; eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        eapply init_pc_exec_call; eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs) ; auto.
-        intros b2 [T1 T2].
-        eapply compat_call_init with (p:=p); eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b')(kobs:=kobs) ; auto.
-        intros b2' [T1' T2'].
-        eapply compat_call_init with (p:=p); eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2) (1:=H5) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs) ; auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b')(kobs:=kobs) ; auto.
-        intros b2' [T1' T2'].
-        destruct s'0 as [pp0 [[h0 os0] l0]].
-        destruct s' as [pp0' [[h0' os0'] l0']].
-        split.
-        constructor.
-        apply soap2_basic_call_region_opstack_normal with (1:=T1) (2:=T1') (3:=H7); eauto.
-        intros; destruct H2; elim H2; auto.
-        apply soap2_basic_call_region_region_normal with (1:=T1) (2:=T1') (3:=H7); eauto.
-        intros; destruct H2; elim H2; auto.
+        assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
+          m sgn i (pc2,r1) rt (ppu,regs) ut).
+             elim well_types_imply_exec_intra with (1:=H10) (3:=Ti); auto.
+        assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
+          m sgn i (pc2,r2) rt (ppu',regs') ut').
+             elim well_types_imply_exec_intra with (1:=H11) (3:=Ti'); auto.
+        apply DEX_BigStepWithTypes.exec_intra_normal in H;
+        apply DEX_BigStepWithTypes.exec_intra_normal in H1.
+        apply soap2_intra with (4:=H1) (3:=H) (6:= H4); auto.
       Qed.
 
-      Lemma soap2_basic_return : forall m sgn se st ut b b' s s' u u' kd kd' n n' N,
-        (forall k, k<N -> ni k) ->
+(*       Lemma soap2_basic_return : forall m sgn se rt ut s s' u u',
+(*         (forall k, k<N -> ni k) -> *)
         forall H0:P (SM _ _ m sgn),
-          indist sgn st st b b' s s' -> 
+          indist sgn rt rt s s' -> 
           pc s = pc s' ->
-          exec m n kd s (inl _ u) -> n<=N ->
-          exec m n' kd' s' (inr _ u') -> n'<=N ->
-          texec m (PM_P _ H0) sgn se (pc s) kd st (Some ut) ->
-          texec m (PM_P _ H0) sgn se (pc s) kd' st None ->
-          compat sgn s st ->
-          compat sgn s' st ->
-          high_opstack ut u /\
-          (forall j:PC, region (cdr m (PM_P _ H0)) (pc s) kd j -> ~ L.leql (se j) kobs)
-          /\
-          forall j:PC, region (cdr m (PM_P _ H0)) (pc s) kd' j -> ~ L.leql (se j) kobs.
+          exec m s (inl _ u) -> 
+          exec m s' (inr _ u') -> 
+          texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
+          texec m (PM_P _ H0) sgn se (pc s) rt None ->
+          compat sgn s rt ->
+          compat sgn s' rt ->
+          forall j:PC, region (cdr m (PM_P _ H0)) (pc s) j -> ~ L.leql (se j) kobs.
       Proof.
         intros.
-        destruct H7 as [i' [Ti Ui]].
-        destruct H8 as [i [Ti' Ui']]; DiscrimateEq.
-        inversion_mine H1.
-        destruct u as [ppu [[hu su]lu]].
-        destruct u' as [hu' vu'].
-        inversion_mine H5; inversion_mine H3; simpl in *; subst.
+        destruct H4 as [i' [Ti Ui]];
+        destruct H5 as [i [Ti' Ui']]; DiscrimateEq.
+        inversion_mine H.
+        destruct u as [ppu regs].
+        destruct u' as [vu'].
+        inversion_mine H3; inversion_mine H2; simpl in *; subst.
   (**)
-        elim well_types_imply_exec_intra with (1:=H13) (3:=Ti) (b1:=b)(kobs:=kobs) ; auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_exec_return with (1:=H14) (3:=Ti') (b1:=b')(kobs:=kobs) ; auto.
-        intros b2' [T1' T2'].
+        assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
+          m sgn i (pc2, r1) rt (ppu, regs) ut).
+          elim well_types_imply_exec_intra with (1:=H9) (3:=Ti); auto.
+        assert (DEX_BigStepWithTypes.ReturnStep p se0 m sgn i (pc2, r2) rt (Normal vu')).
+          elim well_types_imply_exec_return with (1:=H10) (3:=Ti'); auto.
+        apply soap2_basic_intra with (
         elim indist2_intra_return_exception with (1:=T1) (2:=T1') (3:= H7)(kobs:=kobs) ; auto.
         intros; split; auto.
         inversion_mine H1; constructor; auto.
-  (**)
-        elim well_types_imply_exec_return with (1:=H14) (3:=Ti') (b1:=b')(kobs:=kobs) ; auto.
-        intros b2' [T1' T2'].
-        elim well_types_imply_CalledSign_normal with (1:=H1) (3:=Ti) ; auto.
-        intros sgn' Hs'.  
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn') (1:=H1) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs) ; auto.
-        intros b2 [T1 T2].
-        destruct ret'.
-        elim soap2_basic_call_return_intra with (1:=T1') (2:=T1) (3:=st_in_sym _ _ _ _ _ _ _ _ _ H7); intros.
-        split.
-        constructor; auto.
-        destruct H3; auto.
-  (**)
-        elim well_types_imply_exec_intra with (1:=H15) (3:=Ti) (b1:=b)(kobs:=kobs) ; auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ti'); auto.
-        intros sgn' Hs'.  
-        elim well_types_imply_CallStep_return with (sgn2:=sgn') (1:=H1) (3:=Ti') (b1:=b') (br:=b') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        destruct ret'.
-        elim soap2_basic_call_intra_return with (1:=T1) (2:=T1') (3:=H7); intros.
-        destruct H3; repeat constructor; auto.
-  (**)
-        elim well_types_imply_CalledSign_return with (1:=H1) (3:=Ti'); auto.
-        intros sgn2' Hs2'.  
-        elim well_types_imply_CalledSign_normal with (1:=H5) (3:=Ti); auto.
-        intros sgn2 Hs2.  
-        rename m'0 into m2; rename m' into m2'.
-        assert ((m2=m2'/\sgn2=sgn2')\/(m2<>m2'\/sgn2 <> sgn2')).
-        destruct (excluded_middle (m2=m2')); intros.
-        destruct (excluded_middle (sgn2=sgn2')); intros.
-        left; auto.
-        right; auto.
-        right; auto.
-        destruct ret'0 as [hr v].
-        destruct ret' as [hr' v'].
-        elim evalsto_Tevalsto with (1:=H11); intros p0 Hp0.
-        elim evalsto_Tevalsto with (1:=H8); intros p'0 Hp'0.
-        destruct H2.
-        destruct H2; subst.
-        unfold ni, Framework.ni in H.
-        elim (H (max n1 n0)) with (7:=Hp0) (9:=Hp'0) (b:=b) (b':=b') (sgn:=sgn2'); auto with arith.
-        clear H; intros br [br' [V1 [V2 V3]]].
-        elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=br') (kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=br) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        destruct s'0 as [pp0 [[h0 os0] l0]].
-        destruct s' as [pp0' [[h0' os0'] l0']].
-        inversion_mine V3.
-        split.
-        constructor.
-        apply soap2_basic_call_region_opstack_normal_return with (1:=T1) (2:=T1') (3:=H7); eauto.
-        apply soap2_basic_call_region_region_normal_return with (1:=T1) (2:=T1') (3:=H7); eauto.
-        apply max_case2; omega.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b) (kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        eapply P_exec_call; eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b')(kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        destruct s'0 as [pp0 [[h0 os0] l0]].
-        destruct s' as [pp0' [[h0' os0'] l0']].
-        constructor; eapply indist2_call; eauto.
-        inversion_mine H5; inversion_mine H1; simpl in *; DiscrimateEq; auto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        eapply init_pc_exec_call; eauto.
-        elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b')(kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        eapply init_pc_exec_call; eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2') (1:=H5) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        eapply compat_call_init with (p:=p); eauto.
-        elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b')(kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        eapply compat_call_init with (p:=p); eauto.
-        elim well_types_imply_CallStep_normal with (sgn2:=sgn2) (1:=H5) (3:=Ti) (b1:=b) (br:=b)(kobs:=kobs); auto.
-        intros b2 [T1 T2].
-        elim well_types_imply_CallStep_return with (sgn2:=sgn2') (1:=H1) (3:=Ti') (b1:=b') (br:=b')(kobs:=kobs); auto.
-        intros b2' [T1' T2'].
-        destruct s'0 as [pp0 [[h0 os0] l0]].
-        destruct s' as [pp0' [[h0' os0'] l0']].
-        split.
-        constructor.
-        apply soap2_basic_call_region_opstack_normal_return with (1:=T1) (2:=T1') (3:=H7); eauto.
-        intros; destruct H2; elim H2; auto.
-        apply soap2_basic_call_region_region_normal_return with (1:=T1) (2:=T1') (3:=H7); eauto.
-        intros; destruct H2; elim H2; auto.
-      Qed.
+      Qed. *)
 
 
-      Lemma os_insub_high_opstack : forall st1 s,
+(*       Lemma os_insub_high_opstack : forall st1 s,
         high_st kobs s st1 -> forall st2, sub st1 st2 -> high_st kobs s st2.
       Proof.
         induction 1; intros.
@@ -1699,9 +699,9 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         intros.
         inversion_mine H; constructor.
         eapply os_insub_high_opstack; eauto.
-      Qed.
+      Qed. *)
 
-      Lemma os_in_sub_double : forall st1 st2 s1 s2 b1 b2,
+(*       Lemma os_in_sub_double : forall st1 st2 s1 s2 b1 b2,
         os_in kobs b1 b2 s1 s2 st1 st2 -> forall st,
           sub st1 st -> sub st2 st ->
           os_in kobs b1 b2 s1 s2 st st.
@@ -1724,7 +724,34 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         intros.
         inversion_mine H; constructor.
         inversion_mine H2; constructor; auto; eapply os_in_sub_double; eauto.
-      Qed.
+      Qed. *)
+
+      Lemma Regs_in_sub_simple : forall rt rt0 s s0,
+        Regs_in kobs s0 s rt0 rt -> forall rt',
+          sub rt rt' -> 
+          Regs_in kobs s0 s rt0 rt'.
+      Proof.
+        induction 1; intros.
+        constructor 1; auto.
+        intros.
+        inversion H0; subst.
+        destruct (H rn v v' k k'); auto.
+        apply Reg_in_inv.
+        apply H.
+        assert 
+        inversion H.
+        elim H with (rn:=rn) (v:=v) (v':=v') (k:=k) (k':=k').
+        constructor.
+        unfold Reg_in.
+        apply Reg_in_sym.
+        eapply Reg_in_monotony_left; eauto.
+        inversion H5.
+        apply H with rn; auto.
+        apply H with (2:=H2) in H1; auto.
+        apply sub_forall with (r:=rn) (k1:=k) (k2:=k') in H0.
+        assert (forall 
+        inversion H0; subst.
+        apply H with (rn:=r) (v:=v) (v':=v') (k:=k) (k':=k
 
       Lemma os_in_sub_simple : forall  st st0 s s0 b b0,
         os_in kobs b0 b s0 s st0 st -> forall st',
@@ -1746,7 +773,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
 
       Lemma sub_simple : forall sgn st st' st0 s s0 b b0,
         indist sgn st0 st b0 b s0 s ->
-        sub st st' -> high_opstack st s ->
+        sub st st' -> (* high_opstack st s -> *)
         indist sgn st0 st' b0 b s0 s.
       Proof.
         intros.
@@ -1754,7 +781,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         inversion_mine H2; constructor; auto; eapply os_in_sub_simple; eauto.
       Qed.
 
-      Lemma os_inindist_high_opstack : forall st1 st2 b1 b2 s1 s2,
+(*       Lemma os_inindist_high_opstack : forall st1 st2 b1 b2 s1 s2,
         os_in kobs b1 b2 s1 s2 st1 st2 -> forall st1' st2' ,
           high_st kobs s1 st1' ->
           high_st kobs s2 st2' ->
@@ -1786,7 +813,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         inversion_mine H; constructor.
         inversion_mine H1 ; constructor; auto.
         eapply os_insub_high_opstack; eauto.
-      Qed.
+      Qed. *)
 
     End well_formed_lookupswitch.
 

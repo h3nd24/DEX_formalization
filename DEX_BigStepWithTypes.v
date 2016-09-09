@@ -346,16 +346,16 @@ End DEX_BigStepWithTypes.
 (* Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog. *)
 Import DEX_BigStepAnnot.DEX_BigStepAnnot DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog .
 
-(* 
+
 Section p.
   Variable p : DEX_ExtendedProgram.
 
-  Lemma NormalStep_instructionAt : forall sgn m se s1 s2,
-    DEX_BigStepWithTypes.NormalStep sgn se (* p m *) s1 s2 ->
+  Lemma NormalStep_instructionAt : forall sgn m s1 s2,
+    DEX_BigStep.DEX_NormalStep sgn m (* p m *) s1 s2 ->
     exists i, instructionAt m (fst s1) = Some i.
   Proof.
     intros.
-    inversion_clear H; simpl; eauto.
+    inversion_clear H; simpl; eauto. 
   Qed.
 (*
   Lemma ExceptionStep_instructionAt : forall m s1 s2,
@@ -368,25 +368,23 @@ Section p.
     inversion_clear H0; eauto.
   Qed.
 *)
-  Lemma exec_intra_instructionAt : forall m kd s1 s2,
-    BigStepAnnot.exec_intra throwableAt p m kd s1 s2 ->
+  Lemma exec_intra_instructionAt : forall m s1 s2,
+    DEX_BigStepAnnot.DEX_exec_intra p m s1 s2 ->
     exists i, instructionAt m (fst s1) = Some i.
   Proof.
     intros.
     inversion_mine H.
     eapply NormalStep_instructionAt; eauto.
-    eapply ExceptionStep_instructionAt; eauto.
   Qed.
 
-  Lemma exec_return_instructionAt : forall m kd s r,
-    @BigStepAnnot.exec_return throwableAt p m kd s r ->
+  Lemma exec_return_instructionAt : forall m s r,
+    DEX_BigStepAnnot.DEX_exec_return p m s r ->
     exists i, instructionAt m (fst s) = Some i.
   Proof.
     intros.
     inversion_mine H.
     inversion_mine H0; simpl; eauto.
-    eapply ExceptionStep_instructionAt; eauto.
   Qed.
 
-End p. *)
+End p.
 

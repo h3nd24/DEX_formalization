@@ -37,24 +37,24 @@ Variable exec_step_some : forall m (* kd *) s s',
 Variable exec_step_none : forall m (* kd *) s s',
   PM m -> exec m (* kd *) s (inr _ s')-> m |- (pc s) =>.
 
-Variable typeregisters : Set.
+Variable registertypes : Type.
 (* Variable pbij : Set. *)
 Variable texec : forall m, PM m ->
       Sign -> (PC->L.t) -> PC -> (* Kind ->   *)
-      typeregisters -> option typeregisters -> Prop.
+      registertypes -> option registertypes -> Prop.
 (*
 Variable bexec :
       Method -> Sign -> (PC->L.t) -> PC -> Kind ->  
       istate -> stacktype -> pbij -> pbij -> Prop.
 *)
 
-Variable indist : Sign -> typeregisters -> typeregisters -> istate -> istate -> Prop.
-(* Variable irindist : Sign -> typeregisters -> istate -> rstate -> Prop. *)
+Variable indist : Sign -> registertypes -> registertypes -> istate -> istate -> Prop.
+(* Variable irindist : Sign -> registertypes -> istate -> rstate -> Prop. *)
 Variable rindist : Sign -> rstate -> rstate -> Prop.
-Variable indist_trans :forall m rt1 rt2 rt3 s1 s2 s3,
+(* Variable indist_trans :forall m rt1 rt2 rt3 s1 s2 s3,
  indist m rt1 rt2 s1 s2 -> 
  indist m rt2 rt3 s2 s3 -> 
- indist m rt1 rt3 s1 s3.
+ indist m rt1 rt3 s1 s3. *)
 Variable indist_sym : forall m rt1 rt2 s1 s2,
  indist m rt1 rt2 s1 s2 -> indist m rt2 rt1 s2 s1.
 Variable rindist_sym : forall m s1 s2,
@@ -66,12 +66,12 @@ Variable rindist_sym : forall m s1 s2,
   irindist m rt' s' res' ->
   rindist m res res'. *)
 
-Variable compat : Sign -> istate -> typeregisters -> Prop.
+Variable compat : Sign -> istate -> registertypes -> Prop.
 Variable compat_res : Sign -> rstate -> Prop.
 
 Variable high_result : Sign -> rstate -> Prop.
 
-Variable rt0 : typeregisters.
+Variable rt0 : Method -> registertypes -> Prop.
 (* Variable init : Method -> istate -> Prop. *)
 Variable init_pc : Method -> PC -> Prop.
 (* Variable init_init_pc : forall m s, init m s -> init_pc m (pc s). *)
@@ -114,10 +114,11 @@ Variable P : SignedMethod -> Prop.
 Variable PM_P : forall m, P m -> PM m.
 
 Definition cmp :=
-  forall m p sign s r ,
+  forall m p sign s r rt,
   P (SM m sign) ->
   init_pc m (pc s) -> 
-  compat sign s rt0 ->
+  rt0 m rt ->
+  compat sign s rt ->
   evalsto m p s r ->
   compat_res sign r.
 
@@ -137,67 +138,19 @@ Variable compat_exec_return : forall sgn m se (* kd *) s r rt,
   texec m (PM_P _ H0) sgn se (pc s) (* kd *) rt None ->
   compat sgn s rt ->
   compat_res sgn r.
-(*
-Definition ses N  :=
-  forall m sign s r n p,
-  P (SM m sign) ->
-  init_pc m (pc s) -> 
-  compat sign s s0 ->
-  evalsto m n p s r -> n <= N ->
-  side_effect sign s (inr _ r).
-
-Variable side_effect_exec_intra : forall m sgn se n kd s1 s2 st1 st2,
-  (forall k, k<n -> ses k) ->
-  forall H0:P (SM m sgn),
-  exec m n kd s1 (inl _ s2) -> 
-  texec m (PM_P _ H0) sgn se (pc s1) kd st1 (Some st2) ->
-  compat sgn s1 st1 ->
-  side_effect sgn s1 (inl _ s2).
-
-Variable side_effect_exec_return : forall m sgn se n kd s st r,
-  (forall k, k<n -> ses k) ->
-  forall H0:P (SM m sgn),
-  exec m n kd s (inr _ r) -> 
-  texec m (PM_P _ H0) sgn se (pc s) kd st None ->
-  compat sgn s st ->
-  side_effect sgn s (inr _ r).
-
-Variable border : pbij -> pbij -> Prop.
-Variable border_refl : forall b, border b b.
-Variable border_trans : forall b1 b2 b3, 
-  border b1 b2 ->
-  border b2 b3 ->
-  border b1 b3.
-
-
-Definition ni N :=
-  forall m sgn p p' n n' b b' s s' r r',
-  P (SM m sgn) ->
-  indist sgn s0 s0 b b' s s' ->
-  pc s = pc s' ->
-  init_pc m (pc s) ->
-  init_pc m (pc s') ->
-  evalsto m n p s r -> n <= N ->
-  evalsto m n' p' s' r' -> n' <= N ->
-  compat sgn s s0 ->
-  compat sgn s' s0 ->
-  exists br, exists br',
-  border b br /\
-  border b' br' /\
-  rindist sgn br br' r r'.
-*)
 
 Definition ni :=
-  forall m p p' sgn s s' r r',
+  forall m p p' sgn s s' r r' rt,
   P (SM m sgn) ->
-  indist sgn rt0 rt0 s s' ->
+  rt0 m rt ->
+  indist sgn rt rt s s' ->
   pc s = pc s' ->
   init_pc m (pc s) ->
   init_pc m (pc s') ->
   evalsto m p s r ->
   evalsto m p' s' r' ->
-  compat sgn s rt0 ->
-  compat sgn s' rt0 ->
+  compat sgn s rt ->
+  compat sgn s' rt ->
   rindist sgn r r'.
   
   
@@ -229,76 +182,6 @@ Variable indist2_return : forall m sgn se rt s s' u u' (* kd kd' *),
   compat sgn s' rt ->
     rindist sgn u u'.
 
-(* Variable indist2_intra_return : forall m sgn se rt ut s s' u u' kd kd',
-(*   (forall k, k<N -> ni k) -> *)
-  forall H0:P (SM m sgn),
-  indist sgn rt rt s s' ->
-  pc s = pc s' ->
-  exec m kd s (inl _ u) -> 
-  exec m kd' s' (inr _ u')-> 
-  texec m (PM_P _ H0) sgn se (pc s) kd rt (Some ut) ->
-  texec m (PM_P _ H0) sgn se (pc s) kd' rt None ->
-  compat sgn s rt ->
-  compat sgn s' rt ->
-    irindist sgn ut u u'.
- *)
-(*
-   Variable bexec_high_se : forall m sgn se i kd s st b b',
-   ~ leql (se i) observable ->
-   bexec m sgn se i kd s st b b' -> b=b'.
-*)
-
-(*
-Variable indist1_intra : forall m sgn se b bu st ut ut' s u u' n kd
-  (H:P (SM m sgn)),
-  ~ leql (se (pc u)) observable ->
-  high_opstack ut u ->
-  indist sgn st ut b bu s u ->
-  exec m n kd u (inl _ u') ->
-  texec m (PM_P _ H) sgn se (pc u) kd ut (Some ut') ->
-  compat sgn u ut ->
-  indist sgn st ut' b bu s u'.
-
-Variable indist1_intra_return : forall m sgn se st ut b bu s u u' n kd
-  (H:P (SM m sgn)),
-  ~ leql (se (pc u)) observable ->
-  high_opstack ut u ->
-  indist sgn st ut b bu s u ->
-  exec m n kd u (inr _ u') ->
-  texec m (PM_P _ H) sgn se (pc u) kd ut None ->
-  compat sgn u ut ->
-  irindist sgn st b bu s u'.
-
-Variable indist1_return_intra : forall m sgn se ut ut' b bu s u u' n kd
-  (H:P (SM m sgn)),
-  ~ leql (se (pc u)) observable ->
-  high_opstack ut u ->
-  irindist sgn ut bu b u s ->
-  exec m n kd u (inl _ u') ->
-  texec m (PM_P _ H) sgn se (pc u) kd ut (Some ut') ->
-  compat sgn u ut ->
-  irindist sgn ut' bu b u' s.
-
-Variable indist1_return : forall m sgn se ut s u u' kd
-  (H:P (SM m sgn)),
-  ~ leql (se (pc u)) observable ->
-(*   high_opstack ut u -> *)
-  irindist sgn ut u s ->
-  exec m kd u (inr _ u') ->
-  texec m (PM_P _ H) sgn se (pc u) kd ut None ->
-  compat sgn u ut ->
-  rindist sgn u' s.
-
-Variable opstack1: forall m sgn se st st' n k s s'
-  (H:P (SM m sgn)),
-  ~ leql (se (pc s)) observable ->
-  high_opstack st s ->
-  exec m n k s (inl _ s') -> 
-  texec m (PM_P _ H) sgn se (pc s) k st (Some st') ->
-  compat sgn s st ->
-  high_opstack st' s'.
-*)
-
 (* high branching *)
 Variable soap2_basic_intra : forall m sgn se rt ut ut' s s' u u' (* kd kd' *),
 (*   (forall k, k<N -> ni k) -> *)
@@ -315,7 +198,7 @@ Variable soap2_basic_intra : forall m sgn se rt ut ut' s s' u u' (* kd kd' *),
 (*   high_opstack ut u /\ *)
   (forall j:PC, (region (cdr m (PM_P _ h)) (pc s) (* kd *) j) -> ~ leql (se j) observable).
 
-Variable soap2_basic_return : forall m sgn se rt ut s s' u u' (* kd kd' *),
+(* Variable soap2_basic_return : forall m sgn se rt ut s s' u u' (* kd kd' *),
 (*   (forall k, k<N -> ni k) -> *)
   forall (h:P (SM m sgn)),
   indist sgn rt rt s s' -> 
@@ -329,9 +212,9 @@ Variable soap2_basic_return : forall m sgn se rt ut s s' u u' (* kd kd' *),
 (*   high_opstack ut u /\ *)
   (forall j:PC, region (cdr m (PM_P _ h)) (pc s) (* kd *) j -> ~ leql (se j) observable)
   (*    /\  
-  (forall j:PC, region (cdr m (PM_P _ h)) (pc s) (* kd' *) j -> ~ leql (se j) observable) *).
+  (forall j:PC, region (cdr m (PM_P _ h)) (pc s) (* kd' *) j -> ~ leql (se j) observable) *). *)
 
-Variable sub : typeregisters -> typeregisters -> Prop.
+Variable sub : registertypes -> registertypes -> Prop.
 (* Variable sub_high_opstack : forall st1 st2 s,
   high_opstack st1 s -> sub st1 st2 -> high_opstack st2 s. *)
 (* Variable sub_double : forall sgn st1 st2 st s1 s2 b1 b2,
@@ -355,7 +238,7 @@ Variable sub_compat : forall sgn s rt1 rt2,
   compat sgn s rt1 ->
   compat sgn s rt2.
 
-Inductive typed_exec (m:Method) (H:PM m) (sgn:Sign) (se:PC->L.t) (RT:PC->typeregisters) 
+Inductive typed_exec (m:Method) (H:PM m) (sgn:Sign) (se:PC->L.t) (RT:PC->registertypes) 
 : (* nat ->  Kind ->*) istate -> istate + rstate -> Prop :=
   typed_exec_def1 : forall (* kd *) s1 s2 rt',
    exec m (* kd *) s1 (inl _ s2) ->
@@ -367,7 +250,7 @@ Inductive typed_exec (m:Method) (H:PM m) (sgn:Sign) (se:PC->L.t) (RT:PC->typereg
    texec m H sgn se (pc s1) (* kd *) (RT (pc s1)) None ->
    typed_exec m H sgn se RT (* kd *) s1 (inr _ s2).
 
-Inductive tevalsto (m:Method) (H:PM m) (sgn:Sign) (se:PC->L.t) (RT:PC->typeregisters) : nat -> (* nat -> *) istate -> rstate -> Prop :=
+Inductive tevalsto (m:Method) (H:PM m) (sgn:Sign) (se:PC->L.t) (RT:PC->registertypes) : nat -> (* nat -> *) istate -> rstate -> Prop :=
   | tevalsto_res : forall (* k *) s res,
       typed_exec m H sgn se RT (* k *) s (inr _ res) -> tevalsto m H sgn se RT 1 s res
   | tevalsto_intra : forall (* k *) n s1 s2 res,
@@ -398,8 +281,8 @@ Variable high_result_indist : forall sgn res res0,
   high_result sgn res -> high_result sgn res'. *)
 (* *)
 
-Definition Typable (m:Method) (H:PM m) (sgn:Sign) (se:Method->Sign->PC->L.t) (RT:Method->Sign->PC->typeregisters) : Prop :=
-  (forall i, init_pc m i -> RT m sgn i = rt0) /\
+Definition Typable (m:Method) (H:PM m) (sgn:Sign) (se:Method->Sign->PC->L.t) (RT:Method->Sign->PC->registertypes) : Prop :=
+  (forall i rt, init_pc m i -> rt0 m rt -> RT m sgn i = rt) /\
   (forall i (* kd *),
      m |- i =>(*kd*) ->
      texec m H sgn (se m sgn) i (* kd *) (RT m sgn i) None) /\
@@ -467,7 +350,7 @@ Proof.
   apply H0 with m s p H1; auto.
   apply typable_evalsto; auto.
   destruct (H _ _ H1) as [T1 _].
-  rewrite T1; auto.
+  rewrite T1 with (rt:=rt); auto.
 Qed.
  
 Lemma wf_eval_induction : forall se RT,
@@ -487,23 +370,24 @@ Proof.
   apply compat_exec_intra with m (se m sgn) (* k  *)s1 (RT m sgn (pc s1)) H0; auto.
 Qed. 
 
-Lemma safe_cmp : forall se RT,
+Lemma safe_cmp : forall se RT rt,
   TypableProg se RT -> 
   forall m sign s r p (h:P (SM m sign)),
   init_pc m (pc s) -> 
-  compat sign s rt0 ->
+  rt0 m rt ->
+  compat sign s rt ->
   evalsto m p s r ->
   compat_res sign r.
 Proof.
   intros.
   generalize (wf_eval_cmp se RT); unfold cmp; intros.
-  eapply H3; eauto.
+  eapply H4; eauto.
   apply wf_eval_induction; auto.
 Qed.
 
 Section TypableProg.
 Variable se : Method -> Sign -> PC -> L.t.
-Variable RT : Method -> Sign -> PC -> typeregisters.
+Variable RT : Method -> Sign -> PC -> registertypes.
 Variable T : TypableProg se RT.
 
 Definition high_region m (h:PM m) sgn (i:PC) (*kd:Kind*) := 
@@ -538,169 +422,8 @@ Proof.
   apply wf_eval_induction; auto. *)
 Qed.
 
-(*
-Definition tses N  :=
-  forall m sgn s r (h:P (SM m sgn)),
-  tevalsto m (PM_P _ h) sgn (se m sgn) (RT m sgn) s r -> 
-  compat sgn s (RT m sgn (pc s)) ->
-  side_effect sgn s (inr _ r).
-
-Lemma tses_ses : forall n, tses n -> ses n.
-Proof.
-  unfold tses, ses; intros.
-  apply H with m n0 p H0; auto.
-  apply typable_evalsto; auto.
-  destruct (T _ _ H0) as [T1 [T2 T3]].
-  rewrite T1; auto.
-Qed.
-
-Lemma ses_induction : forall n, tses n.
-Proof.
-  intros n.
-  apply lt_wf_ind; clear n; intros.
-  unfold tses.
-  induction 1; intros.
-  inversion_mine H0.
-  apply side_effect_exec_return with m (se m sgn) n0 k (S m sgn (pc s)) h; auto.
-  intros; apply tses_ses; apply H; omega.
-  inversion_mine H0; auto.
-  apply side_effect_trans with s2.
-  apply side_effect_exec_intra with m (se m sgn) n1 k (S m sgn (pc s1)) st' h; auto.
-  intros; apply tses_ses; apply H; omega.
-  apply IHtevalsto; auto; try omega.
-  eapply wf_step_intra; eauto.
-Qed.
-*)
-
-
-(* Step consistent on junction point *)
-(* Lemma bighighstep : forall m sgn i s0 s res ns kd
-  (H:P (SM m sgn)),
-  compat sgn s (RT m sgn (pc s)) -> 
-  region (cdr m (PM_P _ H)) i kd (pc s)-> 
-  indist sgn (RT m sgn (pc s0)) (RT m sgn (pc s)) s0 s ->
-  evalsto m ns s res-> 
-  high_region m (PM_P _ H) sgn i kd ->
-(*   high_opstack (S m sgn (pc s)) s -> *)
-  (exists u, exists ps,
-    indist sgn (RT m sgn (pc s0)) (RT m sgn (pc u)) s0 u /\ 
-    junc (cdr m (PM_P _ H)) i kd (pc u) /\ 
-    evalsto m ps u res /\ lt ps ns /\
-(*     high_opstack (S m sgn (pc u)) u /\  *)
-    compat sgn u (RT m sgn (pc u))) 
-  \/ 
-  (exists u, high_result sgn res /\ region (cdr m (PM_P _ H)) i kd (pc u) /\ 
-    result (step m) (pc u) /\ compat sgn u (RT m sgn (pc u)) )
-  (*exists u, 
-    irindist sgn (RT m sgn (pc s0)) s0 res /\ region (cdr m (PM_P _ H)) i kd (pc u) /\ 
-    result (step m) (pc u) /\ compat sgn u (RT m sgn (pc u))*).
-Proof.
- intros.
- induction H3.
- right.
- exists s; repeat split; auto.
- apply tevalsto_high_result with m (PM_P _ H) (se m sgn) (RT m sgn) s; auto.
- constructor 1 with k. constructor; auto.
- destruct (T _ _ H) as [U1 [U2 U3]]. apply U2; auto. apply exec_step_none with (s':=res) (1:=PM_P _ H); auto.
- exists k; eapply exec_step_none with (1:=PM_P _ H); eauto.
-(*  eapply indist1_intra_return; eauto.
- destruct (T _ _ H) as [_ [T1 T2]].
- apply T1.
- eapply exec_step_none; eauto.
-  apply PM_P with (1:=H).
- exists k; eapply exec_step_none; eauto.
-  apply PM_P with (1:=H). *)
- (**)
- destruct (T _ _ H) as [_ [_ T2]].
- destruct (T2 (pc s1) (pc s2) k) as [rt [T1 T3]].
- eapply exec_step_some; eauto.
-  apply PM_P with (1:=H).
-(*  assert (high_opstack st s3).
- eapply opstack1; eauto. *) 
- elim soap2 with PC Kind (step m) (cdr m (PM_P _ H)) i (pc s1) (pc s2) k kd; intros; auto.
- elim IHevalsto; clear IHevalsto; auto.
- intros [u [ps [U1 [U2 [U3 [U4 U5]]]]]].
- left; exists u; exists ps; repeat split; auto; omega.
- eapply wf_step_intra; eauto.
- apply sub_simple with rt; auto.
- eapply indist1_intra with (3:=H2); eauto.
- eapply sub_high_opstack; eauto.
- left; exists s3; exists n2; exists n; repeat split; auto.
- apply sub_simple with st; auto.
- eapply indist1_intra with (3:=H2); eauto.
- omega.
- eapply sub_high_opstack; eauto.
- eapply wf_step_intra; eauto.
- eapply exec_step_some; eauto.
-  apply PM_P with (1:=H).
-Qed.  *)
-
-
 Hint Immediate indist_sym rindist_sym.
 Hint Resolve exec_step_some wf_step_intra exec_step_none.
-(*  
-Lemma bighighstep_with_junc :forall m sgn i s' s res n res' n' ns ns' kd kd' b' b
-  (H:P (SM m sgn)),
-  compat sgn s' (S m sgn (pc s')) -> 
-  compat sgn s (S m sgn (pc s)) -> 
-  junc (cdr m (PM_P _ H)) i kd' (pc s') -> 
-  region (cdr m (PM_P _ H)) i kd (pc s)-> 
-  indist sgn (S m sgn (pc s')) (S m sgn (pc s)) b' b s' s ->
-  evalsto m n' ns' s' res' -> 
-  evalsto m n ns s res-> 
-  high_region m  (PM_P _ H) sgn i kd ->
-  high_opstack (S m sgn (pc s)) s -> 
-  high_region m (PM_P _ H) sgn i kd' ->
-  high_opstack (S m sgn (pc s')) s' -> 
-(exists t, exists t', exists p, exists p', exists ps, exists ps',
-    indist sgn (S m sgn (pc t')) (S m sgn (pc t)) b' b t' t /\
-    pc t = pc t' /\ 
-    evalsto m p ps t res /\ le p n /\ le ps ns /\
-    evalsto m p' ps' t' res' /\ le p' n' /\ le ps' ns' /\
-    compat sgn t (S m sgn (pc t)) /\
-    compat sgn t' (S m sgn (pc t'))) 
-  \/ rindist sgn b b' res res'.
-Proof.
-  intros.
-  elim bighighstep with m sgn i s' s res n ns kd b b' H; auto; intros; Cleanexand.
-  left.
-  elim eq_excluded_middle with Kind kd kd'; [intros; subst|intros].
-  assert (pc x= pc s').
-  eapply (junc_func (cdr m (PM_P _ H))); eauto.
-  exists x; exists s'; exists x0; exists n'; exists x1; exists ns'; repeat split; auto.
-  rewrite H18 in H11; auto.
-  omega.
-  elim soap4 with (1:=H12) (2:=H2); intros; auto.
-  exists x; exists s'; exists x0; exists n'; exists x1; exists ns'; repeat split; auto.
-  rewrite H19 in H11; auto.
-  omega.
-  destruct H19.
-  elim bighighstep with m sgn i s s' res' n' ns' kd b' b H; auto; intros; Cleanexand.
-  assert (pc x = pc x2).
-  eapply (junc_func (cdr m (PM_P _ H))); eauto.
-  exists x; exists x2; exists x0; exists x3; exists x1; exists x4; repeat split; auto.
-  apply indist_trans with (S m sgn (pc s')) b' s'; auto.
-  apply indist_trans with (S m sgn (pc s)) b s; auto.
-  omega.
-  omega.
-  elim (soap3 (cdr m (PM_P _ H))) with i (pc x2) (pc x) kd; auto.
-  elim bighighstep with m sgn i s' x res x0 x1 kd' b b' H; auto; intros; Cleanexand.
-  assert (pc x2 = pc s').
-  eapply (junc_func (cdr m (PM_P _ H))); eauto.
-  exists x2; exists s'; exists x3; exists n'; exists x4; exists ns'; repeat split; auto.
-  rewrite H27 in H20; auto.
-  omega.
-  omega.
-  elim (soap3 (cdr m (PM_P _ H))) with i (pc x2) (pc s') kd'; auto.
-  assert (T1:region (cdr m (PM_P _ H)) i kd (pc s')).
-  apply (soap5 (cdr m (PM_P _ H))) with (pc x) kd'; auto.
-  elim bighighstep with m sgn i s s'  res' n' ns' kd b' b H; auto;
-  intros; Cleanexand.
-  elim (soap3 (cdr m (PM_P _ H))) with i (pc x) (pc x0) kd; auto.
-  right.
-  eapply indist_irindist_trans; eauto.
-Qed.
-*)
 
 Lemma final_bighighstep_aux : forall m sgn i p s res (* kd *) (H: P (SM m sgn)),
   compat sgn s (RT m sgn (pc s)) ->
@@ -1236,11 +959,11 @@ Proof.
   unfold tni, ni; intros.
   destruct (T _ _ H0) as [T1 [T2 T3]].
   apply H with m p p' s s' H0; auto.
-  rewrite T1; auto.
+  rewrite T1 with (rt:=rt); auto.
   apply typable_evalsto; auto.
   apply typable_evalsto; auto.
-  rewrite T1; auto.
-  rewrite T1; auto.
+  rewrite T1 with (rt:=rt); auto.
+  rewrite T1 with (rt:=rt); auto.
 Qed.
 
 Lemma ni_ind : tni.

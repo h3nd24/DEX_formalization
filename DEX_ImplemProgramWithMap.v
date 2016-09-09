@@ -446,7 +446,7 @@ Module DEX_Make <: DEX_PROGRAM.
       max_locals : nat;
       max_operand_stack_size : nat;
       (* DEX type system locR *)
-      locR : nat
+      locR : list DEX_Reg
     }.
     
     Definition instructionAt (bm:t) (pc:DEX_PC) : option DEX_Instruction :=
@@ -480,7 +480,7 @@ Module DEX_Make <: DEX_PROGRAM.
     Parameter max_locals : DEX_BytecodeMethod -> nat.
     Parameter max_operand_stack_size : DEX_BytecodeMethod -> nat.
     (* DEX type system locR *)
-    Parameter locR : DEX_BytecodeMethod -> nat.
+    Parameter locR : DEX_BytecodeMethod -> list DEX_Reg.
 
     Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
@@ -536,8 +536,8 @@ Module DEX_Make <: DEX_PROGRAM.
 
     (* DEX type system locR *)
     Definition within_locR (m:t) (x:DEX_Reg) : Prop :=
-      forall bm, body m = Some bm ->
-        ((Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm))%nat.
+      forall bm, body m = Some bm -> In x (DEX_BYTECODEMETHOD.locR bm).
+(*         ((Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm))%nat. *)
   End DEX_METHOD.
   
   Definition DEX_Method := DEX_METHOD.t.
@@ -565,8 +565,8 @@ Module DEX_Make <: DEX_PROGRAM.
 *)
     (* DEX type system locR *)
     Definition within_locR (m:DEX_Method) (x:DEX_Reg) : Prop :=
-      forall bm, body m = Some bm ->
-        ((Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm))%nat.
+      forall bm, body m = Some bm -> In x (DEX_BYTECODEMETHOD.locR bm).
+(*         ((Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm))%nat. *)
 
   End DEX_METHOD_TYPE.
 

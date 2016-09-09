@@ -456,7 +456,7 @@ Module Type DEX_PROGRAM.
     (** max number of elements on the operand stack *)
     Parameter max_operand_stack_size : DEX_BytecodeMethod -> nat.
     (* DEX for type system *)
-    Parameter locR : DEX_BytecodeMethod -> nat.
+    Parameter locR : DEX_BytecodeMethod -> list DEX_Reg.
 
     Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
@@ -494,9 +494,9 @@ Module Type DEX_PROGRAM.
 
     (* DEX additional for locR *)
     Definition within_locR (m:DEX_Method) (x:DEX_Reg) : Prop :=
-      forall bm, body m = Some bm ->
-         (Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm).
-
+      forall bm, body m = Some bm -> In x (DEX_BYTECODEMETHOD.locR bm).
+(*          (Reg_toN x) <= (DEX_BYTECODEMETHOD.locR bm).
+ *)
     End DEX_METHOD_TYPE.
   Declare Module DEX_METHOD : DEX_METHOD_TYPE.
 
