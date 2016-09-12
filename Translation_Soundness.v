@@ -10,37 +10,129 @@ Lemma silly : forall rt1 rt2 l a maxLocals lvt,
   tsub_rec rt1 rt2 (BinNatMap.dom _ (translate_st_rt (a::l) maxLocals lvt)) = true.
 *)
 
-Parameter random_sub : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
+Parameter in_i_st_ts_i : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
     (i:DEX_PC), In i (s_t (t_s i)).
 
-(* TODO : Lemma random_sub2 : forall s_t t_s i j oj ins tau codes jump_address,
+Lemma random_sub2 : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC) 
+  i j oj ins tau codes jump_address,
   oj = Some j -> Step_final.DEX_step codes jump_address i ins tau oj ->
   i <> last (s_t (t_s i)) (i) -> t_s i = t_s j.
+Proof.
+  admit.
+Qed.
+(* Handwaving idea :
+  do a case analysis on the instruction at (t_s i):
+  - suppose it is nop (or other sequential instruction that translates only into 1 instruction)
+    by definition i = last (s_t (t_s i)) so this lemma doesn't apply
+  - suppose it is swap. (s_t (t_s i)) = [i i+1 i+2 i+3] / [i-1 i i+1 i+2] / [i-2 i-1 i i+1] / [i-3 i-2 i-1 i]
+    and the last case will be by definition not included in the lemma.
+    In any other case, we know that it will be the case step i i+1,
+    and we know that t_s i = t_s i+1, so the lemma holds.
 *)
+
+
+Lemma random_sub3 : forall (A:Type) (t:list A) (i d:A), 
+  NoDup (i::d::t) -> In i (i :: d :: t) ->
+  i <> last (i::d::t) i.
+Proof.
+  intros A t.
+  induction t. 
+  (* base case *)
+  intros. unfold not. intros. simpl in H1. 
+  subst. inversion H. unfold not in H3. subst.
+  apply H3. apply in_eq.
+  (* induction case *)
+  unfold not; intros.
+(* 
+  assert (forall l, i::d::l = (i::d::nil)++l); auto.
+  rewrite H2 in H. apply NoDup_remove_1 in H.
+  rewrite <- H2 in H. 
+*)
+  apply IHt in H1. inversion H1.
+  assert (forall l, i::l = (i::nil)++l); auto.
+  rewrite H2 in H. apply NoDup_remove_1 in H. auto.
+  apply in_eq.
+Qed.
+
+Lemma nodup_st_i : forall (s_t:JVM_PC -> list DEX_PC) i, NoDup (s_t i).
+Proof. admit. Qed.
 
 (* TODO : Lemma random2 : forall s_t t_s i j oj ins tau codes jump_address,
   oj = Some j -> Step_final.DEX_step codes jump_address i ins tau oj ->
   t_s i = t_s j -> tsub_rt (RT i) (RT j).
 *)
 
-Lemma random : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
+Lemma NoDup_remove3 : forall (l:list N) a d, 
+  NoDup (a::d::l) -> NoDup (d::l).
+Proof.
+  intros. inversion H; auto. 
+Qed.
+
+Lemma different_source_last_i : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
     (i j:DEX_PC) (oj:option DEX_PC) ins tau codes jump_address,
   oj = Some j ->
   Step_final.DEX_step codes jump_address i ins tau oj -> t_s i <> t_s j ->
   i = last (s_t (t_s i)) (i).
 Proof.
-  intros s_t t_s i. assert (H:=random_sub s_t t_s i). induction (s_t (t_s i)); auto. 
+  intros s_t t_s i.
+  assert (H:=in_i_st_ts_i s_t t_s i). 
+  assert (T:=nodup_st_i s_t (t_s i)).
+  assert (T2:=random_sub2 s_t t_s i).
+  induction (s_t (t_s i)); auto. 
   destruct l. 
   intros. simpl. 
   (* case when there is only one instruction in the list *)
   inversion H; auto. inversion H3.
   destruct (N.eq_dec i a).
-  (* impossible case *) intros. admit.
+  (* impossible case *) intros.
+  (*apply random_sub2 with (s_t:=s_t) (t_s:=t_s) (i:=i) (ins:=ins). *)
+  apply T2 with (ins:=ins)
+  (tau:=tau) (codes:=codes) (jump_address:=jump_address) in H0; auto.
+  unfold not in H2; apply H2 in H0; inversion H0.
+  subst. apply random_sub3 in T; auto. 
   apply in_inv in H. destruct H. unfold not in n.
   symmetry in H; apply n in H; inversion H.
-  generalize H. 
-  assert (last (a :: d :: l) (t_s i) = last (d :: l) (t_s i)); auto.
-  (*destruct (last (a :: l) (t_s i)).*)
+  apply NoDup_remove3 in T.
+  generalize T. generalize H. 
+  assert (last (a :: d :: l) (i) = last (d :: l) (i)); auto.
+  rewrite H0. intro; intro; intro. apply IHl; auto.
+Qed.
+
+Lemma different_source_first_j : forall (s_t:JVM_PC -> list DEX_PC) (t_s:DEX_PC -> JVM_PC)
+    (i j:DEX_PC) (oj:option DEX_PC) ins tau codes jump_address,
+  oj = Some j ->
+  Step_final.DEX_step codes jump_address i ins tau oj -> t_s i <> t_s j ->
+  j = hd (j) (s_t (t_s j)).
+Proof.
+  intros s_t t_s i j. generalize dependent i.
+  assert (H:=in_i_st_ts_i s_t t_s j). 
+  assert (T:=nodup_st_i s_t (t_s j)).
+  destruct (s_t (t_s j)); auto. intros. 
+  destruct (N.eq_dec j d).
+  (* normal case *) auto.
+  (* impossible case *) apply False_ind.
+  apply in_inv in H. destruct H. auto. unfold not in n.
+  simpl. 
+  apply NoDup_remove_2 with (l:=nil) (l':=l) (a:=d) in T .
+  simpl in T.
+  NoDup inversion T. subst.
+  
+  destruct l. 
+  intros. simpl. 
+  (* case when there is only one instruction in the list *)
+  inversion H; auto. inversion H3. simpl.
+  destruct (N.eq_dec j a).
+  (* normal case *) auto.
+  (* impossible case *)
+  apply in_inv in H. destruct H. auto. unfold not in n.
+  symmetry in H; apply n in H; inversion H.
+  
+  (*apply NoDup_remove3 in T.
+  generalize T.*) generalize H. 
+  (*assert (last (a :: d :: l) (i) = last (d :: l) (i)); auto.
+  rewrite H0. intro; intro; intro.*) 
+  simpl.
+  apply IHl; auto.
 Qed.
 
 (**)

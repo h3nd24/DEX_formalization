@@ -73,7 +73,9 @@ Open Scope type_scope.
 
     | DEX_move : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
 (*       ~In r locR -> *)
-      BinNatMap.get _ rt rs = Some k_rs ->
+      In r (VarMap.dom _ rt) ->
+      In rs (VarMap.dom _ rt) ->
+      VarMap.get _ rt rs = Some k_rs ->
       texec i (DEX_Move k r rs) (* None *) rt
         (Some (BinNatMap.update _ rt r ((se i) U k_rs)))
 
@@ -98,7 +100,8 @@ Open Scope type_scope.
       texec i (DEX_Return) (* None *) rt None
 
     | DEX_vReturn : forall i (rt:TypeRegisters) k_r kv (k:DEX_ValKind) (r:DEX_Reg),
-      BinNatMap.get _ rt r = Some k_r ->
+      In r (VarMap.dom _ rt) ->
+      VarMap.get _ rt r = Some k_r ->
       sgn.(DEX_resType) = Some kv ->
       ((se i) U k_r) <= kv -> 
       texec i (DEX_VReturn k r) (* None *) rt None

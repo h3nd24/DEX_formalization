@@ -20,6 +20,7 @@
   | const : forall (*h*) m pc pc' regs regs' k rt v,
 
     instructionAt m pc = Some (DEX_Const k rt v) ->
+    In rt (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     (-2^31 <= v < 2^31)%Z ->
     DEX_METHOD.valid_reg m rt ->
@@ -30,6 +31,8 @@
   | move_step_ok : forall (*h*) m pc pc' regs regs' k rt rs v,
 
     instructionAt m pc = Some (DEX_Move k rt rs) ->
+    In rt (DEX_Registers.dom regs) ->
+    In rs (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some v = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -169,6 +172,8 @@
   | ifcmp_step_jump : forall (*h*) m pc regs va vb cmp ra rb o,
 
     instructionAt m pc = Some (DEX_Ifcmp cmp ra rb o) ->
+    In ra (DEX_Registers.dom regs) ->
+    In rb (DEX_Registers.dom regs) ->
     Some (Num (I va)) = DEX_Registers.get regs ra ->
     Some (Num (I vb)) = DEX_Registers.get regs rb ->
     SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -180,6 +185,8 @@
   | ifcmp_step_continue : forall (*h*) m pc pc' regs va vb cmp ra rb o,
     
     instructionAt m pc = Some (DEX_Ifcmp cmp ra rb o) ->
+    In ra (DEX_Registers.dom regs) ->
+    In rb (DEX_Registers.dom regs) ->
     Some (Num (I va)) = DEX_Registers.get regs ra ->
     Some (Num (I vb)) = DEX_Registers.get regs rb ->
     ~SemCompInt cmp (Int.toZ va) (Int.toZ vb) ->
@@ -192,6 +199,7 @@
   | ifz_step_jump : forall (*h*) m pc regs v cmp r o,
 
     instructionAt m pc = Some (DEX_Ifz cmp r o) ->
+    In r (DEX_Registers.dom regs) ->
     Some (Num (I v)) = DEX_Registers.get regs r ->
     SemCompInt cmp (Int.toZ v) (0) ->
     DEX_METHOD.valid_reg m r ->
@@ -201,6 +209,7 @@
   | ifz_step_continue : forall (*h*) m pc pc' regs v cmp r o,
     
     instructionAt m pc = Some (DEX_Ifz cmp r o) ->
+    In r (DEX_Registers.dom regs) ->
     Some (Num (I v)) = DEX_Registers.get regs r ->
     ~SemCompInt cmp (Int.toZ v) (0) ->
     next m pc = Some pc' ->
@@ -283,6 +292,8 @@
   | ineg_step : forall (*h*) m pc regs regs' pc' rt rs v,
 
     instructionAt m pc = Some (DEX_Ineg rt rs) ->
+    In rt (DEX_Registers.dom regs) ->
+    In rs (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -295,6 +306,8 @@
   | inot_step : forall (*h*) m pc regs regs' pc' rt rs v,
 
     instructionAt m pc = Some (DEX_Inot rt rs) ->
+    In rt (DEX_Registers.dom regs) ->
+    In rs (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -307,6 +320,8 @@
   | i2b_step_ok : forall (*h*) m pc pc' regs regs' rt rs v,
 
     instructionAt m pc = Some (DEX_I2b rt rs) ->
+    In rt (DEX_Registers.dom regs) ->
+    In rs (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -319,6 +334,8 @@
   | i2s_step_ok : forall (*h*) m pc pc' regs regs' rt rs v,
 
     instructionAt m pc = Some (DEX_I2s rt rs) ->
+    In rt (DEX_Registers.dom regs) ->
+    In rs (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some (Num (I v)) = DEX_Registers.get regs rs ->
     DEX_METHOD.valid_reg m rt ->
@@ -330,6 +347,9 @@
   | ibinop_step_ok : forall (*h*) m pc pc' regs regs' op rt ra rb va vb,
 
     instructionAt m pc = Some (DEX_Ibinop op rt ra rb) ->
+    In rt (DEX_Registers.dom regs) ->
+    In ra (DEX_Registers.dom regs) ->
+    In rb (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     (*(op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0) -> at this moment there is no exception*)
     Some (Num (I va)) = DEX_Registers.get regs ra ->
@@ -344,6 +364,8 @@
   | ibinopconst_step_ok : forall (*h*) m pc pc' regs regs' op rt r va v,
 
     instructionAt m pc = Some (DEX_IbinopConst op rt r v) ->
+    In r (DEX_Registers.dom regs) ->
+    In rt (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     (*(op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0) -> at this moment there is no exception*)
     Some (Num (I va)) = DEX_Registers.get regs r ->
@@ -507,6 +529,7 @@
   | vreturn : forall (*h*) m pc regs val t k rs,
     (* Implicit in the assumption is that the register has a value in it *)
     instructionAt m pc = Some (DEX_VReturn k rs) ->
+    In rs (DEX_Registers.dom regs) ->
     DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = Some t ->
     assign_compatible p (*h*) val t ->
     compat_ValKind_value k val ->

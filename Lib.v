@@ -89,6 +89,12 @@ Proof.
   injection H; injection H0; intros; eapply IHl1; eauto.
 Qed.
 
+Lemma not_none_some : forall (A:Type) (a:option A) (b:A), 
+  a <> None -> exists b, a = Some b.
+Proof.
+  intros; destruct a; try(exists a; auto); try (apply False_ind; auto).
+Qed.
+
 Section eq_dec.
   Variable t:Set.
   Variable P:t->t->Prop.
