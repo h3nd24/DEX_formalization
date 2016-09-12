@@ -46,9 +46,10 @@ Inductive Reg_in (observable:L.t) :
 | Reg_nhigh_in : forall k k' v v', Value_in v v' -> Reg_in observable k k' v v'.
 
 Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) : Prop :=
-| Build_Regs_in : 
+| Build_Regs_in : VarMap.dom _ rt = VarMap.dom _ rt' ->
   (forall (rn:DEX_Reg),
-  In rn (VarMap.dom _ rt) -> In rn (VarMap.dom _ rt') -> (forall v v' k k',
+  In rn (VarMap.dom _ rt) -> In rn (VarMap.dom _ rt') -> 
+  (forall v v' k k',
   Some v = DEX_Registers.get r rn -> Some v' = DEX_Registers.get r' rn ->
   Some k = VarMap.get _ rt rn -> Some k' = VarMap.get _ rt' rn ->
   Reg_in observable k k' v v')) -> Regs_in observable r r' rt rt'.
@@ -253,7 +254,7 @@ Section p.
     constructor 2; auto.
   Qed. 
 
- Lemma Regs_in_inv : forall r1 r2 rt1 rt2,
+ (* Lemma Regs_in_inv : forall r1 r2 rt1 rt2,
     Regs_in kobs r1 r2 rt1 rt2 -> forall (rn:DEX_Reg), In rn (VarMap.dom _ rt1) -> In rn (VarMap.dom _ rt2) ->
     (forall k k', Some k = VarMap.get _ rt1 rn -> Some k' = VarMap.get _ rt2 rn ->
       (~L.leql k kobs /\ ~L.leql k' kobs)) \/ 
@@ -261,15 +262,18 @@ Section p.
   Proof.
     intros.
     inversion H.
-    specialize (H2 rn H0 H1).
+    specialize (H3 rn H0 H1).
     apply VarMap.in_dom_get_some in H0.
-    assert (VarMap.get L.t rt1 rn <> None -> exists n, VarMap.get L.t rt1 rn = Some n).
-      
-    intros.
+    apply VarMap.in_dom_get_some in H1.
+    apply not_none_some with (A:=L.t) (a:=VarMap.get L.t rt1 rn) in H0. admit. apply not_none_some with (A:=L.t) in H1.
+    destruct H0; destruct H1.
+    apply H4 in H0.
+    inversion H0.
+    
     left; split; auto.
     right. repeat (split; auto). 
     admit. admit.
- subst. admit. split; auto.
+ subst. admit. split; auto. *)
       
 
  Lemma Regs_in_sym : forall r1 r2 rt1 rt2,
@@ -278,7 +282,9 @@ Section p.
   Proof.
     induction 1.
     constructor.
-    intros. apply H with (k:=k') (k':=k) (v:=v') (v':=v) in H0; auto.
+    intros. auto.
+    intros.
+    apply H0 with (k:=k') (k':=k) (v:=v') (v':=v) in H3; auto.
     apply Reg_in_sym; auto.
     (*apply Build_Regs_in with (r:=r1) (r':=r2) (rt:=rt1) (rt':=rt2).
     constructor 1 with (rn:=rn) (k:=k') (k':=k) (v:=v') (v':=v); auto.

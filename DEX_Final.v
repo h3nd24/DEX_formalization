@@ -355,7 +355,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
   | sub_cons : forall x1 x2 st1 st2,
     L.leql' x1 x2 -> sub st1 st2 -> sub (x1::st1) (x2::st2). *)
   Inductive sub : registertypes -> registertypes -> Prop :=
-    forall_sub : forall rt1 rt2, 
+    forall_sub : forall rt1 rt2, VarMap.dom _ rt1 = VarMap.dom _ rt2 ->
       (forall r k1 k2, Some k1 = VarMap.get _ rt1 r -> Some k2 = VarMap.get _ rt2 r -> L.leql k1 k2) 
       -> sub rt1 rt2. 
 
@@ -726,15 +726,25 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         inversion_mine H2; constructor; auto; eapply os_in_sub_double; eauto.
       Qed. *)
 
+      Lemma not_none_some : forall (A:Type) (a:option A) (b:A),
+        a <> None -> exists b, a = Some b.
+      Proof.
+        intros. destruct a. exists a; auto.
+          apply False_ind; auto.
+      Qed.
+
       Lemma Regs_in_sub_simple : forall rt rt0 s s0,
         Regs_in kobs s0 s rt0 rt -> forall rt',
           sub rt rt' -> 
           Regs_in kobs s0 s rt0 rt'.
       Proof.
-        induction 1; intros.
+        intros.
         constructor 1; auto.
         intros.
+        inversion H.
         inversion H0; subst.
+        specialize H6 with (r:=rn) (k2:=k').
+        specialize H5 with (rn:=rn) (v:=v) (v':=v') (k:=k).
         destruct (H rn v v' k k'); auto.
         apply Reg_in_inv.
         apply H.
