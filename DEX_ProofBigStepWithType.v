@@ -311,7 +311,7 @@ Proof.
   constructor 2 with t k_r kv; auto.
   simpl in H11. 
 (*   assert (forall a b, L.join a b = L.join b a); intros. destruct a, b; auto. *)
-  rewrite join_sym in H11; auto.
+  rewrite join_sym in H13; auto.
   (* (* exceptions *)
   simpl in *.
   inversion_mine H; DiscrimateEq.

@@ -36,223 +36,242 @@ Proof.
   (* DEX_Move *)
   subst.
   inversion H2.
-  apply H1 with (v:=val) (v':=val0) (k:=k0) (k':=k1) in H5; auto.
-  constructor.
+  (* specialize H10 with (rn:=rt).
+  apply H6 with (v:=val) (v':=val0) (k:=k0) (k':=k1) in H5; auto. *)
+  constructor; auto. 
+  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
 (*     clear H1 H7 H0 H10 H12. *)
-    subst.
-    rewrite VarMap.get_update1 in H11.
-    rewrite VarMap.get_update1 in H13.
-    rewrite DEX_Registers.get_update_new in H6.
-    rewrite DEX_Registers.get_update_new in H8.
-    apply some_eq in H6; apply some_eq in H8; apply some_eq in H11; apply some_eq in H13.
-    apply leql_join_eq in H11.
-    apply leql_join_eq in H13.
-    apply Reg_in_monotony_left with (k'' := k2) in H5; auto.
-    apply Reg_in_sym in H5.
-    apply Reg_in_monotony_left with (k'' := k') in H5; auto.
-    apply Reg_in_sym in H5; subst; trivial.
-    (* rn <> rt *)
-    rewrite VarMap.get_update2 in H11; auto.
-    rewrite VarMap.get_update2 in H13; auto.
-    rewrite DEX_Registers.get_update_old in H6; auto.
-    rewrite DEX_Registers.get_update_old in H8; auto.
-    apply H1 with (k:=k2) (k':=k') (v:=v) (v':=v') in H6; auto.
+    rewrite H25 in H23; rewrite VarMap.get_update1 in H23.
+    rewrite H25 in H24; rewrite VarMap.get_update1 in H24.
+    rewrite H25 in H21; rewrite DEX_Registers.get_update_new in H21.
+    rewrite H25 in H22; rewrite DEX_Registers.get_update_new in H22.
+    apply some_eq in H21; apply some_eq in H22; apply some_eq in H23; apply some_eq in H24.
+    apply leql_join_eq in H23.
+    apply leql_join_eq in H24.
+    rewrite VarMap.domain_inv in H12; auto. rewrite VarMap.domain_inv in H19; auto.
+    apply H10 with (v:=v) (v':=v') (k:=k0) (k':=k1) in H16; auto.
+    apply Reg_in_monotony_left with (k'' := k2) in H16; auto.
+    apply Reg_in_sym in H16. apply Reg_in_monotony_left with (k'' := k') in H16; auto.
+    apply Reg_in_sym in H16; auto.
+    subst; auto. subst; auto. (*  subst; auto.
+    apply Reg_in_sym in H22.
+    apply Reg_in_monotony_left with (k'' := k') in H22; auto.
+    apply Reg_in_sym in H5; subst; trivial. *)
+    (* rn <> rt *) 
+    rewrite VarMap.get_update2 in H23; auto.
+    rewrite VarMap.get_update2 in H24; auto.
+    rewrite DEX_Registers.get_update_old in H21; auto.
+    rewrite DEX_Registers.get_update_old in H22; auto.
+    rewrite VarMap.domain_inv in H12; auto. rewrite VarMap.domain_inv in H19; auto.
+    apply H10 with (k:=k2) (k':=k') (v:=v) (v':=v') in H12; auto.
   (* DEX_Const *)
   subst.
   inversion H2.
   constructor.
+  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H6.
-    rewrite VarMap.get_update1 in H7.
-    rewrite DEX_Registers.get_update_new in H4.
-    rewrite DEX_Registers.get_update_new in H5.
-    apply some_eq in H4; apply some_eq in H5; apply some_eq in H6; apply some_eq in H7.
+    rewrite VarMap.get_update1 in H13.
+    rewrite VarMap.get_update1 in H14.
+    rewrite DEX_Registers.get_update_new in H11.
+    rewrite DEX_Registers.get_update_new in H12.
+    apply some_eq in H11; apply some_eq in H12; apply some_eq in H13; apply some_eq in H14.
     subst; apply Reg_in_refl.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H6; auto.
-    rewrite VarMap.get_update2 in H7; auto.
-    rewrite DEX_Registers.get_update_old in H4; auto.
-    rewrite DEX_Registers.get_update_old in H5; auto.
-    apply H1 with (k:=k0) (k':=k') (v:=v0) (v':=v') in H4; auto.
+    rewrite VarMap.get_update2 in H13; auto.
+    rewrite VarMap.get_update2 in H14; auto.
+    rewrite DEX_Registers.get_update_old in H11; auto.
+    rewrite DEX_Registers.get_update_old in H12; auto.
+    rewrite VarMap.domain_inv in H7; auto. rewrite VarMap.domain_inv in H10; auto.
+    apply H6 with (k:=k0) (k':=k') (v:=v0) (v':=v') in H7; auto.
   (* DEX_Ineg *)
   subst. inversion H2.
-  apply H1 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H4; auto.
+  apply H10 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H6; auto.
   constructor.
+  rewrite VarMap.domain_inv; auto; rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H10.
-    rewrite VarMap.get_update1 in H11.
-    rewrite DEX_Registers.get_update_new in H6.
-    rewrite DEX_Registers.get_update_new in H7.
-    apply some_eq in H6; apply some_eq in H7; apply some_eq in H10; apply some_eq in H11.
-    apply leql_join_eq in H10; apply leql_join_eq in H11.
-    apply Reg_in_monotony_left with (k'' := k1) in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k') in H4; auto.
-    apply Reg_in_sym in H4; subst; auto.
-    inversion H4. constructor 1; auto.
-    constructor 2. inversion H6. constructor.
+    rewrite VarMap.get_update1 in H21.
+    rewrite VarMap.get_update1 in H22.
+    rewrite DEX_Registers.get_update_new in H19.
+    rewrite DEX_Registers.get_update_new in H20.
+    apply some_eq in H19; apply some_eq in H20; apply some_eq in H21; apply some_eq in H22.
+    apply leql_join_eq in H21; apply leql_join_eq in H22.
+    apply Reg_in_monotony_left with (k'' := k1) in H6; auto.
+    apply Reg_in_sym in H6.
+    apply Reg_in_monotony_left with (k'' := k') in H6; auto.
+    apply Reg_in_sym in H6; subst; auto.
+    inversion H6. constructor 1; auto.
+    constructor 2. inversion H19. constructor.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H10; auto.
-    rewrite VarMap.get_update2 in H11; auto.
-    rewrite DEX_Registers.get_update_old in H6; auto.
-    rewrite DEX_Registers.get_update_old in H7; auto.
-    apply H1 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H6; auto.
+    rewrite VarMap.get_update2 in H21; auto.
+    rewrite VarMap.get_update2 in H22; auto.
+    rewrite DEX_Registers.get_update_old in H19; auto.
+    rewrite DEX_Registers.get_update_old in H20; auto.
+    rewrite VarMap.domain_inv in H11; auto; rewrite VarMap.domain_inv in H18; auto.
+    apply H10 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H11; auto.
   (* DEX_Inot *)
   subst. inversion H2.
-  apply H1 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H4; auto.
+  apply H10 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H6; auto.
   constructor.
+  rewrite VarMap.domain_inv; auto; rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H10.
-    rewrite VarMap.get_update1 in H11.
-    rewrite DEX_Registers.get_update_new in H6.
-    rewrite DEX_Registers.get_update_new in H7.
-    apply some_eq in H6; apply some_eq in H7; apply some_eq in H10; apply some_eq in H11.
-    apply leql_join_eq in H10; apply leql_join_eq in H11.
-    apply Reg_in_monotony_left with (k'' := k1) in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k') in H4; auto.
-    apply Reg_in_sym in H4; subst; auto.
-    inversion H4. constructor 1; auto.
-    constructor 2. inversion H6. constructor.
+    rewrite VarMap.get_update1 in H21.
+    rewrite VarMap.get_update1 in H22.
+    rewrite DEX_Registers.get_update_new in H19.
+    rewrite DEX_Registers.get_update_new in H20.
+    apply some_eq in H19; apply some_eq in H20; apply some_eq in H21; apply some_eq in H22.
+    apply leql_join_eq in H21; apply leql_join_eq in H22.
+    apply Reg_in_monotony_left with (k'' := k1) in H6; auto.
+    apply Reg_in_sym in H6.
+    apply Reg_in_monotony_left with (k'' := k') in H6; auto.
+    apply Reg_in_sym in H6; subst; auto.
+    inversion H6. constructor 1; auto.
+    constructor 2. inversion H19. constructor.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H10; auto.
-    rewrite VarMap.get_update2 in H11; auto.
-    rewrite DEX_Registers.get_update_old in H6; auto.
-    rewrite DEX_Registers.get_update_old in H7; auto.
-    apply H1 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H6; auto.
-  (* DEX_I2b *)
+    rewrite VarMap.get_update2 in H21; auto.
+    rewrite VarMap.get_update2 in H22; auto.
+    rewrite DEX_Registers.get_update_old in H19; auto.
+    rewrite DEX_Registers.get_update_old in H20; auto.
+    rewrite VarMap.domain_inv in H11; auto; rewrite VarMap.domain_inv in H18; auto.
+    apply H10 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H11; auto.
+  (* DEX I2b *)
   subst. inversion H2.
-  apply H1 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H4; auto.
+  apply H10 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H6; auto.
   constructor.
+  rewrite VarMap.domain_inv; auto; rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H10.
-    rewrite VarMap.get_update1 in H11.
-    rewrite DEX_Registers.get_update_new in H6.
-    rewrite DEX_Registers.get_update_new in H7.
-    apply some_eq in H6; apply some_eq in H7; apply some_eq in H10; apply some_eq in H11.
-    apply leql_join_eq in H10; apply leql_join_eq in H11.
-    apply Reg_in_monotony_left with (k'' := k1) in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k') in H4; auto.
-    apply Reg_in_sym in H4; subst; auto.
-    inversion H4. constructor 1; auto.
-    constructor 2. inversion H6. constructor.
+    rewrite VarMap.get_update1 in H21.
+    rewrite VarMap.get_update1 in H22.
+    rewrite DEX_Registers.get_update_new in H19.
+    rewrite DEX_Registers.get_update_new in H20.
+    apply some_eq in H19; apply some_eq in H20; apply some_eq in H21; apply some_eq in H22.
+    apply leql_join_eq in H21; apply leql_join_eq in H22.
+    apply Reg_in_monotony_left with (k'' := k1) in H6; auto.
+    apply Reg_in_sym in H6.
+    apply Reg_in_monotony_left with (k'' := k') in H6; auto.
+    apply Reg_in_sym in H6; subst; auto.
+    inversion H6. constructor 1; auto.
+    constructor 2. inversion H19. constructor.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H10; auto.
-    rewrite VarMap.get_update2 in H11; auto.
-    rewrite DEX_Registers.get_update_old in H6; auto.
-    rewrite DEX_Registers.get_update_old in H7; auto.
-    apply H1 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H6; auto.
+    rewrite VarMap.get_update2 in H21; auto.
+    rewrite VarMap.get_update2 in H22; auto.
+    rewrite DEX_Registers.get_update_old in H19; auto.
+    rewrite DEX_Registers.get_update_old in H20; auto.
+    rewrite VarMap.domain_inv in H11; auto; rewrite VarMap.domain_inv in H18; auto.
+    apply H10 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H11; auto.
   (* DEX_I2s *)
   subst. inversion H2.
-  apply H1 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H4; auto.
+  apply H10 with (v:=(Num (I v))) (v':=(Num (I v0))) (k:=k) (k':=k0) in H6; auto.
   constructor.
+  rewrite VarMap.domain_inv; auto; rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H10.
-    rewrite VarMap.get_update1 in H11.
-    rewrite DEX_Registers.get_update_new in H6.
-    rewrite DEX_Registers.get_update_new in H7.
-    apply some_eq in H6; apply some_eq in H7; apply some_eq in H10; apply some_eq in H11.
-    apply leql_join_eq in H10; apply leql_join_eq in H11.
-    apply Reg_in_monotony_left with (k'' := k1) in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k') in H4; auto.
-    apply Reg_in_sym in H4; subst; auto.
-    inversion H4. constructor 1; auto.
-    constructor 2. inversion H6. constructor.
+    rewrite VarMap.get_update1 in H21.
+    rewrite VarMap.get_update1 in H22.
+    rewrite DEX_Registers.get_update_new in H19.
+    rewrite DEX_Registers.get_update_new in H20.
+    apply some_eq in H19; apply some_eq in H20; apply some_eq in H21; apply some_eq in H22.
+    apply leql_join_eq in H21; apply leql_join_eq in H22.
+    apply Reg_in_monotony_left with (k'' := k1) in H6; auto.
+    apply Reg_in_sym in H6.
+    apply Reg_in_monotony_left with (k'' := k') in H6; auto.
+    apply Reg_in_sym in H6; subst; auto.
+    inversion H6. constructor 1; auto.
+    constructor 2. inversion H19. constructor.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H10; auto.
-    rewrite VarMap.get_update2 in H11; auto.
-    rewrite DEX_Registers.get_update_old in H6; auto.
-    rewrite DEX_Registers.get_update_old in H7; auto.
-    apply H1 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H6; auto.
+    rewrite VarMap.get_update2 in H21; auto.
+    rewrite VarMap.get_update2 in H22; auto.
+    rewrite DEX_Registers.get_update_old in H19; auto.
+    rewrite DEX_Registers.get_update_old in H20; auto.
+    rewrite VarMap.domain_inv in H11; auto; rewrite VarMap.domain_inv in H18; auto.
+    apply H10 with (k:=k1) (k':=k') (v:=v1) (v':=v') in H11; auto.
   (* DEX_IBinop *)
   subst. inversion H2.
-  apply H1 with (v:=(Num (I i1))) (v':=(Num (I i0))) (k:=k1) (k':=k0) in H4; auto.
-  apply H1 with (v:=(Num (I i2))) (v':=(Num (I i3))) (k:=k2) (k':=k3) in H5; auto.
+  apply H14 with (v:=(Num (I i1))) (v':=(Num (I i0))) (k:=k1) (k':=k0) in H7; auto.
+  apply H14 with (v:=(Num (I i2))) (v':=(Num (I i3))) (k:=k2) (k':=k3) in H8; auto.
   constructor.
+  rewrite VarMap.domain_inv; auto; rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H14.
-    rewrite VarMap.get_update1 in H15.
-    rewrite DEX_Registers.get_update_new in H8.
-    rewrite DEX_Registers.get_update_new in H9.
-    apply some_eq in H14; apply some_eq in H15; apply some_eq in H8; apply some_eq in H9.
-    assert (forall (k k1 k2 k3: L.t) , k3 = L.join k (L.join k1 k2) -> L.leql k k3 /\ L.leql k1 k3).
+    rewrite VarMap.get_update1 in H29.
+    rewrite VarMap.get_update1 in H30.
+    rewrite DEX_Registers.get_update_new in H27.
+    rewrite DEX_Registers.get_update_new in H28.
+    apply some_eq in H27; apply some_eq in H28; apply some_eq in H29; apply some_eq in H30.
+    assert (forall (k k1 k2 k3: L.t) , k3 = L.join k (L.join k1 k2) -> L.leql k k3 /\ L.leql k1 k3) as Hjoin.
       clear. intros. split. apply leql_join_eq with (k1:=L.join k1 k2); auto.
       subst. apply L.leql_trans with (l1:=k1) (l2:=L.join k1 k2) (l3:=L.join k (L.join k1 k2)).
       apply L.join_left. apply L.join_right.
-    apply H16 in H14; apply H16 in H15.
-    inversion H14; inversion H15; clear H14 H15 H16.
+    apply Hjoin in H29; apply Hjoin in H30.
+    inversion H29; inversion H30.
     subst. 
-    apply Reg_in_monotony_left with (k'' := k) in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k') in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k) in H5; auto.
-    apply Reg_in_sym in H5.
-    apply Reg_in_monotony_left with (k'' := k') in H5; auto.
-    apply Reg_in_sym in H5.
+    apply Reg_in_monotony_left with (k'' := k) in H7; auto.
+    apply Reg_in_sym in H7.
+    apply Reg_in_monotony_left with (k'' := k') in H7; auto.
+    apply Reg_in_sym in H7.
+    apply Reg_in_monotony_left with (k'' := k) in H8; auto.
+    apply Reg_in_sym in H8.
+    apply Reg_in_monotony_left with (k'' := k') in H8; auto.
+    apply Reg_in_sym in H8.
     (* When any of the register is H *)
-    inversion H4; inversion H5; try (constructor 1; auto; fail).
+    inversion H7; inversion H8; try (constructor 1; auto; fail).
     (* When all the registers are L, they have to have the same value *)
     subst.
     constructor 2.
-    inversion H8; inversion H21; constructor.
+    inversion H27; inversion H38; constructor.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H14; auto.
-    rewrite VarMap.get_update2 in H15; auto.
-    rewrite DEX_Registers.get_update_old in H8; auto.
-    rewrite DEX_Registers.get_update_old in H9; auto.
-    apply H1 with (k:=k) (k':=k') (v:=v) (v':=v') in H8; auto.
+    rewrite VarMap.get_update2 in H29; auto.
+    rewrite VarMap.get_update2 in H30; auto.
+    rewrite DEX_Registers.get_update_old in H27; auto.
+    rewrite DEX_Registers.get_update_old in H28; auto.
+    rewrite VarMap.domain_inv in H15; auto; rewrite VarMap.domain_inv in H26; auto.
+    apply H14 with (k:=k) (k':=k') (v:=v) (v':=v') in H15; auto.
   (* DEX_IBinopConst *)
-  subst. inversion H2.
-  apply H1 with (v:=(Num (I i))) (v':=(Num (I i0))) (k:=k) (k':=k0) in H4; auto.
+subst. inversion H2.
+  apply H10 with (v:=(Num (I i))) (v':=(Num (I i0))) (k:=k) (k':=k0) in H6; auto.
   constructor.
+  rewrite VarMap.domain_inv; auto; rewrite VarMap.domain_inv; auto.
   intros. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt).
     (* rn = rt *)
     subst.
-    rewrite VarMap.get_update1 in H10.
-    rewrite VarMap.get_update1 in H11.
-    rewrite DEX_Registers.get_update_new in H6.
-    rewrite DEX_Registers.get_update_new in H7.
-    apply some_eq in H6; apply some_eq in H7; apply some_eq in H10; apply some_eq in H11.
-    apply leql_join_eq in H10; apply leql_join_eq in H11.
-    apply Reg_in_monotony_left with (k'' := k1) in H4; auto.
-    apply Reg_in_sym in H4.
-    apply Reg_in_monotony_left with (k'' := k') in H4; auto.
-    apply Reg_in_sym in H4; subst; auto.
-      (* If the register is nleq kobs *)
-      inversion H4. constructor 1; auto.
-      (* If the register is <= kobs *)      
-      constructor 2. inversion H6. constructor.
+    rewrite VarMap.get_update1 in H21.
+    rewrite VarMap.get_update1 in H22.
+    rewrite DEX_Registers.get_update_new in H19.
+    rewrite DEX_Registers.get_update_new in H20.
+    apply some_eq in H19; apply some_eq in H20; apply some_eq in H21; apply some_eq in H22.
+    apply leql_join_eq in H21; apply leql_join_eq in H22.
+    apply Reg_in_monotony_left with (k'' := k1) in H6; auto.
+    apply Reg_in_sym in H6.
+    apply Reg_in_monotony_left with (k'' := k') in H6; auto.
+    apply Reg_in_sym in H6; subst; auto.
+    inversion H6. constructor 1; auto.
+    constructor 2. inversion H19. constructor.
     (* rn <> rt *)
-    rewrite VarMap.get_update2 in H10; auto.
-    rewrite VarMap.get_update2 in H11; auto.
-    rewrite DEX_Registers.get_update_old in H6; auto.
-    rewrite DEX_Registers.get_update_old in H7; auto.
-    apply H1 with (k:=k1) (k':=k') (v:=v0) (v':=v') in H6; auto.
+    rewrite VarMap.get_update2 in H21; auto.
+    rewrite VarMap.get_update2 in H22; auto.
+    rewrite DEX_Registers.get_update_old in H19; auto.
+    rewrite DEX_Registers.get_update_old in H20; auto.
+    rewrite VarMap.domain_inv in H11; auto; rewrite VarMap.domain_inv in H18; auto.
+    apply H10 with (k:=k1) (k':=k') (v:=v0) (v':=v') in H11; auto.
 Qed.
 
 

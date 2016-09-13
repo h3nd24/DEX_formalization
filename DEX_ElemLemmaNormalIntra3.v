@@ -39,44 +39,44 @@ Proof.
   (* If_icmp *)
   inversion H3.
     (* ra *)
-    apply H1 with (v':=Num (I i3)) (k:=k1) (k':=k0) in H5; auto .
-    inversion H5. apply H16 in H4.
-    apply not_leql_trans with (k2:=se j) in H18; auto. 
+    apply H25 with (v:=Num (I i1)) (v':=Num (I i3)) (k:=k1) (k':=k0) in H7; auto .
+    inversion H7. apply H24 in H4.
+    apply not_leql_trans with (k2:=se j) in H27; auto. 
     apply leql_join_each in H4; inversion H4; auto.
     (* rb *)
-    apply H1 with (v':=Num (I i0)) (k:=k2) (k':=k3) in H6; auto.
-    inversion H6. apply H10 in H4.
-    apply not_leql_trans with (k2:=se j) in H22; auto.
+    apply H25 with (v:=Num (I i2)) (v':=Num (I i0)) (k:=k2) (k':=k3) in H8; auto.
+    inversion H8. apply H24 in H4.
+    apply not_leql_trans with (k2:=se j) in H32; auto.
     apply leql_join_each in H4; inversion H4; auto.
     (* both are low *)
-    inversion H17. inversion H22.
+    inversion H26. inversion H31.
     subst; contradiction. 
   inversion H3.
-  apply H1 with (v':=Num (I i3)) (k:=k1) (k':=k0) in H6; auto . 
+  apply H25 with (v:=Num (I i1))(v':=Num (I i3)) (k:=k1) (k':=k0) in H8; auto . 
     (* ra *)
-    inversion H6. apply H16 in H4.
-    apply not_leql_trans with (k2:=se j) in H18; auto. 
+    inversion H8. apply H24 in H4.
+    apply not_leql_trans with (k2:=se j) in H27; auto. 
     apply leql_join_each in H4; inversion H4; auto.
     (* rb *)
-    apply H1 with (v':=Num (I i0)) (k:=k2) (k':=k3) in H7; auto.
-    inversion H7. apply H11 in H4.
-    apply not_leql_trans with (k2:=se j) in H22; auto.
+    apply H25 with (v:=Num (I i2)) (v':=Num (I i0)) (k:=k2) (k':=k3) in H9; auto.
+    inversion H9. apply H24 in H4.
+    apply not_leql_trans with (k2:=se j) in H32; auto.
     apply leql_join_each in H4; inversion H4; auto.
     (* both are low *)
-    inversion H17. inversion H22.
+    inversion H26. inversion H31.
     subst; contradiction. 
   (* If_z *)
   inversion H3.
-    apply H1 with (v':= Num (I i0)) (k:=k) (k':=k0) in H5; auto .
-    inversion H5. apply H12 in H4.
-    apply not_leql_trans with (k2:=se j) in H14; auto. 
-    inversion H13.
+    apply H17 with (v:=Num (I i)) (v':= Num (I i0)) (k:=k) (k':=k0) in H6; auto .
+    inversion H6. apply H16 in H4.
+    apply not_leql_trans with (k2:=se j) in H19; auto. 
+    inversion H18.
     subst; contradiction. 
   inversion H3.
-  apply H1 with (v':=Num (I i0)) (k:=k) (k':=k0) in H6; auto . 
-    inversion H6. apply H12 in H4.
-    apply not_leql_trans with (k2:=se j) in H14; auto. 
-    inversion H13.
+  apply H17 with (v:=Num (I i)) (v':=Num (I i0)) (k:=k) (k':=k0) in H6; auto . 
+    inversion H6. apply H16 in H4.
+    apply not_leql_trans with (k2:=se j) in H19; auto. 
+    inversion H18.
     subst; contradiction. 
 Qed.
 (*

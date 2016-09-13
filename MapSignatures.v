@@ -98,6 +98,8 @@ Module Type MAP.
     In p (dom A m) -> get A m p <> None.
   Parameter get_some_in_dom : forall A m p,
     get A m p <> None -> In p (dom A m).
+  Parameter domain_inv : forall A m v p, 
+    In p (dom A m) -> dom A (update A m p v) = dom A m.
 
   Parameter for_all : forall A : Type, (key -> A -> bool) -> t A -> bool.
   Parameter for_all_spec : forall (A : Type) (test:key -> A -> bool) (m : t A),
@@ -258,6 +260,10 @@ Module Map_Of_MapBase (M:MAP_BASE) <: MAP
     apply (in_fold_cons_inv _ _ _ _ (H0 a (refl_equal _))).
     elim H; auto.
   Qed.
+
+  Lemma domain_inv : forall A m v p, 
+    In p (dom A m) -> dom A (update A m p v) = dom A m.
+  Proof. admit. Admitted.
 
   Section for_all.
 

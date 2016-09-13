@@ -32,8 +32,8 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | const : forall (*h*) pc pc' r (*l*) r' rt rt' (*b*),
 
-        In reg DEX_Registers.dom r ->
-        In reg VarMap.dom _ rt ->
+        In reg (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         (*(   (t=DEX_BYTE /\ -2^7 <= z < 2^7)
           \/ (t=DEX_SHORT /\ -2^15 <= z < 2^15)
@@ -56,10 +56,10 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | i2b : forall (*h*) pc pc' r r' (*l*) v k rt rt' (*b*),
 
-        In reg DEX_Registers.dom r ->
-        In rs DEX_Registers.dom r ->
-        In reg VarMap.dom _ rt ->
-        In rs VarMap.dom _ rt ->
+        In reg (DEX_Registers.dom r) ->
+        In rs (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In rs (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
         Some k = VarMap.get _ rt rs ->
@@ -73,11 +73,10 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | i2s : forall (*h*) pc pc' r r' (*l*) v k rt rt' (*b*),
   
-        In reg DEX_Registers.dom r ->
-        In rs DEX_Registers.dom r ->
-        In reg VarMap.dom _ rt ->
-        In rs VarMap.dom _ rt ->
-        In r VarMap.dom _ rt ->
+        In reg (DEX_Registers.dom r) ->
+        In rs (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In rs (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
         Some k = VarMap.get _ rt rs ->
@@ -91,6 +90,12 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | ibinop : forall (*h*) pc pc' r r' (*l*) i1 i2 k1 k2 rt (*b*) rt' op,
 
+        In reg (DEX_Registers.dom r) ->
+        In ra (DEX_Registers.dom r) ->
+        In rb (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In ra (VarMap.dom _ rt) ->
+        In rb (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         (* Hendra 16082016 exception for division by 0 - op = DivInt \/ op = RemInt -> ~ Int.toZ i2 = 0%Z) -> 
         st' = (match op with 
@@ -117,6 +122,10 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | ibinopConst : forall pc pc' r r' i k rt rt' op,
 
+        In reg (DEX_Registers.dom r) ->
+        In ra (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In ra (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some (Num (I i)) = DEX_Registers.get r ra ->
         Some k = VarMap.get _ rt ra ->
@@ -129,6 +138,10 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | ifcmp_jump : forall (*h*) pc r i2 i1 k1 k2 rt (*b*),
         (*instructionAt m pc = Some (DEX_Ifcmp cmp o) ->*)
+        In ra (DEX_Registers.dom r) ->
+        In rb (DEX_Registers.dom r) ->
+        In ra (VarMap.dom _ rt) ->
+        In rb (VarMap.dom _ rt) ->
         Some (Num (I i1)) = DEX_Registers.get r ra ->
         Some (Num (I i2)) = DEX_Registers.get r rb ->
         Some k1 = VarMap.get _ rt ra ->
@@ -140,6 +153,10 @@ Module DEX_BigStepWithTypes.
         (pc,((*h,*)r)) rt (*b*) (DEX_OFFSET.jump pc o,((*h,*)r)) rt (*b*)
       | ificmp_continue : forall (*h*) pc pc' r i2 i1 k1 k2 rt (*b*),
         next m pc = Some pc' ->
+        In ra (DEX_Registers.dom r) ->
+        In rb (DEX_Registers.dom r) ->
+        In ra (VarMap.dom _ rt) ->
+        In rb (VarMap.dom _ rt) ->
         Some (Num (I i1)) = DEX_Registers.get r ra ->
         Some (Num (I i2)) = DEX_Registers.get r rb ->
         Some k1 = VarMap.get _ rt ra ->
@@ -154,6 +171,8 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*)
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | ifz_jump : forall (*h*) pc r i k rt (*b*),
+        In reg (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
         Some (Num (I i)) = DEX_Registers.get r reg ->
         Some k = VarMap.get _ rt reg ->
         SemCompInt cmp (Int.toZ i) 0 ->
@@ -161,7 +180,8 @@ Module DEX_BigStepWithTypes.
         NormalStep_ifz cmp reg o m sgn 
         (pc,((*h,*)r)) rt (*b*) (DEX_OFFSET.jump pc o,((*h,*)r)) rt (*b*)
       | ifz_continue : forall (*h*) pc pc' r i k rt (*b*),
-
+        In reg (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some (Num (I i)) = DEX_Registers.get r reg ->
         Some k = VarMap.get _ rt reg ->
@@ -176,6 +196,10 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | ineg : forall pc r r' pc' v k rt rt',
 
+        In reg (DEX_Registers.dom r) ->
+        In rs (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In rs (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
         Some k = VarMap.get _ rt rs ->
@@ -189,6 +213,10 @@ Module DEX_BigStepWithTypes.
         DEX_IntraNormalState -> TypeRegisters -> (*FFun.t Location ->*) Prop :=
       | inot : forall pc r r' pc' v k rt rt',
 
+        In reg (DEX_Registers.dom r) ->
+        In rs (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In rs (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
         Some k = VarMap.get _ rt rs ->
@@ -260,6 +288,10 @@ Module DEX_BigStepWithTypes.
       | vload : forall pc pc' r r' val rt rt' k,
 
         instructionAt m pc = Some (DEX_Move vk reg rs) ->
+        In reg (DEX_Registers.dom r) ->
+        In rs (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
+        In rs (VarMap.dom _ rt) ->
         next m pc = Some pc' ->
         Some val = DEX_Registers.get r rs ->
         DEX_Registers.update r reg val = r' ->
@@ -300,6 +332,8 @@ Module DEX_BigStepWithTypes.
         ReturnStep m sgn DEX_Return (pc,r) rt (Normal None)
       | vreturn : forall pc r reg val t k k1 rt kr,
         instructionAt m pc = Some (DEX_VReturn k reg) ->
+        In reg (DEX_Registers.dom r) ->
+        In reg (VarMap.dom _ rt) ->
         DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = Some t ->
         Some val = DEX_Registers.get r reg ->
         Some k1 = VarMap.get _ rt reg ->

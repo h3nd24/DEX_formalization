@@ -279,11 +279,10 @@ Open Scope type_scope.
       end.
 *)
 
-    Fixpoint in_test (e:DEX_ClassName) (l:list DEX_ClassName) : bool :=
+    Fixpoint in_test (e:DEX_Reg) (l:list DEX_Reg) : bool :=
       match l with
         | nil => false
-        | cn::q =>
-          (eqClassName e cn) || (in_test e q)
+        | cn::q => (Neq e cn) || (in_test e q)
       end.
 
     Lemma In_in_test_true : forall e l,
@@ -292,10 +291,22 @@ Open Scope type_scope.
       induction l; simpl; intros.
       elim H.
       destruct H; subst.
-      generalize (eqClassName_spec e e).
-      destruct (eqClassName e e) ; simpl; auto.
+      generalize (Neq_spec e e).
+      destruct (Neq e e) ; simpl; auto.
       rewrite IHl; auto.
-      destruct (eqClassName e a) ; simpl; auto.
+      destruct (Neq e a) ; simpl; auto.
+    Qed.
+
+    Lemma in_test_true_In : forall e l,
+      in_test e l = true -> In e l.
+    Proof.
+      induction l; simpl; intros.
+      inversion H.
+      apply orb_prop in H.
+      elim H; intros.
+      generalize (Neq_spec e a). intros. rewrite H0 in H1. left; symmetry; auto. 
+      right.
+      apply IHl; auto.
     Qed.
 
     Ltac clean_in_test :=
@@ -430,7 +441,6 @@ Open Scope type_scope.
         nth_error st (n-(Var_toN x)-1)%nat = Some k /\
         L.leql' k (lvt s x).
 *)
-
    Lemma Reg_eq_dec : forall x y : DEX_Reg, {x=y} + {x<>y}.
    Proof.
     repeat decide equality.
@@ -442,6 +452,7 @@ Open Scope type_scope.
           tsub_next i rt1
 
         | DEX_Move _ r rs, rt1 =>
+          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 rs with
             | Some k_rs =>
                 (* (if in_dec Reg_eq_dec r locR then
@@ -472,6 +483,7 @@ Open Scope type_scope.
           end
 
         | DEX_VReturn _ r, rt1 =>          
+          in_test r (VarMap.dom _ rt1) && 
           match sgn.(DEX_resType) with
             | None => false
             | Some kv => 
@@ -482,6 +494,7 @@ Open Scope type_scope.
           end
 
         | DEX_Const _ r _, rt1 =>
+          in_test r (VarMap.dom _ rt1) && 
           tsub_next i (VarMap.update _ rt1 r (L.Simple (se i)))
 
 (* DEX Object
@@ -531,6 +544,7 @@ Open Scope type_scope.
           end
 *)    
         | DEX_Ifcmp _ ra rb o, rt1 =>
+          in_test ra (VarMap.dom _ rt1) && in_test rb (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 ra, VarMap.get _ rt1 rb with
             | Some ka, Some kb =>
                 (selift i (* None *) (ka U kb)) && 
@@ -540,6 +554,7 @@ Open Scope type_scope.
           end
 
         | DEX_Ifz _ r o, rt1 =>
+          in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 r with
             | Some k => 
                 (selift i (* None *) k) && 
@@ -613,30 +628,35 @@ Open Scope type_scope.
 *)
 
         | DEX_Ineg r rs, rt1 =>
+          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 rs with
             | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end   
 
         | DEX_Inot r rs, rt1 =>
+          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 rs with
             | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end   
 
         | DEX_I2b r rs, rt1 =>
+          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 rs with
             | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end
 
         | DEX_I2s r rs, rt1 =>
+          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 rs with
             | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end   
 
         | DEX_Ibinop _ r ra rb, rt1 =>
+          in_test r (VarMap.dom _ rt1) && in_test ra (VarMap.dom _ rt1) && in_test rb (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 ra, VarMap.get _ rt1 rb with
             | Some ka, Some kb => 
                (tsub_next i (VarMap.update _ rt1 r (L.Simple ((ka U kb) U (se i)))) )
@@ -644,6 +664,7 @@ Open Scope type_scope.
           end   
 
         | DEX_IbinopConst _ r rs _, rt1 =>
+          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 rs with
             | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple (ks U (se i)))) )
             | None => false
@@ -757,6 +778,7 @@ Open Scope type_scope.
      destruct (DEX_resType sgn); congruence.
 
      (* VReturn *)
+     apply andb_prop in H; inversion H as [H3 H4].
      destruct (DEX_resType sgn) eqn:H1.
      destruct (VarMap.get t (RT i) rt) eqn:H2. 
      apply DEX_vReturn with (k_r:=t1) (kv:=t0); auto.
@@ -765,9 +787,9 @@ Open Scope type_scope.
 
 (*      rewrite H2; reflexivity. apply H1. *)
     generalize (leql_t_spec (se i U t1) t0); intros.
-    rewrite H in H0; auto.
-     inversion H.
-     inversion H.
+    rewrite H4 in H0; auto.
+     inversion H4.
+     inversion H4.
    Qed.
 
    Ltac replace_tsub_next :=
@@ -833,118 +855,46 @@ Open Scope type_scope.
      intros.
      inversion_clear H0 in H;
        unfold DEX_tcheck (* DEX step.handler, exception_test, exception_test'*) in *;
-       try (split_match; intuition; subst; try discriminate; 
-         flatten2; eauto with texec; fail);
-    try (destruct (VarMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail);
-     flatten2; constructor; apply Hrs; fail);
-    try (
-     destruct (VarMap.get t (RT i) rs) eqn:Hrs; try (inversion H; fail);
-     split_match; intuition; try discriminate; flatten2; constructor; auto; fail).
-     (* move *)
-     
-     (* (*destruct (in_dec Reg_eq_dec rt locR) eqn:HlocR.*)
-     (* flatten_bool. replace_leql.*)
-     (* apply DEX_move_constrained.
-       apply i0.
-       apply Hrs. 
-       apply H. apply H3.
-     apply DEX_move_unconstrained.
-       apply n.
-       rewrite Hrs; reflexivity. *)
-    apply DEX_move; auto. *)
-(*
-     (* moveresult *)
-     destruct (VarMap.get t' (RT i) ret) eqn:Hrs; try (inversion H; fail).
-     destruct (in_dec Reg_eq_dec rt (locR p method_signature)) eqn:HlocR.
-     flatten_bool; replace_leql; replace_tsub_next; search_tsub.
-     apply moveResult_constrained.
-       apply i0.
-       apply Hrs.
-       apply H.
-       apply H3.
-     flatten_bool; replace_tsub_next; search_tsub.
-     apply moveResult_unconstrained.
-       apply n.
-       apply Hrs.
-     (* InstanceOf *)
-     destruct (VarMap.get t' (RT i) r) eqn:Hrs; try (inversion H; fail).
-     flatten2; apply instanceOf.
-     apply Hrs.
-     apply H0.
-     (* Arraylength *)
-     destruct (VarMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
-     split_match; try (inversion H; fail).
-     flatten_bool; replace_leql; replace_tsub_next; search_tsub.
-     apply arrayLength with (ke:=t0); apply Hrs.
-     (* NewArray *)
-     destruct (VarMap.get t' (RT i) rl) eqn:Hrl; try (inversion H; fail).
-     flatten2; apply newArray; apply Hrl.
- *) 
+        try (split_match; intuition; subst; try discriminate; 
+         flatten2; eauto with texec; fail); 
+    try (flatten; destruct (VarMap.get _ (RT i) rs) eqn:Hrs; try (inversion H2; fail);
+    flatten2; constructor; try (apply in_test_true_In); auto; fail).
+    
+    (* const *)
+    flatten2; constructor; try (apply in_test_true_In); auto.
+
      (* Ifcmp *)
-     destruct (VarMap.get t (RT i) ra) eqn:Hra; try (inversion H; fail).
-     destruct (VarMap.get t (RT i) rb) eqn:Hrb; try (inversion H; fail).
+     flatten.
+     destruct (VarMap.get t (RT i) ra) eqn:Hra; try (inversion H2; fail). 
+     destruct (VarMap.get t (RT i) rb) eqn:Hrb; try (inversion H2; fail).
      flatten_bool; replace_selift. inversion H1.
        (* next successor *)
        replace_tsub_next; search_tsub.
-       apply DEX_ifcmp with (ka:=t0) (kb:=t1). apply Hra. apply Hrb. apply H.
+       apply DEX_ifcmp with (ka:=t0) (kb:=t1); try (apply in_test_true_In; auto; fail); auto. 
        (* target successor *) 
        rewrite H0. exists (*lift_rt (t0 U t1) (RT i)*) (RT i). split. 
-       apply DEX_ifcmp with (ka:=t0) (kb:=t1). apply Hra. apply Hrb. apply H. exact H2.
-     (* Ifcmp *)
-     destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H; fail).
+       apply DEX_ifcmp with (ka:=t0) (kb:=t1); auto; try (apply in_test_true_In; auto; fail).  
+       auto.
+     (* Ifz *)
+     flatten.
+     destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H2; fail).
      flatten_bool; replace_selift. inversion H1.
        (* next successor *)
        (* rewrite_nextAddress; *) replace_tsub_next; search_tsub.
-       apply DEX_ifz with (k:=t0). apply Hr. apply H.
+       apply DEX_ifz with (k:=t0); auto; try (apply in_test_true_In; auto; fail). 
        (* target successor *) 
-       rewrite H0. exists (*lift_rt t0 (RT i)*) (RT i). split. 
-       apply DEX_ifz with (k:=t0). apply Hr. apply H. exact H2.
-(*
-     (* Aget *)
-     destruct (VarMap.get t' (RT i) ri) eqn:Hri; try (inversion H; fail).
-     destruct (VarMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
-     split_match; try (inversion H; fail).
-     flatten2. apply aget. apply Hra. apply Hri.
-     (* Aput *)
-     destruct (VarMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
-     destruct (VarMap.get t' (RT i) ri) eqn:Hri; try (inversion H; fail).
-     destruct (VarMap.get t' (RT i) ra) eqn:Hra; try (inversion H; fail).
-     split_match; try (inversion H; fail).
-     flatten2. apply aput with (ks:=t0) (ka:=k0) (kc:=t2) (ki:=t1).
-     apply Hrs. apply Hri. apply Hra. apply H. apply H5. apply H4. apply H3.
-     (* Iget *)
-     destruct (VarMap.get t' (RT i) ro) eqn:Hro; try (inversion H; fail);
-     flatten2; apply iget; apply Hro.
-     (* Iput *)
-     destruct (VarMap.get t' (RT i) rs) eqn:Hrs; try (inversion H; fail).
-     destruct (VarMap.get t' (RT i) ro) eqn:Hro; try (inversion H; fail).
-     flatten2; apply iput with (ks:=t0) (ko:=t1). apply Hrs. apply Hro. apply H. apply H3.
-     (* Invokevirtual *)
-     destruct p0 eqn:Hp0; try (inversion H; fail).
-     destruct (VarMap.get t' (RT i) d) eqn:Hro; try (inversion H; fail).
-     flatten2. apply invokevirtual with (ro:=d). 
-     trivial. apply Hro. apply eq_trans with (y:=(Z.to_nat n)).
-     symmetry; apply beq_nat_eq; auto. 
-     apply beq_nat_eq; auto.
-     apply tcompat_type_rt_lvt_true; auto. 
-     apply H6. apply H5. apply H4.
-     apply tcompat_op_true; auto.
-     (* Invokestatic *)
-     flatten2. apply invokestatic. 
-     apply eq_trans with (y:=(Z.to_nat n)).
-     symmetry; apply beq_nat_eq; auto. 
-     apply beq_nat_eq; auto.
-     apply tcompat_type_rt_lvt_true; auto. 
-     apply H4. apply H5.
-     apply tcompat_op_true; auto.
-*)
+       rewrite H. exists (*lift_rt t0 (RT i)*) (RT i). split. 
+       apply DEX_ifz with (k:=t0); auto; try (apply in_test_true_In; auto; fail). exact H3.
+
      (* Ibinop *)
-     destruct (VarMap.get t (RT i) ra) eqn:Hra; try (inversion H; fail).
-     destruct (VarMap.get t (RT i) rb) eqn:Hrb; try (inversion H; fail).
-     flatten2; apply DEX_ibinop. apply Hra. apply Hrb.
+     flatten.
+     destruct (VarMap.get t (RT i) ra) eqn:Hra. try (inversion H2; fail).
+     destruct (VarMap.get t (RT i) rb) eqn:Hrb; try (inversion H2; fail).
+     flatten2; apply DEX_ibinop; auto; try (apply in_test_true_In; auto; fail). inversion H2.
      (* IbinopConst *)
-     destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H; fail);
-     flatten2; apply DEX_ibinopConst; apply Hr.
+     flatten.
+     destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H2; fail);
+     flatten2; apply DEX_ibinopConst; try (apply in_test_true_In; auto; fail); apply Hr.
 (* Hendra 11082016 focus on DEX I - 
      (* PackedSwitch *)
      destruct (VarMap.get t' (RT i) rt) eqn:Hr; try (inversion H; fail).

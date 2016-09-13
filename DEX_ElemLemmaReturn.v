@@ -22,9 +22,9 @@ Proof.
   subst. rewrite -> H10 in H1.*) 
 (*   inversion H1; subst; auto.  *)
   apply not_leql_trans with (k1:=(se pc)); auto.
-  apply leql_join_each in H14; inversion H14; auto.
-  rewrite H11 in H1; inversion H1.
-  rewrite <- H18; auto.
+  apply leql_join_each in H16; inversion H16; auto.
+  rewrite H13 in H1; inversion H1.
+  rewrite <- H20; auto.
 Qed.
 
 (* Locally Respect *)
@@ -44,12 +44,12 @@ Proof.
   inversion H; inversion H0; DiscrimateEq; auto. 
   constructor; auto.
 (*   inversion H22; subst. *)
-  apply H2 with (k':=k2) (v':=val0) (v:=val) (k:=k1) in H20 ; auto.
+  apply H3 with (k':=k2) (v':=val0) (v:=val) (k:=k1) in H23 ; auto.
   constructor 1 with kr0; inversion H6; auto. 
   intros.
-  inversion H20; auto.
-  apply not_leql_join1 with (k2:=(se pc)) in H11.
-  apply L.leql_trans with (l3:=kobs) in H15; auto.
+  inversion H23; auto.
+  apply not_leql_join1 with (k2:=(se pc)) in H16.
+  apply L.leql_trans with (l1:=L.join k2 (se pc)) (l3:=kobs) in H4; auto.
   contradiction.
 Qed.
 
