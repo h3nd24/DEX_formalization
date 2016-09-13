@@ -39,6 +39,7 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
 (*       nextAddress i = Some j -> *)
       DEX_step i DEX_Nop (* None *) (Some j)
     | DEX_move : forall i j (k:DEX_ValKind) (rt:DEX_Reg) (rs:DEX_Reg),
+      
       next m i = Some j ->
 (*       nextAddress i = Some j -> *)
       DEX_step i (DEX_Move k rt rs) (* None *) (Some j)
