@@ -364,7 +364,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
       Some k1 = VarMap.get _ rt r /\ Some k2 = VarMap.get _ rt' r -> 
     L.leql k1 k2).
   Proof. intros. inversion H0; auto.
-    inversion H; subst. apply H3 with (r:=r); auto.
+    inversion H; subst. apply H4 with (r:=r); auto.
   Qed.
 
   Lemma compat_register_sub : forall (rt1 rt2 : registertypes),
@@ -740,90 +740,39 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
       Proof.
         intros.
         constructor 1; auto.
+        inversion H.
+        inversion H0; subst.
+        rewrite <- H1 in H3; auto.
         intros.
-        inversion H.
-        inversion H0; subst.
-        specialize H6 with (r:=rn) (k2:=k').
-        specialize H5 with (rn:=rn) (v:=v) (v':=v') (k:=k).
-        destruct (H rn v v' k k'); auto.
-        apply Reg_in_inv.
-        apply H.
-        assert 
-        inversion H.
-        elim H with (rn:=rn) (v:=v) (v':=v') (k:=k) (k':=k').
-        constructor.
-        unfold Reg_in.
-        apply Reg_in_sym.
-        eapply Reg_in_monotony_left; eauto.
-        inversion H5.
-        apply H with rn; auto.
-        apply H with (2:=H2) in H1; auto.
-        apply sub_forall with (r:=rn) (k1:=k) (k2:=k') in H0.
-        assert (forall 
-        inversion H0; subst.
-        apply H with (rn:=r) (v:=v) (v':=v') (k:=k) (k':=k
-
-      Lemma os_in_sub_simple : forall  st st0 s s0 b b0,
-        os_in kobs b0 b s0 s st0 st -> forall st',
-          sub st st' -> high_st kobs s st ->
-          os_in kobs b0 b s0 s st0 st'.
-      Proof.
-        induction 1; intros.
-        constructor 1; auto.
-        eapply os_insub_high_opstack; eauto.
-        inversion_mine H2;
-        inversion_mine H3; constructor 2; auto.
-        intro; elim H0; eapply L.leql_trans; eauto.
-        apply leql'_leql; auto.
-        inversion_mine H1;
-        inversion_mine H2; constructor 2; auto.
-        intro; elim H6; eapply L.leql_trans; eauto.
-        apply leql'_leql; auto.
+        inversion H; inversion H0; subst.
+        assert (exists k'', Some k'' = VarMap.get L.t rt rn).
+          rewrite H7 in H1; apply VarMap.in_dom_get_some in H1. 
+          assert (exists b, Some b = VarMap.get L.t rt rn). 
+            intros; destruct (VarMap.get L.t rt rn). exists t; auto.
+            apply False_ind; auto. 
+          auto.
+        destruct H11 as [k''].
+        specialize H8 with (rn:=rn).
+        apply H8 with (v:=v) (v':=v') (k:=k) (k':=k'') in H1; auto.
+        inversion H1. 
+          (* case where both are high *)
+          constructor 1; auto.
+          apply H10 with (k1:=k'') (k2:=k') in H11; auto.
+          apply not_leql_trans with (k1:=k''); auto.
+          (* case where both are low *)
+          constructor 2; auto.
+        rewrite H9; auto.
       Qed.
 
-      Lemma sub_simple : forall sgn st st' st0 s s0 b b0,
-        indist sgn st0 st b0 b s0 s ->
-        sub st st' -> (* high_opstack st s -> *)
-        indist sgn st0 st' b0 b s0 s.
+      Lemma sub_simple : forall sgn rt rt' rt0 s s0,
+        indist sgn rt0 rt s0 s ->
+        sub rt rt' -> (* high_opstack st s -> *)
+        indist sgn rt0 rt' s0 s.
       Proof.
         intros.
         inversion_mine H; inversion_mine H1; constructor.
-        inversion_mine H2; constructor; auto; eapply os_in_sub_simple; eauto.
+        constructor. eapply Regs_in_sub_simple; eauto.
       Qed.
-
-(*       Lemma os_inindist_high_opstack : forall st1 st2 b1 b2 s1 s2,
-        os_in kobs b1 b2 s1 s2 st1 st2 -> forall st1' st2' ,
-          high_st kobs s1 st1' ->
-          high_st kobs s2 st2' ->
-          os_in kobs b1 b2 s1 s2 st1' st2'.
-      Proof.
-        induction 1; intros.
-        constructor 1; auto.
-        inversion_mine H2; inversion_mine H3; constructor 2 ;auto.
-        inversion_mine H2; inversion_mine H1; constructor 2 ;auto.
-      Qed.
-
-      Lemma indist_high_opstack : forall sgn st1 st2 st1' st2' b1 b2 s1 s2,
-        indist sgn st1 st2 b1 b2 s1 s2 ->
-        high_opstack st1' s1 ->
-        high_opstack st2' s2 ->
-        indist sgn st1' st2' b1 b2 s1 s2.
-      Proof.
-        intros.
-        inversion_mine H; inversion_mine H0; inversion_mine H1.
-        inversion_mine H2; do 2 constructor; auto.
-        eapply os_inindist_high_opstack; eauto.
-      Qed.
-
-      Lemma sub_irindist : forall sgn st st' b1 b2 s1 s2,
-        irindist sgn st b1 b2 s1 s2 -> sub st st' ->
-        irindist sgn st' b1 b2 s1 s2.
-      Proof.
-        intros.
-        inversion_mine H; constructor.
-        inversion_mine H1 ; constructor; auto.
-        eapply os_insub_high_opstack; eauto.
-      Qed. *)
 
     End well_formed_lookupswitch.
 
@@ -834,7 +783,7 @@ End hyps.
 Require check_cdr.
 Module MapKind' := MapOption_Base Map2P(*ClassName*).
   Module MapKind <: MAP with Definition key := Kind := Map_Of_MapBase MapKind'.
-  Module CheckCdr := check_cdr.Make MapN(*PC*) MapKind.
+  Module CheckCdr := check_cdr.Make MapN(*PC*) (* MapKind *).
 
   Fixpoint map_from_list (l:list PC) : MapN.t bool :=
     match l with
@@ -843,79 +792,79 @@ Module MapKind' := MapOption_Base Map2P(*ClassName*).
     end.
 
   Definition upd_reg : 
-    PC -> Kind -> list PC -> CheckCdr.M.t (MapN.t bool) -> CheckCdr.M.t (MapN.t bool) :=
-    fun i kd l reg =>
-      CheckCdr.M.update _ reg (i,kd) (map_from_list l).
+    PC -> list PC -> MapN.t (MapN.t bool) -> MapN.t (MapN.t bool) :=
+    fun i l reg =>
+      MapN.update _ reg (i) (map_from_list l).
 
-  Definition empty_reg : CheckCdr.M.t (MapN.t bool) := CheckCdr.M.empty _.
+  Definition empty_reg : MapN.t (MapN.t bool) := MapN.empty _.
 
   Definition upd_jun : 
-    PC -> Kind -> PC -> MapN.t (MapKind.t CheckCdr.PC) -> MapN.t (MapKind.t CheckCdr.PC) :=
-    fun i kd j jun =>     CheckCdr.M.update _ jun (i ,kd) j.
+    PC -> PC -> MapN.t CheckCdr.PC -> MapN.t CheckCdr.PC :=
+    fun i j jun =>     MapN.update _ jun (i) j.
 
-  Definition empty_jun : MapN.t (MapKind.t CheckCdr.PC) := MapN.empty _.
+  Definition empty_jun : MapN.t (CheckCdr.PC) := MapN.empty _.
 
 
   Section check.
-    Variable p : Program.
-    Variable subclass_test : ClassName -> ClassName -> bool.
-    Variable m : Method.
-    Definition for_all_steps : (PC -> Kind -> option PC -> bool) -> bool :=
-      fun test => for_all_steps_m p subclass_test m (fun pc i => test pc).
-    Definition test_all_steps : (PC -> Kind -> option PC -> bool) -> list (PC*bool) :=
-      fun test => test_all_steps_m p subclass_test m (fun pc i => test pc).
+    Variable p : DEX_Program.
+(*     Variable subclass_test : ClassName -> ClassName -> bool. *)
+    Variable m : DEX_Method.
+    Definition for_all_steps : (PC -> option PC -> bool) -> bool :=
+      fun test => for_all_steps_m (* p subclass_test *) m (fun pc i => test pc).
+    Definition test_all_steps : (PC -> option PC -> bool) -> list (PC*bool) :=
+      fun test => test_all_steps_m (* p subclass_test *) m (fun pc i => test pc).
 
     Lemma for_all_steps_true : forall test,
       for_all_steps test = true ->
-      forall (i : PC) (tau : Kind) (oj : option PC),
-        step p subclass_test m i tau oj -> test i tau oj = true.
+      forall (i : PC) (*tau : Kind*) (oj : option PC),
+        step p (* subclass_test *) m i (* tau *) oj -> test i (* tau *) oj = true.
     Proof.
       intros.
       destruct H0 as [T0 [ins [T1 T2]]].
-      eapply (for_all_steps_m_true p subclass_test m (fun p i => test p)); eauto.
+      eapply (for_all_steps_m_true (* p subclass_test *) m (fun p i => test p)); eauto.
     Qed.
 
-    Definition for_all_succs : PC -> (Kind -> option PC -> bool) -> bool :=
-      for_all_succs_m p subclass_test m.
+    Definition for_all_succs : PC -> ((* Kind -> *) option PC -> bool) -> bool :=
+      for_all_succs_m (* p subclass_test *) m.
 
     Lemma for_all_succs_true : forall i test,
       for_all_succs i test = true ->
-      forall tau oj, step p subclass_test m i tau oj -> test tau oj = true.
+      forall (* tau *) oj, step p (* subclass_test *) m i (* tau *) oj -> test (* tau *) oj = true.
     Proof.
       intros.
       destruct H0 as [T0 [ins [T1 T2]]].
-      eapply (for_all_succs_m_true p subclass_test m); eauto.
+      eapply (for_all_succs_m_true (* p subclass_test *) m); eauto.
     Qed.
 
     Definition check_cdr : forall
-      (reg : CheckCdr.M.t (MapN.t bool))
-      (jun : MapN.t (MapKind.t CheckCdr.PC)), bool :=
+      (reg : MapN.t (MapN.t bool))
+      (jun : MapN.t (CheckCdr.PC)), bool :=
       fun reg jun => CheckCdr.check_soaps for_all_steps for_all_succs reg jun.
 
     Definition check_cdr' 
-      (reg : CheckCdr.M.t (MapN.t bool))
-      (jun : MapN.t (MapKind.t CheckCdr.PC)) :=
+      (reg : MapN.t (MapN.t bool))
+      (jun : MapN.t (CheckCdr.PC)) :=
       CheckCdr.check_soaps' for_all_steps for_all_succs reg jun.
 
     Definition check_soap1' 
-      (reg : CheckCdr.M.t (MapN.t bool))
-      (jun : MapN.t (MapKind.t CheckCdr.PC)) :=
-      CheckCdr.check_soap1' test_all_steps reg jun.
+      (reg : MapN.t (MapN.t bool))
+      (jun : MapN.t (CheckCdr.PC)) :=
+      CheckCdr.check_soap1' for_all_steps test_all_steps reg jun.
 
     Definition test_soap2
-      (reg : CheckCdr.M.t (MapN.t bool))
-      (jun : MapN.t (MapKind.t CheckCdr.PC)) :=
+      (reg : MapN.t (MapN.t bool))
+      (jun : MapN.t (CheckCdr.PC)) :=
       CheckCdr.test_soap2 for_all_succs reg jun.
 
     Lemma check_cdr_prop : forall 
-      (reg : CheckCdr.M.t (MapN.t bool))
-      (jun : MapN.t (MapKind.t CheckCdr.PC)),
+      (reg : MapN.t (MapN.t bool))
+      (jun : MapN.t (CheckCdr.PC)),
       check_cdr reg jun = true ->
-      { cdr : CDR (step p subclass_test m) |
-        forall i tau j,
-          region cdr i tau j -> CheckCdr.region reg i tau j}.
+      { cdr : CDR (step p (* subclass_test *) m) |
+        forall i j,
+          region cdr i j -> CheckCdr.region reg i j}.
     Proof
-    (CheckCdr.check_soap_true (step p subclass_test m) for_all_steps (fun _ => nil)
+    (CheckCdr.check_soap_true (step p (* subclass_test *) m) for_all_steps (*fun _ => nil*)
       for_all_steps_true
       for_all_succs for_all_succs_true).
 
@@ -924,11 +873,11 @@ Module MapKind' := MapOption_Base Map2P(*ClassName*).
 
   Section CDR_dummy.
 
-    Variable PC Kind: Set.
-    Variable step : PC -> Kind -> option PC -> Prop.
+    Variable PC: Set.
+    Variable step : PC -> option PC -> Prop.
 
     Definition dummy_cdr : CDR step.
-    refine (make_CDR (fun _ _ _ => True) (fun _ _ _ => False) _ _ _ _ _ _ _); auto.
+    refine (make_CDR step (fun _ _ => True) (fun _ _ => False) _ _ _ _); auto.
     intuition.
   Qed.
 
@@ -938,97 +887,108 @@ End CDR_dummy.
 
 Section CheckTypable.
 
-  Variable p : ExtendedProgram.
-  Variable se : Method -> sign -> PC -> L.t.
-  Variable S :  Method -> sign -> PC -> list L.t'.
-  Variable subclass_test : ClassName -> ClassName -> bool.
-  Variable reg : Method -> CheckCdr.M.t (MapN.t bool).
-  Variable jun : Method -> MapN.t (MapKind.t CheckCdr.PC).
+  Variable p : DEX_ExtendedProgram.
+  Variable se : DEX_Method -> DEX_sign -> PC -> L.t.
+  Variable RT :  DEX_Method -> DEX_sign -> PC -> VarMap.t L.t.
+(*   Variable subclass_test : ClassName -> ClassName -> bool. *)
+  Variable reg : Method -> MapN.t (MapN.t bool).
+  Variable jun : Method -> MapN.t (CheckCdr.PC).
   Variable cdr_checked : forall m,
-    PM p m ->  check_cdr p subclass_test m (reg m) (jun m) = true.
+    PM p m ->  check_cdr (* p subclass_test *) m (reg m) (jun m) = true.
 
   Definition cdr_local : forall m, 
-    PM p m -> CDR (step p subclass_test m) :=
+    PM p m -> CDR (step p (* subclass_test *) m) :=
     fun m H => let (cdr_local,_) := 
-      check_cdr_prop p subclass_test m (reg m) (jun m)
+      check_cdr_prop p (* subclass_test *) m (reg m) (jun m)
       (cdr_checked m H) in cdr_local.
 
   Lemma cdr_prop : forall m (h:PM p m),
-    forall i tau j,
-      region (cdr_local m h) i tau j -> CheckCdr.region (reg m) i tau j.
+    forall i j,
+      region (cdr_local m h) i j -> CheckCdr.region (reg m) i j.
   Proof.
     intros m h; unfold cdr_local.
     destruct check_cdr_prop.
     auto.
   Qed.
 
-  Definition for_all_region : Method -> PC -> tag -> (PC->bool) -> bool :=
+  Definition for_all_region : Method -> PC -> (PC->bool) -> bool :=
     fun m => CheckCdr.for_all_region2 (reg m).
 
-  Lemma for_all_region_correct : forall m i k test,
-    for_all_region m i k test = true ->
-    forall j, CheckCdr.region (reg m) i k j -> test j = true.
+  Lemma for_all_region_correct : forall m i test,
+    for_all_region m i test = true ->
+    forall j, CheckCdr.region (reg m) i j -> test j = true.
   Proof.
     unfold for_all_region; intros.
     eapply CheckCdr.for_all_region2_true; eauto.
   Qed.
 
-  Definition selift m sgn i (tau:tag) k :=
-    for_all_region m i tau (fun j => L.leql_t k (se m sgn j)).
+   Definition selift m sgn i (*tau:tag*) k :=
+    for_all_region m i (* tau *) (fun j => L.leql_t k (se m sgn j)). 
 
-  Definition check_st0 m sgn : bool :=
-    match METHOD.body m with
+  Fixpoint check_rt0_rec m sgn p : bool :=
+    match p with 
+    | h :: t => match VarMap.get _ m h with
+        | None => false
+        | Some k => (L.eq_t k (DEX_lvt sgn h)) && check_rt0_rec m sgn t
+        end
+    | nil => true
+    end.
+
+   Definition check_rt0 m sgn : bool :=
+    match DEX_METHOD.body m with
       | None => false
-      | Some bm => match S m sgn (BYTECODEMETHOD.firstAddress bm) with
-                     | nil => true
-                     | _ => false
-                   end
+      | Some bm => let rt := RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm) in
+                   check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm)
     end.
 
   Definition check : bool := for_all_P p
     (fun m sgn =>
-      (check_st0 m sgn) &&
-      for_all_steps_m p subclass_test m
-      (fun i ins tag oj => 
-        tcheck p subclass_test m sgn (se m sgn) (selift m sgn) (S m sgn) i ins)
+      (check_rt0 m sgn) &&
+      for_all_steps_m (*p subclass_test *) m
+      (fun i ins oj => 
+        DEX_tcheck (*p subclass_test*) m sgn (se m sgn) (selift m sgn) (RT m sgn) i ins)
     ).
 
-  Lemma check_correct1 : check = true ->
-    forall m sgn, P p (SM _ _ m sgn) ->
-      forall i, init_pc m i -> S m sgn i = s0.
+(*   Lemma check_correct1 : check = true ->
+    forall m sgn rt, P p (SM _ _ m sgn) ->
+      forall i, init_pc m i -> rt0 p m rt -> RT m sgn i = rt.
   Proof.
     unfold check; intros.
     inversion_mine H1.
     assert (T:=for_all_P_true _ _ H _ _ H0).
     destruct (andb_prop _ _ T) as [TT _].
-    unfold check_st0 in TT.
-    rewrite H2 in TT.
-    destruct (S m sgn (BYTECODEMETHOD.firstAddress bm)); auto; discriminate.
-  Qed.
+    unfold check_rt0 in TT.
+    rewrite H3 in TT.
+    destruct (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)); auto. ; discriminate.
+  Qed. *)
 
   Lemma check_correct2 : check = true ->
     forall m sgn (h:P p (SM _ _ m sgn)),
-      forall i kd,
-        step p subclass_test m i kd None ->
-        texec p subclass_test cdr_local m (PM_P _ _ h) sgn (se m sgn) i kd (S m sgn i) None.
+      forall i,
+        step p (* subclass_test *) m i None ->
+        texec p (*subclass_test *) cdr_local m (PM_P _ _ h) sgn (se m sgn) i (RT m sgn i) None.
   Proof.
     unfold check; intros.
     assert (T:=for_all_P_true _ _ H _ _ h).
     destruct (andb_prop _ _ T) as [_ TT].
     destruct H0 as [H0 [ins [H2 H3]]].
     exists ins; split; [idtac|assumption].
-    assert (T':=for_all_steps_m_true _ _ _ _ TT _ _ _ _ H2 H3).
-    apply tcheck_correct1 with (selift:=selift m sgn); auto.
-    unfold selift; intros.
+    assert (T':=for_all_steps_m_true _ _ TT _ _ _ H2 H3).
+    apply tcheck_correct1 with (selift:=selift m sgn) (m:=m); auto.
+    (* unfold selift; intros.
     generalize (for_all_region_correct _ _ _ _ H1 _ (cdr_prop _ _ _ _ _ H4)).
-    intros C; generalize (L.leql_t_spec k (se m sgn j)); rewrite C; auto.
+    intros C; generalize (L.leql_t_spec k (se m sgn j)); rewrite C; auto. *)
   Qed.
 
-  Lemma tsub_sub : forall st1 st2,
-    tsub st1 st2 = true -> sub st1 st2.
+(*   Lemma tsub_sub : forall rt1 rt2,
+    tsub_rt rt1 rt2 = true -> sub rt1 rt2.
   Proof.
-    induction st1; destruct st2; simpl; intros; try discriminate.
+    (* induction st1; destruct st2; simpl; *) intros. (* ; try discriminate. *)
     constructor.
+    unfold tsub_rt in H.
+    admit.
+    intros. leql_test_prop
+
     elim andb_prop with (1:=H); intros.
     constructor; auto.
     generalize (leql'_test_prop a t); rewrite H0; auto.
@@ -1069,7 +1029,7 @@ Section CheckTypable.
     split.
     apply check_correct2; auto.
     apply check_correct3; auto.
-  Qed.
+  Qed. *)
 
 End CheckTypable.
 
@@ -1077,7 +1037,7 @@ Check check.
 
 Section well_formed_lookupswitch.
 
-  Fixpoint check_not_in_snd (i:Z) (o:OFFSET.t) (l:list (Z*OFFSET.t)) {struct l} : bool :=
+  Fixpoint check_not_in_snd (i:Z) (o:DEX_OFFSET.t) (l:list (Z*DEX_OFFSET.t)) {struct l} : bool :=
     match l with
       | nil => true
       | (j,o')::l => 
@@ -1102,7 +1062,7 @@ Section well_formed_lookupswitch.
     elim andb_prop with (1:=H); auto.
   Qed.
 
-  Fixpoint check_functionnal_list (l:list (Z*OFFSET.t)) : bool :=
+  Fixpoint check_functionnal_list (l:list (Z*DEX_OFFSET.t)) : bool :=
     match l with
       | nil => true
       | (i,o)::l => (check_not_in_snd i o l) && check_functionnal_list l
@@ -1126,7 +1086,7 @@ Section well_formed_lookupswitch.
     eauto.
   Qed.
 
-  Definition check_well_formed_lookupswitch_m m := 
+(*   Definition check_well_formed_lookupswitch_m m := 
     for_all_instrs_m m 
     (fun i ins => match ins with 
                     | Lookupswitch d l => check_functionnal_list l
@@ -1163,31 +1123,32 @@ Section well_formed_lookupswitch.
     apply (for_all_methods_true _ _ H).
     inversion_mine H0; auto.
   Qed.
+*)
 
 End  well_formed_lookupswitch.
 
 
 
 
-Theorem ni_safe : forall (kobs:L.t) (p:ExtendedProgram) (subclass_test : ClassName -> ClassName -> bool),
-  (forall c1 c2, if subclass_test c1 c2 then subclass_name p c1 c2 else ~ subclass_name p c1 c2) ->
-  forall cdr : forall m, PM p m -> CDR (step p subclass_test m),
-    (exists se, exists S, TypableProg p subclass_test cdr se S) ->
-    (forall m sgn, P p (SM _ _ m sgn) -> well_formed_lookupswitch m) ->
-    forall m sgn i h1 h2 l1 l2 hr1 hr2 r1 r2 n1 n2 b1 b2,
+Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram) (*subclass_test : ClassName -> ClassName -> bool*),
+  (*(forall c1 c2, if subclass_test c1 c2 then subclass_name p c1 c2 else ~ subclass_name p c1 c2) ->*)
+  forall cdr : forall m, PM p m -> CDR (step p (* subclass_test *) m),
+    (exists se, exists RT, TypableProg p (* subclass_test *) cdr se RT) ->
+(*     (forall m sgn, P p (SM _ _ m sgn) -> well_formed_lookupswitch m) -> *)
+    forall m sgn i l1 l2 r1 r2,
       P p (SM _ _ m sgn) ->
       init_pc m i -> 
-      compat p sgn (i,(h1,nil,l1)) nil ->
-      compat p sgn (i,(h2,nil,l2)) nil ->
-      evalsto p m n1 (i,(h1,nil,l1)) (hr1,r1) -> 
-      evalsto p m n2 (i,(h2,nil,l2)) (hr2,r2) -> 
-      localvar_in kobs sgn.(lvt) b1 b2 l1 l2 ->
-      hp_in kobs (newArT p) (ft p) b1 b2 h1 h2 ->
-      exists br1, exists br2,
+      compat p sgn (i,nil,l1)) nil ->
+      compat p sgn (i,nil,l2)) nil ->
+      evalsto p m (i,nil,l1)) (r1) -> 
+      evalsto p m (i,nil,l2)) (r2) -> 
+(*       localvar_in kobs sgn.(lvt) b1 b2 l1 l2 -> *)
+(*       hp_in kobs (newArT p) (ft p) b1 b2 h1 h2 -> *)
+(*       exists br1, exists br2,
         border b1 br1 /\
         border b2 br2 /\
-        hp_in kobs (newArT p) (ft p) br1 br2 hr1 hr2 /\
-        indist_return_value kobs sgn hr1 hr2 r1 r2 br1 br2.
+        hp_in kobs (newArT p) (ft p) br1 br2 hr1 hr2 /\ *)
+        indist_return_value kobs sgn r1 r2.
 Proof.
   intros kobs p sub_test Hst cdr [se [S HT]] Hwf m sgn i h1 h2 l1 l2 hr1 hr2 r1 r2 n1 n2 b1 b2 H H0 H1 H2 H3 H4 H5 H6.
   assert (Hni:=safe_ni _ _ _ _ _ _ cdr _ _ _ (exec p) pc

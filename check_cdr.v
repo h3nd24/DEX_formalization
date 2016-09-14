@@ -4,231 +4,246 @@ Require Export Lib.
 Require Export cdr.
 Require Export ZArith.
 
-Module Make (M1:MAP) (M2:MAP).
+Module Make (M:MAP) (*M1:MAP) (M2:MAP*).
 
-  Module M' := MapPair_Base M1 M2.
-  Module M := Map_Of_MapBase M'.
+(*   Module M' := MapPair_Base M1 M2.
+  Module M := Map_Of_MapBase M'. *)
   
   Section region.
     
-    Definition PC : Set := M1.key.
-    Definition Kind: Set := M2.key.
+    Definition PC : Set := M.key.
+(*     Definition Kind: Set := M2.key. *)
     
-    Variable step : PC -> Kind -> option PC -> Prop.
-    Variable for_all_steps : (PC -> Kind -> option PC->bool)  -> bool.
-    Variable test_all_steps : (PC -> Kind -> option PC->bool)  -> list (PC*bool).
+    Variable step : PC -> (* Kind -> *) option PC -> Prop.
+    Variable for_all_steps : (PC -> (* Kind ->  *) option PC->bool)  -> bool.
+    Variable test_all_steps : (PC -> (* Kind -> *) option PC->bool)  -> list (PC*bool).
     Variable for_all_steps_true : 
       forall test, for_all_steps test  = true ->
-        forall i tau oj,
-          step i tau oj -> test i tau oj = true.
-    Variable for_all_succs : PC -> (Kind -> option PC -> bool) -> bool.
+        forall i (* tau  *) oj,
+          step i (* tau *) oj -> test i (* tau *) oj = true.
+    Variable for_all_succs : PC -> ((* Kind -> *) option PC -> bool) -> bool.
     Variable for_all_succs_true : forall i test,
       for_all_succs i test = true ->
-      forall tau oj, step i tau oj -> test tau oj = true.
+      forall (* tau *) oj, step i (* tau *) oj -> test (* tau *) oj = true.
     
-    Definition result p := exists k, step p k None.
+    Definition result p := (* exists k, *) step p (* k *) None.
 
-    Variable reg : M.t (M1.t bool).
-    Variable jun : M1.t (M2.t PC).
+    Variable reg : M.t (M.t bool).
+    Variable jun : M.t PC.
 
-    Definition region (i:PC) (tau:Kind) (j:PC) : Prop :=
+    Definition region (i:PC) (* (tau:Kind) *) (j:PC) : Prop :=
       exists m,
-        M.get _ reg (i,tau) = Some m
-        /\ M1.get m j = Some true.
+        M.get reg (i(* ,tau *)) = Some m
+        /\ M.get m j = Some true.
 
-    Definition junc (i:PC) (tau:Kind) (j:PC) : Prop :=
-      M.get _ jun (i,tau) = Some j.
+    Definition junc (i:PC) (*tau:Kind*) (j:PC) : Prop :=
+      M.get jun (i) = Some j.
     
     Definition check_junc_func : bool :=
-      M.for_all _
-        (fun ikd j1 => 
-          match M.get _ jun ikd with
+      M.for_all
+        (fun i j1 => 
+          match M.get jun i with
             | None => true
-            | Some j2 =>  M1.eq_key j1 j2
+            | Some j2 =>  M.eq_key j1 j2
           end) jun.
 
     Lemma check_junc_func_correct : check_junc_func = true ->
-      forall i j1 j2 kd,
-        junc i kd j1 -> junc i kd j2 -> j1=j2.
+      forall i j1 j2,
+        junc i j1 -> junc i j2 -> j1=j2.
     Proof.
       unfold check_junc_func, junc; intros.
       generalize (M.for_all_true _ _ _ H _ _ H0); simpl.
       rewrite H1; intros.
-      generalize (M1.eq_key_spec j1 j2); rewrite H2; auto.    
+      generalize (M.eq_key_spec j1 j2); rewrite H2; auto.    
     Qed.
     
-    Definition in_region (i:PC) (tau:Kind) (j:PC) : bool :=
-      match M.get _ reg (i,tau) with
+    Definition in_region (i:PC) (*tau:Kind*) (j:PC) : bool :=
+      match M.get reg (i) with
         | None => false
-        | Some m => match M1.get m j with
+        | Some m => match M.get m j with
                       | Some true => true
                       | _ => false
                     end
       end.
 
-    Lemma in_region_true : forall i tau j,
-      in_region i tau j = true -> region i tau j.
+    Lemma in_region_true : forall i j,
+      in_region i j = true -> region i j.
     Proof.
-      unfold in_region, region; intros i tau j.
-      destruct (M.get (M1.t bool) reg (i, tau)); try (intros; discriminate).
-      case_eq (M1.get t j); try (intros; discriminate).
+      unfold in_region, region; intros i j.
+      destruct (M.get reg (i)); try (intros; discriminate).
+      case_eq (M.get t j); try (intros; discriminate).
       destruct b; intros; try discriminate.
       eauto.
     Qed.
 
-    Definition test_junc (i:PC) (tau:Kind) (j:PC) : bool :=
-      match M.get _ jun (i,tau) with
+    Definition test_junc (i:PC) (*tau:Kind*) (j:PC) : bool :=
+      match M.get jun (i) with
         | None => false
-        | Some j0 => M1.eq_key j0 j
+        | Some j0 => M.eq_key j0 j
       end.
 
-    Lemma test_junc_true : forall i tau j,
-      test_junc i tau j = true -> junc i tau j.
+    Lemma test_junc_true : forall i j,
+      test_junc i j = true -> junc i j.
     Proof.
-      unfold test_junc, junc; intros i tau j.
-      destruct (M.get _ jun (i, tau)); intros; try discriminate.
-      generalize (M1.eq_key_spec p j); rewrite H; congruence.
+      unfold test_junc, junc; intros i j.
+      destruct (M.get jun (i)); intros; try discriminate.
+      generalize (M.eq_key_spec p j); rewrite H; congruence.
     Qed.
-    
-    Definition check_soap1 : bool :=
+
+(*     Definition check_soap1 : bool :=
       for_all_steps
-        (fun i tau oj =>
+        (fun i oj =>
           match oj with
             | None => true
-            | Some j => orb (in_region i tau j) (test_junc i tau j)
-          end).
+            | Some j => orb (in_region i j) (test_junc i j)
+          end). *)
+    
+     Definition check_soap1 : bool :=
+      for_all_steps
+        (fun i (* tau *) oj =>
+          for_all_steps (fun i ok =>
+            match oj, ok with
+(*               | None, None => true *)
+              | Some j, Some k => orb (M.eq_key j k) (orb (in_region i (* tau *) k) (test_junc i (* tau *) k))
+              | _, _ => false
+            end)). 
 
     Definition check_soap1' : list (PC*bool) :=
       test_all_steps
-        (fun i tau oj =>
-          match oj with
-            | None => true
-            | Some j => orb (in_region i tau j) (test_junc i tau j)
-          end).
+        (fun i oj =>
+          for_all_steps (fun i ok =>
+          match oj, ok with
+            | None, NOne => true 
+            | Some j, Some k => orb (M.eq_key j k) (orb (in_region i j) (test_junc i j))
+            | _, _ => false
+          end)).
         
     Lemma check_soap1_correct : check_soap1 = true ->
-      forall i j kd,
-        step i kd (Some j) -> 
-        region i kd j \/ junc i kd j.
+      forall i j k,
+        step i (Some j) -> step i (Some k) -> j <> k ->
+        region i k \/ junc i k.
     Proof.
       unfold check_soap1; intros.
-      assert (T:=for_all_steps_true _ H _ _ _ H0).
-      elim orb_prop with (1:=T); intros.
+      assert (T:=for_all_steps_true _ H _ _ H0); simpl in T.
+      assert (T':=for_all_steps_true _ T _ _ H1); simpl in T'.
+      elim orb_prop with (1:=T'); intros.
+        generalize (M.eq_key_spec j k). rewrite H3; congruence.
+      elim orb_prop with (1:=H3); intros.
       left; apply in_region_true; auto.
       right; apply test_junc_true; auto.
     Qed.
 
-    Definition for_all_region (test:PC->Kind->PC->bool) : bool :=
-      M.for_all _
-        (fun ikd m => let (i,kd):=ikd in
-           M1.for_all 
-             (fun j b => (negb b) || test i kd j)
+    Definition for_all_region (test:PC->PC->bool) : bool :=
+      M.for_all
+        (fun i m => (* let (i,kd):=ikd in *)
+           M.for_all 
+             (fun j b => (negb b) || test i j)
              m)
         reg.
 
     Lemma for_all_region_true : forall test,
       for_all_region test = true ->
-      forall i tau j, region i tau j -> test i tau j = true.
+      forall i j, region i j -> test i j = true.
     Proof.
       unfold for_all_region, region; intros.
       destruct H0 as [m [H0 H1]].
       assert (T:=M.for_all_true _ _ _ H _ _ H0).
-      elim orb_prop with (1:=M1.for_all_true _ _ _ T _ _ H1); auto.
+      elim orb_prop with (1:=M.for_all_true _ _ _ T _ _ H1); auto.
       intros; discriminate.
     Qed.
 
-    Definition for_all_region1 (i0:PC) (test:Kind->PC->bool) : bool :=
-      M.for_all _
-        (fun ikd m => let (i,kd):=ikd in
-           negb (M1.eq_key i0 i) ||
-           M1.for_all 
-             (fun j b => (negb b) || test kd j)
+    Definition for_all_region1 (i0:PC) (test:PC->bool) : bool :=
+      M.for_all
+        (fun i m => (* let (i,kd):=ikd in *)
+           negb (M.eq_key i0 i) ||
+           M.for_all 
+             (fun j b => (negb b) || test j)
              m)
         reg.
 
     Lemma for_all_region1_true : forall i test,
       for_all_region1 i test = true ->
-      forall tau j, region i tau j -> test tau j = true.
+      forall j, region i j -> test j = true.
     Proof.
       unfold for_all_region1, region; intros.
       destruct H0 as [m [H0 H1]].
       assert (T:=M.for_all_true _ _ _ H _ _ H0).
       simpl in T.
       elim orb_prop with (1:=T); intros.
-      generalize (M1.eq_key_spec i i); destruct (M1.eq_key i i); simpl in *; intros.
+      generalize (M.eq_key_spec i i); destruct (M.eq_key i i); simpl in *; intros.
       discriminate.
       elim H3; auto.
-      elim orb_prop with (1:=M1.for_all_true _ _ _ H2 _ _ H1); auto.
+      elim orb_prop with (1:=M.for_all_true _ _ _ H2 _ _ H1); auto.
       intros; discriminate.
     Qed.
 
 
-    Definition for_all_region2 (i:PC) (tau:Kind) (test:PC->bool) : bool :=
-      match M.get _ reg (i,tau) with
+    Definition for_all_region2 (i:PC) (*tau:Kind*) (test:PC->bool) : bool :=
+      match M.get reg (i) with
         | None => true
-        | Some m => M1.for_all (fun j b => b && test j) m
+        | Some m => M.for_all (fun j b => b && test j) m
       end.
 
-    Lemma for_all_region2_true : forall test i tau,
-      for_all_region2 i tau test = true ->
-      forall j, region i tau j -> test j = true.
+    Lemma for_all_region2_true : forall test i,
+      for_all_region2 i test = true ->
+      forall j, region i j -> test j = true.
     Proof.
       unfold for_all_region2, region; intros.
       destruct H0 as [m [H0 H1]].
       rewrite H0 in H.
-      assert (T:=M1.for_all_true _ _ _ H _ _ H1).
+      assert (T:=M.for_all_true _ _ _ H _ _ H1).
       auto.
     Qed.
 
     Definition check_soap2 : bool := 
       for_all_region
-        (fun i kd j =>
+        (fun i j =>
           for_all_succs j
-            (fun tau ok => 
+            (fun ok => 
               match ok with
                 | None => true
-                | Some k => orb (in_region i kd k) (test_junc i kd k)
+                | Some k => orb (in_region i k) (test_junc i k)
               end)).
 
     Lemma check_soap2_correct : check_soap2 = true ->
-      forall i j k kd kd0,
-        region i kd0 j-> 
-        step j kd (Some k) ->
-        region i kd0 k \/ junc i kd0 k.
+      forall i j k,
+        region i j-> 
+        step j (Some k) ->
+        region i k \/ junc i k.
     Proof.
       unfold check_soap2; intros.
-      generalize (for_all_region_true _ H _ _ _ H0); intros T.
-      elim orb_prop with (1:=for_all_succs_true _ _ T _ _ H1); intros.
+      generalize (for_all_region_true _ H _ _ H0); intros T.
+      elim orb_prop with (1:=for_all_succs_true _ _ T _ H1); intros.
       left; apply in_region_true; auto.
       right; apply test_junc_true; auto.
     Qed.
 
-    Definition test_all_region (test:PC->Kind->PC->bool) : list (PC*Kind*PC) :=
-      M.fold _ _ 
-        (fun ikd m l =>
-          let (i,kd):=ikd in
-            M1.fold
+    Definition test_all_region (test:PC->PC->bool) : list (PC*PC) :=
+      M.fold 
+        (fun i m l =>
+(*           let (i,kd):=ikd in *)
+            M.fold
               (fun j (b:bool) l =>
                 if b then 
-                  (if test i kd j then l else (i,kd,j)::l)
+                  (if test i j then l else (i,j)::l)
                   else l)
               m l)
         reg nil.
 
-    Definition test_soap2 : list (PC*Kind*PC) := 
+    Definition test_soap2 : list (PC*PC) := 
       test_all_region
-        (fun i kd j =>
+        (fun i j =>
           for_all_succs j
-            (fun tau ok => 
+            (fun ok => 
               match ok with
                 | None => true
-                | Some k => orb (in_region i kd k) (test_junc i kd k)
+                | Some k => orb (in_region i k) (test_junc i k)
               end)).
 
 
     Definition for_all_result (test:PC->bool) : bool :=
       for_all_steps
-      (fun i tau oj => 
+      (fun i oj => 
         match oj with
           | None => test i
           | Some _ => true
@@ -238,55 +253,55 @@ Module Make (M1:MAP) (M2:MAP).
       forall i, result i -> test i = true.
     Proof.
       unfold for_all_result, result; intros.
-      destruct H0 as [tau H0].
-      apply (for_all_steps_true _ H _ _ _ H0).
+(*       destruct H0 as [H0]. *)
+      apply (for_all_steps_true _ H _ _ H0).
     Qed.
 
-    Definition for_all_junc (test:PC->Kind->PC->bool) : bool :=
-      M.for_all _
-        (fun ikd j => let (i,kd):=ikd in
-           test i kd j)
+    Definition for_all_junc (test:PC->PC->bool) : bool :=
+      M.for_all
+        (fun i j => (* let (i,kd):=ikd in *)
+           test i j)
         jun.
 
     Lemma for_all_junc_true : forall test,
       for_all_junc test = true ->
-      forall i tau j, junc i tau j -> test i tau j = true.
+      forall i j, junc i j -> test i j = true.
     Proof.
       unfold for_all_junc, junc; intros.
       apply (M.for_all_true _ _ _ H _ _ H0).
     Qed.
 
-    Definition for_all_junc1 (i0:PC) (test:Kind->PC->bool) : bool :=
-      M1.for_all 
-        (fun i m => (negb (M1.eq_key i i0)) || (M2.for_all test m))
+    Definition for_all_junc1 (i0:PC) (test:PC->bool) : bool :=
+      M.for_all 
+        (fun i j => (negb (M.eq_key i i0)) || (test j)(*M.for_all test m*))
         jun.
 
     Lemma for_all_junc1_true : forall i test,
       for_all_junc1 i test = true ->
-      forall tau j, junc i tau j -> test tau j = true.
+      forall j, junc i j -> test j = true.
     Proof.
       unfold for_all_junc1, junc; intros.
-      unfold M.get in H0.
-      unfold M'.get in H0.
-      simpl in H0.
-      case_eq (M1.get jun i); intros.
-      rewrite H1 in H0.      
-      elim orb_prop with (1:=M1.for_all_true _ _ _ H _ _ H1); intros.
-      generalize (M1.eq_key_spec i i); destruct (M1.eq_key i i); intuition.
-      apply (M2.for_all_true _ _ _ H2 _ _ H0).
-      rewrite H1 in H0; discriminate.
+      (* unfold M.get in H0.
+      unfold M'.get in H0. *)
+(*       simpl in H. *)
+      (* case_eq (M.get jun i); intros.
+      rewrite H1 in H0.       *)
+      elim orb_prop with (1:=M.for_all_true _ _ _ H _ _ H0); intros; auto.
+      generalize (M.eq_key_spec i i); destruct (M.eq_key i i); intuition.
+      (* apply (M.for_all_true _ _ _ H1 _ _ H0).
+      rewrite H1 in H0; discriminate. *)
     Qed.
 
     Definition check_soap3 : bool :=
       for_all_junc
-      (fun i kd k => 
-        (match M.get _ reg (i,kd) with
+      (fun i k => 
+        (match M.get reg (i) with
            | None => true
-           | Some m => M1.for_all 
+           | Some m => M.for_all 
              (fun j b => 
                (negb b) ||
                  (for_all_succs j
-                   (fun tau ok => 
+                   (fun ok => 
                      match ok with
                        | None => false
                        | Some k => true
@@ -294,20 +309,20 @@ Module Make (M1:MAP) (M2:MAP).
          end)).
 
     Lemma check_soap3_correct : check_soap3 = true ->
-      forall i j k kd, 
-       region i kd j -> 
+      forall i j k, 
+       region i j -> 
        result j -> 
-       ~ junc i kd k.
+       ~ junc i k.
     Proof.
       unfold check_soap3, region, result; red; intros.
-      assert (HH:=(for_all_junc_true _ H _ _ _ H2)); clear H H2.
+      assert (HH:=(for_all_junc_true _ H _ _ H2)); clear H H2.
       destruct H0 as [m [H H2]].
-      destruct H1 as [tau H1].
+(*       destruct H1 as [H1]. *)
       simpl in HH.
       rewrite H in HH.
-      elim orb_prop with (1:=M1.for_all_true _ _ _ HH _ _ H2); simpl; intros.
+      elim orb_prop with (1:=M.for_all_true _ _ _ HH _ _ H2); simpl; intros.
       discriminate.
-      generalize (for_all_succs_true _ _ H0 _ _ H1); intros; discriminate.
+      generalize (for_all_succs_true _ _ H0 _ H1); intros; discriminate.
     Qed.
 (* DEX
     Definition check_soap4 : bool :=
@@ -433,13 +448,13 @@ Module Make (M1:MAP) (M2:MAP).
     Lemma check_soap_true :
       check_soaps = true ->
       { cdr : CDR step |
-        forall i tau j, cdr.region cdr i tau j -> region i tau j }.
+        forall i j, cdr.region cdr i j -> region i j }.
     Proof.
       unfold check_soaps; intros; 
         repeat match goal with
                  [ id : _ && _ = true |- _ ] =>  destruct (andb_prop _ _ id); clear id
                end.
-      exists (make_CDR region junc
+      exists (make_CDR step region junc
                (check_junc_func_correct H0)
                (check_soap1_correct H3)
                (check_soap2_correct H2)
@@ -450,22 +465,22 @@ Module Make (M1:MAP) (M2:MAP).
       simpl; auto.    
     Qed.
 
-    Definition for_all_in_region : PC -> Kind -> (PC->bool) -> bool :=
-      fun i k test =>
-        match M.get _ reg (i,k) with
+    Definition for_all_in_region : PC -> (PC->bool) -> bool :=
+      fun i test =>
+        match M.get reg (i) with
           | None => true
           | Some m =>
-            M1.for_all (fun j b => (negb b) || test j)
+            M.for_all (fun j b => (negb b) || test j)
             m
         end.
-    Lemma for_all_in_region_correct : forall i k test,
-      for_all_in_region i k test = true ->
-      forall j, region i k j -> test j = true.
+    Lemma for_all_in_region_correct : forall i test,
+      for_all_in_region i test = true ->
+      forall j, region i j -> test j = true.
     Proof.
       unfold region, for_all_in_region; intros.
       destruct H0 as [m [H0 H1]].
       rewrite H0 in H.
-      elim orb_prop with (1:=M1.for_all_true _ _ _ H _ _ H1); simpl; intros.
+      elim orb_prop with (1:=M.for_all_true _ _ _ H _ _ H1); simpl; intros.
       discriminate.
       auto.
     Qed.
