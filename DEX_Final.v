@@ -220,6 +220,8 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     inversion_mine H; eapply P_CallStep; eauto.
   Qed. *)
 
+  Definition default_level := L.High.
+
   Inductive init_pc (m:Method) : PC -> Prop :=
     init_pc_def : forall bm,
       DEX_METHOD.body m = Some bm ->
@@ -243,7 +245,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     rt0_def : forall sgn bm, 
       DEX_METHOD.body m = Some bm ->
       P (SM _ _ m sgn) ->
-      rt0 m (Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm)).
+      rt0 m (Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)).
 
 
   Definition ni := ni _ _ _ _ _ exec pc registertypes indist rindist compat rt0 init_pc P.
@@ -355,9 +357,10 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
   | sub_cons : forall x1 x2 st1 st2,
     L.leql' x1 x2 -> sub st1 st2 -> sub (x1::st1) (x2::st2). *)
   Inductive sub : registertypes -> registertypes -> Prop :=
-    forall_sub : forall rt1 rt2, VarMap.dom _ rt1 = VarMap.dom _ rt2 ->
+  | forall_sub : forall rt1 rt2, VarMap.dom _ rt1 = VarMap.dom _ rt2 ->
       (forall r k1 k2, Some k1 = VarMap.get _ rt1 r -> Some k2 = VarMap.get _ rt2 r -> L.leql k1 k2) 
-      -> sub rt1 rt2. 
+      -> sub rt1 rt2
+  | nil_sub : sub (VarMap.empty _) (VarMap.empty _). 
 
   Lemma sub_forall : forall rt rt', sub rt rt' -> 
     (forall r k1 k2, 
@@ -365,6 +368,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     L.leql k1 k2).
   Proof. intros. inversion H0; auto.
     inversion H; subst. apply H4 with (r:=r); auto.
+    rewrite VarMap.get_empty in H1. inversion H1.
   Qed.
 
   Lemma compat_register_sub : forall (rt1 rt2 : registertypes),
@@ -742,7 +746,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
         constructor 1; auto.
         inversion H.
         inversion H0; subst.
-        rewrite <- H1 in H3; auto.
+        rewrite <- H1 in H3; auto. auto.
         intros.
         inversion H; inversion H0; subst.
         assert (exists k'', Some k'' = VarMap.get L.t rt rn).
@@ -762,6 +766,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
           (* case where both are low *)
           constructor 2; auto.
         rewrite H9; auto.
+        inversion H2.
       Qed.
 
       Lemma sub_simple : forall sgn rt rt' rt0 s s0,
@@ -925,12 +930,19 @@ Section CheckTypable.
    Definition selift m sgn i (*tau:tag*) k :=
     for_all_region m i (* tau *) (fun j => L.leql_t k (se m sgn j)). 
 
-  Fixpoint check_rt0_rec m sgn p : bool :=
-    match p with 
-    | h :: t => match VarMap.get _ m h with
-        | None => false
-        | Some k => (L.eq_t k (DEX_lvt sgn h)) && check_rt0_rec m sgn t
-        end
+  Fixpoint check_rt0_rec m sgn p valid_reg default {struct valid_reg}: bool :=
+    match valid_reg with 
+    | h :: t => 
+        if In_test h p then
+          match VarMap.get _ m h with
+          | None => false
+          | Some k => (L.eq_t k default) && check_rt0_rec m sgn p t default
+          end
+        else
+          match VarMap.get _ m h with
+          | None => false
+          | Some k => (L.eq_t k (DEX_lvt sgn h)) && check_rt0_rec m sgn p t default
+          end
     | nil => true
     end.
 
@@ -938,7 +950,7 @@ Section CheckTypable.
     match DEX_METHOD.body m with
       | None => false
       | Some bm => let rt := RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm) in
-                   check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm)
+                   check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)
     end.
 
   Definition check : bool := for_all_P p
@@ -949,18 +961,39 @@ Section CheckTypable.
         DEX_tcheck (*p subclass_test*) m sgn (se m sgn) (selift m sgn) (RT m sgn) i ins)
     ).
 
-(*   Lemma check_correct1 : check = true ->
-    forall m sgn rt, P p (SM _ _ m sgn) ->
-      forall i, init_pc m i -> rt0 p m rt -> RT m sgn i = rt.
+  (* Lemma check_correct1_aux' : forall rt bm sgn default_level, 
+    check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level = true -> 
+      rt = make_rt_from_lvt_rec sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level.
+  Proof.
+    intros.
+    unfold check_rt0_rec in H.
+    
+    rewrite H in H0.
+
+  Lemma check_correct1_aux : forall m bm sgn, DEX_METHOD.body m = Some bm -> check_rt0 m sgn = true ->
+    RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm) = 
+      make_rt_from_lvt_rec sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level.
+  Proof.
+    intros.
+    unfold check_rt0 in H0.
+    rewrite H in H0.
+    
+
+  Lemma check_correct1 : check = true ->
+    forall m sgn, P p (SM _ _ m sgn) ->
+      forall i rt, init_pc m i -> rt0 p m rt -> RT m sgn i = rt.
   Proof.
     unfold check; intros.
     inversion_mine H1.
+    inversion H2.
+      rewrite H3 in H1; inversion H1. symmetry in H1. rewrite <- H7 in H5; clear H7.  
     assert (T:=for_all_P_true _ _ H _ _ H0).
     destruct (andb_prop _ _ T) as [TT _].
     unfold check_rt0 in TT.
-    rewrite H3 in TT.
+    rewrite H2 in TT.
+    unfold check_rt0_rec in TT.
     destruct (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)); auto. ; discriminate.
-  Qed. *)
+  Qed.  *)
 
   Lemma check_correct2 : check = true ->
     forall m sgn (h:P p (SM _ _ m sgn)),
@@ -980,16 +1013,20 @@ Section CheckTypable.
     intros C; generalize (L.leql_t_spec k (se m sgn j)); rewrite C; auto. *)
   Qed.
 
-(*   Lemma tsub_sub : forall rt1 rt2,
+  Lemma tsub_sub : forall rt1 rt2,
     tsub_rt rt1 rt2 = true -> sub rt1 rt2.
   Proof.
     (* induction st1; destruct st2; simpl; *) intros. (* ; try discriminate. *)
-    constructor.
-    unfold tsub_rt in H.
+    unfold tsub_rt in H. destruct (andb_prop _ _ H).
+    apply eq_list_prop in H0. 
+    constructor; auto.
+    unfold tsub_rec in H1.
+    intros.
     admit.
-    intros. leql_test_prop
-
+    destruct (andb_prop _ _ H).
+    contradiction.
     elim andb_prop with (1:=H); intros.
+
     constructor; auto.
     generalize (leql'_test_prop a t); rewrite H0; auto.
   Qed.

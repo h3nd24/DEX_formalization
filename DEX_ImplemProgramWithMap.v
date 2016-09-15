@@ -446,7 +446,8 @@ Module DEX_Make <: DEX_PROGRAM.
       max_locals : nat;
       max_operand_stack_size : nat;
       (* DEX type system locR *)
-      locR : list DEX_Reg
+      locR : list DEX_Reg;
+      regs : list DEX_Reg
     }.
     
     Definition instructionAt (bm:t) (pc:DEX_PC) : option DEX_Instruction :=
@@ -481,6 +482,7 @@ Module DEX_Make <: DEX_PROGRAM.
     Parameter max_operand_stack_size : DEX_BytecodeMethod -> nat.
     (* DEX type system locR *)
     Parameter locR : DEX_BytecodeMethod -> list DEX_Reg.
+    Parameter regs : DEX_BytecodeMethod -> list DEX_Reg.
 
     Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=
       exists i, instructionAt bm pc = Some i.

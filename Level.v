@@ -316,9 +316,35 @@ Fixpoint Nseq (start:N) (len:nat) : list N :=
       | S n => start :: Nseq (Nsucc start) (n)
     end.
 
+Fixpoint eq_list (l1 l2: list N) : bool :=
+  match l1, l2 with
+    | h1::t1, h2::t2 => (Neq h1 h2) && eq_list t1 t2
+    | nil, nil => true
+    | _, _ => false
+  end.
+
+Definition neq_dec (A:Type) := forall x y:A, {x=y} + {~x=y}.
+Lemma reg_eq_dec : neq_dec N.
+  Proof.
+   intros x1 x2;assert (UU:= Neq_spec x1 x2);destruct (Neq x1 x2);auto.
+  Qed.
+
+Lemma eq_list_aux : forall l1 l2 (a:N), l1 = l2 -> a::l1 = a::l2.
+Proof. intros; rewrite H; auto. Qed.
+
+Lemma eq_list_prop : forall l1 l2, eq_list l1 l2 = true -> l1 = l2.
+Proof.
+  intro l1. 
+  induction l1; intro l2; induction l2; intros; auto.
+  inversion H. inversion H.
+  unfold eq_list in H; simpl in H. apply andb_prop in H. 
+  inversion_mine H.
+  apply IHl1 in H1.
+  generalize (Neq_spec a a0); intros H2; rewrite H0 in H2. rewrite H2; apply eq_list_aux; auto.
+Qed.
+
 Definition tsub_rt (rt1 rt2 : BinNatMap.t L.t) : bool :=
-  (*let size := length (BinNatMap.dom _ rt2) in
-  let keys := Nseq (N0) (size) in *)
+  (eq_list (BinNatMap.dom _ rt1) (BinNatMap.dom _ rt2)) &&
   tsub_rec (rt1) (rt2) (BinNatMap.dom _ rt2).
 
 

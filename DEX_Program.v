@@ -457,6 +457,7 @@ Module Type DEX_PROGRAM.
     Parameter max_operand_stack_size : DEX_BytecodeMethod -> nat.
     (* DEX for type system *)
     Parameter locR : DEX_BytecodeMethod -> list DEX_Reg.
+    Parameter regs : DEX_BytecodeMethod -> list DEX_Reg.
 
     Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=
       exists i, instructionAt bm pc = Some i.

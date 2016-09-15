@@ -142,15 +142,44 @@ Definition compat_type_st_lvt (s:JVM_sign) (st:TypeStack) (n:nat) : Prop :=
     nth_error st (n-(Var_toN x)-1)%nat = Some k /\
     L.leql' k (JVM_lvt s x).
 *)
+Fixpoint In_test (a:DEX_Reg) (l:list DEX_Reg) {struct l} :=
+  match l with
+    | nil => false
+    | h::t => Neq h a || In_test a t
+  end.
 
-Fixpoint make_rt_from_lvt_rec (s:DEX_sign) (p:list DEX_Reg) {struct p} : TypeRegisters:=
-  match p with
-    | r::t => let k := DEX_lvt s r in
-        VarMap.update _ (make_rt_from_lvt_rec s t) r k 
+Lemma In_In_test: forall a l, In a l <-> In_test a l = true.
+Proof.
+  intros. split; intros.
+  (* -> *)
+  induction l.
+  inversion H.
+  apply in_inv in H. inversion H; auto. 
+    simpl. destruct (Neq a0 a) eqn:Heq; auto.
+    generalize (Neq_spec a0 a); intros. rewrite Heq in H1; contradiction.
+    simpl. apply IHl in H0; rewrite H0; auto. apply orb_true_r.
+  (* <- *)
+  induction l. inversion H.
+  inversion H.
+  apply orb_prop in H1. inversion H1.
+    generalize (Neq_spec a0 a); intros Heq; rewrite H0 in Heq. 
+    rewrite Heq; apply in_eq.
+    apply IHl in H0.
+    apply in_cons; eauto.
+Qed. 
+      
+Fixpoint make_rt_from_lvt_rec (s:DEX_sign) (p:list DEX_Reg) (valid_regs:list DEX_Reg) (default:L.t) {struct valid_regs} : TypeRegisters:=
+  match valid_regs with
+    | r::t => 
+        if In_test r p then
+          let k := DEX_lvt s r in
+          VarMap.update _ (make_rt_from_lvt_rec s p t default) r k 
+        else
+          VarMap.update _ (make_rt_from_lvt_rec s p t default) r default 
     | nil => VarMap.empty L.t
   end.
 
-Lemma lvt_rt : forall p r s rt k, 
+(* Lemma lvt_rt : forall p r s rt k, 
   make_rt_from_lvt_rec s p = rt ->
   In r p -> 
   VarMap.get _ rt r = Some k -> DEX_lvt s r = k.
@@ -172,7 +201,7 @@ Proof.
   rewrite VarMap.get_update2 in H1; auto.
   apply IHp with (rt:=make_rt_from_lvt_rec s p); auto.
   inversion H0; auto. symmetry in H3; contradiction.
-Qed.
+Qed. *)
 
 Definition compat_type_rt_lvt (s:DEX_sign) (rt:TypeRegisters) 
   (p:list DEX_Reg) (n:nat) : Prop :=
