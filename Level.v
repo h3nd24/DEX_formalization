@@ -347,6 +347,34 @@ Definition tsub_rt (rt1 rt2 : BinNatMap.t L.t) : bool :=
   (eq_list (BinNatMap.dom _ rt1) (BinNatMap.dom _ rt2)) &&
   tsub_rec (rt1) (rt2) (BinNatMap.dom _ rt2).
 
+Lemma tsub_rec_leq_aux : forall r rt1 rt2, In r (BinNatMap.dom _ rt2) -> 
+  tsub_rec rt1 rt2 (BinNatMap.dom _ rt2) = true -> tsub_element rt1 rt2 r = true.
+Proof.
+  intros. unfold tsub_rec in H0.
+  induction (BinNatMap.dom L.t rt2).
+    inversion H.
+  elim (andb_prop _ _ H0); intros.
+  destruct (reg_eq_dec a r).
+    rewrite <- e; auto.
+  inversion H. contradiction.
+  apply IHl in H3; auto.
+Qed.
+
+Lemma tsub_rec_leq : forall r rt1 rt2 k1 k2, In r (BinNatMap.dom _ rt2) ->
+  tsub_rec rt1 rt2 (BinNatMap.dom _ rt2) = true ->
+  Some k1 = BinNatMap.get _ rt1 r ->
+  Some k2 = BinNatMap.get _ rt2 r ->
+  L.leql k1 k2.
+Proof.
+  intros. apply tsub_rec_leq_aux with (rt1:=rt1) in H; auto.
+  unfold tsub_element in H. 
+  rewrite <- H1 in H.
+  rewrite <- H2 in H.
+  generalize (L.leql_t_spec); intros.
+  specialize H3 with k1 k2. rewrite H in H3; auto.
+Qed.
+  
+
 
 
 

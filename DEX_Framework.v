@@ -76,10 +76,10 @@ Variable rt0 : Method -> registertypes -> Prop.
 Variable init_pc : Method -> PC -> Prop.
 (* Variable init_init_pc : forall m s, init m s -> init_pc m (pc s). *)
 
-(*
-   Variable compat_init : forall m sgn s,
-  init m s -> compat sgn s s0.
-*)
+
+(* Variable compat_init : forall m sgn s rt,
+  init m s -> rt0 m rt -> compat sgn s rt0. *)
+
 
 (* Variable high_opstack : stacktype -> istate -> Prop. *)
 
@@ -1085,32 +1085,34 @@ Proof.
   apply typable_evalsto; auto.
   destruct (T _ _ H) as [T1 _]; rewrite T1; auto.
 Qed.
-
-Theorem safe_ni : forall m sgn p p' n n' s s' r r' b b',
+*)
+Theorem safe_ni : forall m sgn p p' s s' r r' rt,
   P (SM m sgn) ->
   init_pc m (pc s) ->
   init_pc m (pc s') ->
-  compat sgn s s0 ->
-  compat sgn s' s0 ->
-  indist sgn s0 s0 b b' s s' ->
+  rt0 m rt ->
+  rt0 m rt ->
+  compat sgn s rt ->
+  compat sgn s' rt ->
+  indist sgn rt rt s s' ->
   pc s = pc s' ->
-  evalsto m n p s r -> 
-  evalsto m n' p' s' r' -> 
-  exists br, exists br',
+  evalsto m p s r -> 
+  evalsto m p' s' r' -> 
+  (* exists br, exists br',
     border b br /\
-    border b' br' /\
-    rindist sgn br br' r r'.
+    border b' br' /\ *)
+    rindist sgn r r'.
 Proof.
   intros.
-  apply (@ni_ind (max n n') m sgn p p' n n' b b' s s' r r' H); auto.
-  destruct (T _ _ H) as [T1 _]; rewrite T1; auto.
+  apply (@ni_ind (* (max n n') *) m sgn p p' s s' r r' H); auto.
+  destruct (T _ _ H) as [T1 _]. rewrite T1 with (i:=pc s) (rt:=rt); auto.
   apply typable_evalsto; auto.
-  apply le_max_l.
+(*   apply le_max_l. *)
   apply typable_evalsto; auto.
-  apply le_max_r.
-  destruct (T _ _ H) as [T1 _]; rewrite T1; auto.
-  destruct (T _ _ H) as [T1 _]; rewrite T1; auto.
-Qed. *)
+(*   apply le_max_r. *)
+  destruct (T _ _ H) as [T1 _]; rewrite T1 with (i:=pc s) (rt:=rt); auto.
+  destruct (T _ _ H) as [T1 _]; rewrite T1 with (i:=pc s') (rt:=rt); auto.
+Qed.
 
 End TypableProg.
 End A.

@@ -977,7 +977,7 @@ Section CheckTypable.
     intros.
     unfold check_rt0 in H0.
     rewrite H in H0.
-    
+   
 
   Lemma check_correct1 : check = true ->
     forall m sgn, P p (SM _ _ m sgn) ->
@@ -1020,53 +1020,49 @@ Section CheckTypable.
     unfold tsub_rt in H. destruct (andb_prop _ _ H).
     apply eq_list_prop in H0. 
     constructor; auto.
-    unfold tsub_rec in H1.
     intros.
-    admit.
-    destruct (andb_prop _ _ H).
-    contradiction.
-    elim andb_prop with (1:=H); intros.
-
-    constructor; auto.
-    generalize (leql'_test_prop a t); rewrite H0; auto.
+    apply tsub_rec_leq with (r:=r) (k1:=k1) (k2:=k2) in H1; auto.
+    assert (VarMap.get L.t rt2 r <> None). unfold not; intros. 
+      rewrite H4 in H3; inversion H3.
+    apply VarMap.get_some_in_dom in H4; auto.
   Qed.
 
   Lemma check_correct3 : check = true ->
     forall m sgn (h:P p (SM _ _ m sgn)),
-      forall i j kd,
-        step p subclass_test m i kd (Some j) ->
-        exists st,
-          texec p subclass_test cdr_local m (PM_P _ _ h) sgn (se m sgn) i kd (S m sgn i) (Some st) 
-          /\ sub st (S m sgn j).
+      forall i j,
+        step p (* subclass_test *) m i (Some j) ->
+        exists rt,
+          texec p (* subclass_test *) cdr_local m (PM_P _ _ h) sgn (se m sgn) i (RT m sgn i) (Some rt) 
+          /\ sub rt (RT m sgn j).
   Proof.
     unfold check; intros.
     assert (T:=for_all_P_true _ _ H _ _ h).
     destruct (andb_prop _ _ T) as [_ TT].
     destruct H0 as [H0 [ins [H2 H3]]].
-    assert (T':=for_all_steps_m_true _ _ _ _ TT _ _ _ _ H2 H3).
-    elim (tcheck_correct2 p subclass_test m sgn (region (cdr_local _ (PM_P _ _ h)))  (se m sgn)
-      (selift m sgn) (S m sgn)) with (2:=T') (3:=H3).
-    intros st [T1 T2].
-    exists st; split.
+    assert (T':=for_all_steps_m_true _ _ TT _ _ _ H2 H3).
+    elim (tcheck_correct2 (* p subclass_test *) m sgn (region (cdr_local _ (PM_P _ _ h)))  (se m sgn)
+      (selift m sgn) (RT m sgn)) with (2:=T') (3:=H3).
+    intros rt [T1 T2].
+    exists rt; split.
     exists ins; split; auto.
     apply tsub_sub; auto.
     unfold selift; intros.
-    assert (T2:=for_all_region_correct _ _ _ _ H1 _ (cdr_prop _ _ _ _ _ H4)).
+    assert (T2:=for_all_region_correct _ _ _ H1 _ (cdr_prop _ _ _ _ H4)).
     generalize (L.leql_t_spec k (se m sgn j0)).
     rewrite T2; auto.
   Qed.
 
   Lemma check_correct : 
     check = true ->
-    TypableProg p subclass_test cdr_local se S.
+    TypableProg p (* subclass_test *) cdr_local se RT.
   Proof.
     intros H m sgn H1.
     constructor.
-    apply check_correct1; auto.
+    admit. (* apply check_correct1; auto. *)
     split.
     apply check_correct2; auto.
     apply check_correct3; auto.
-  Qed. *)
+  Admitted.
 
 End CheckTypable.
 
@@ -1164,21 +1160,18 @@ Section well_formed_lookupswitch.
 
 End  well_formed_lookupswitch.
 
-
-
-
-Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram) (*subclass_test : ClassName -> ClassName -> bool*),
+(* Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram) (*subclass_test : ClassName -> ClassName -> bool*),
   (*(forall c1 c2, if subclass_test c1 c2 then subclass_name p c1 c2 else ~ subclass_name p c1 c2) ->*)
   forall cdr : forall m, PM p m -> CDR (step p (* subclass_test *) m),
     (exists se, exists RT, TypableProg p (* subclass_test *) cdr se RT) ->
 (*     (forall m sgn, P p (SM _ _ m sgn) -> well_formed_lookupswitch m) -> *)
-    forall m sgn i l1 l2 r1 r2,
+    forall m sgn i r1 r2,
       P p (SM _ _ m sgn) ->
       init_pc m i -> 
-      compat p sgn (i,nil,l1)) nil ->
-      compat p sgn (i,nil,l2)) nil ->
-      evalsto p m (i,nil,l1)) (r1) -> 
-      evalsto p m (i,nil,l2)) (r2) -> 
+      compat sgn (i,nil) nil ->
+      compat sgn (i,nil) nil ->
+      evalsto p m (i,nil) (r1) -> 
+      evalsto p m (i,nil) (r2) -> 
 (*       localvar_in kobs sgn.(lvt) b1 b2 l1 l2 -> *)
 (*       hp_in kobs (newArT p) (ft p) b1 b2 h1 h2 -> *)
 (*       exists br1, exists br2,
@@ -1214,55 +1207,45 @@ Proof.
   inversion_clear T3; exists br1; exists br2; Splitand; try assumption.
   do 2 constructor; try assumption.
   repeat constructor.
-Qed.
+Qed. *)
 
 Definition check_all_cdr 
-  (p:Program) (subclass_test : ClassName -> ClassName -> bool)
-  (reg : Method -> CheckCdr.M.t (MapN.t bool))
-  (jun : Method -> MapN.t (MapKind.t CheckCdr.PC)) : bool :=
-  for_all_methods p (fun m => check_cdr p subclass_test m (reg m) (jun m)).
+  (p:DEX_Program) (*subclass_test : ClassName -> ClassName -> bool*)
+  (reg : Method -> MapN.t (MapN.t bool))
+  (jun : Method -> MapN.t (CheckCdr.PC)) : bool :=
+  for_all_methods p (fun m => check_cdr (* p subclass_test *) m (reg m) (jun m)).
 
-Lemma check_all_cdr_correct : forall p subclass_test reg jun,
-  check_all_cdr p subclass_test reg jun = true ->
-  forall m, PM p m -> check_cdr p subclass_test m (reg m) (jun m) = true.
+Lemma check_all_cdr_correct : forall p (* subclass_test *) reg jun,
+  check_all_cdr p (* subclass_test *) reg jun = true ->
+  forall m, PM p m -> check_cdr (* p subclass_test *) m (reg m) (jun m) = true.
 Proof.
   unfold check_all_cdr; intros.
-  apply (for_all_methods_true p (fun m => check_cdr p subclass_test0 m (reg m) (jun m))); auto.
+  apply (for_all_methods_true p (fun m => check_cdr (*p subclass_test0 *) m (reg m) (jun m))); auto.
 Qed.
 
 Lemma IntraStep_evalsto_aux : forall p m s r,
-  BigStepAnnot.IntraStepStar P.throwableAt (throwableBy p.(prog)) p.(prog) m s r ->
+  DEX_BigStepAnnot.DEX_IntraStepStar (* P.throwableAt (throwableBy p.(prog)) *) p.(DEX_prog) m s r ->
   match r with
     | inl _ => True
-    | inr r => exists n, evalsto p m n s r
+    | inr r => evalsto p m s r
   end.
 Proof.
-  intros p; apply BigStepAnnot.IntraStepStar_ind; intros; auto.
-  exists O; constructor 1 with tau.
+  intros p; apply DEX_BigStepAnnot.DEX_IntraStepStar_ind; intros; auto.
+  constructor 1.
   constructor 2; auto.
   destruct r; auto.
-  destruct H1 as [n H1].
-  exists (S (O + n)).
-  constructor 2 with tau s'; auto.
-  constructor 1; auto.
-  destruct H1 as [n H1].
-  exists (S n); constructor 1 with tau.
-  econstructor 3; eauto.
-  destruct r; auto.
-  destruct H1 as [n1 H1].
-  destruct H3 as [n2 H3].
-  exists (S ((S n1)+n2)); constructor 2 with tau s''; auto.
-  econstructor 3; eauto.
+  constructor 2 with (s2:=s'); auto.
+  constructor; auto.
 Qed.
 
 Lemma BigStep_evalsto : forall p m s r,
-  BigStepAnnot.BigStep P.throwableAt (throwableBy p.(prog)) p.(prog) m s r ->
-  exists n, evalsto p m n s r.
+  DEX_BigStepAnnot.DEX_BigStep (* P.throwableAt (throwableBy p.(prog)) *) p.(DEX_prog) m s r ->
+  evalsto p m s r.
 Proof.
   intros.
   apply IntraStep_evalsto_aux with (1:=H).
 Qed.
-
+(* 
 Theorem correctness : forall
   (p:ExtendedProgram)
   (subclass_test : ClassName -> ClassName -> bool),
@@ -1299,30 +1282,30 @@ Proof.
   assert (TT:=check_correct _ _ _ _ _ _ T Hc).
   eapply ni_safe with (8:=H3) (9:=H4); eauto.
   apply (check_well_formed_lookupswitch_correct p); auto.
-Qed.
+Qed. *)
 
 
 
-Definition m_reg_empty := MapShortMethSign.empty (CheckCdr.M.t (MapN.t bool)).
+Definition m_reg_empty := DEX_MapShortMethSign.empty (MapN.t (MapN.t bool)).
 
-Definition m_reg_add (m:Method) (reg:(CheckCdr.M.t (MapN.t bool))) map :=
-  MapShortMethSign.update _ map m.(METHOD.signature) reg.
+Definition m_reg_add (m:Method) (reg:(MapN.t (MapN.t bool))) map :=
+  DEX_MapShortMethSign.update _ map m.(DEX_METHOD.signature) reg.
 
-Definition m_reg_get map : Method -> CheckCdr.M.t (MapN.t bool) :=
+Definition m_reg_get map : Method -> MapN.t (MapN.t bool) :=
   fun m =>   
-    match MapShortMethSign.get _ map m.(METHOD.signature) with
+    match DEX_MapShortMethSign.get _ map m.(DEX_METHOD.signature) with
       | None => empty_reg
       | Some r => r
     end.
 
-Definition m_jun_empty := MapShortMethSign.empty (MapN.t (MapKind.t CheckCdr.PC)).
+Definition m_jun_empty := DEX_MapShortMethSign.empty (MapN.t (CheckCdr.PC)).
 
-Definition m_jun_add (m:Method) (jun:(MapN.t (MapKind.t CheckCdr.PC))) map :=
-  MapShortMethSign.update _ map m.(METHOD.signature) jun.
+Definition m_jun_add (m:Method) (jun:(MapN.t (CheckCdr.PC))) map :=
+  DEX_MapShortMethSign.update _ map m.(DEX_METHOD.signature) jun.
 
-Definition m_jun_get map : Method -> MapN.t (MapKind.t CheckCdr.PC) :=
+Definition m_jun_get map : DEX_Method -> MapN.t (CheckCdr.PC) :=
   fun m =>   
-    match MapShortMethSign.get _ map m.(METHOD.signature) with
+    match DEX_MapShortMethSign.get _ map m.(DEX_METHOD.signature) with
       | None => empty_jun
       | Some r => r
     end.
@@ -1330,78 +1313,68 @@ Definition m_jun_get map : Method -> MapN.t (MapKind.t CheckCdr.PC) :=
 Definition se_empty := MapN.empty L.t.
 Definition se_add (i:PC) (l:L.t) se := MapN.update _ se i l.
 
-Definition m_se_empty := MapShortMethSign.empty (MapN.t L.t).
+Definition m_se_empty := DEX_MapShortMethSign.empty (MapN.t L.t).
 Definition m_se_add (m:Method) (se:MapN.t L.t) m_se :=
-  MapShortMethSign.update _ m_se m.(METHOD.signature) se.
+  DEX_MapShortMethSign.update _ m_se m.(DEX_METHOD.signature) se.
 Definition se_get se : PC -> L.t := fun i =>
   match MapN.get _ se i with
     | None => L.bot
     | Some l => l
   end.
-Definition m_se_get map : Method -> sign -> PC -> L.t :=
-  fun m sgn => match MapShortMethSign.get _ map m.(METHOD.signature) with
+Definition m_se_get map : Method -> DEX_sign -> PC -> L.t :=
+  fun m sgn => match DEX_MapShortMethSign.get _ map m.(DEX_METHOD.signature) with
                  | None => fun _ => L.bot
                  | Some m => fun i => se_get m i
                end.
 
-Definition S_empty := MapN.empty (list L.t').
-Definition S_add (i:PC) (l:list L.t') S := MapN.update _ S i l.
+Definition RT_empty := MapN.empty (VarMap.t L.t).
+Definition RT_add (i:PC) (rt:VarMap.t L.t) RT := MapN.update _ RT i rt.
 
-Definition m_S_empty := MapShortMethSign.empty (MapN.t (list L.t')).
-Definition m_S_add (m:Method) (S:MapN.t (list L.t')) m_S :=
-  MapShortMethSign.update _ m_S m.(METHOD.signature) S.
-Definition S_get S : PC -> (list L.t') := fun i =>
-  match MapN.get _ S i with
-    | None => nil
-    | Some l => l
+Definition m_RT_empty := DEX_MapShortMethSign.empty (MapN.t (VarMap.t L.t)).
+Definition m_RT_add (m:Method) (RT:MapN.t (VarMap.t L.t)) m_RT :=
+  DEX_MapShortMethSign.update _ m_RT m.(DEX_METHOD.signature) RT.
+Definition RT_get RT : PC -> (VarMap.t L.t) := fun i =>
+  match MapN.get _ RT i with
+    | None => VarMap.empty L.t
+    | Some rt => rt
   end.
-Definition m_S_get map : Method -> sign -> PC -> (list L.t') :=
-  fun m sgn => match MapShortMethSign.get _ map m.(METHOD.signature) with
-                 | None => fun _ => nil
-                 | Some m => S_get m
+Definition m_RT_get map : Method -> DEX_sign -> PC -> (VarMap.t L.t) :=
+  fun m sgn => match DEX_MapShortMethSign.get _ map m.(DEX_METHOD.signature) with
+                 | None => fun _ => VarMap.empty L.t
+                 | Some m => RT_get m
                end.
 
-Definition ms_eq : ShortMethodSignature -> ShortMethodSignature -> bool := METHODSIGNATURE.eq_t.
+Definition ms_eq : DEX_ShortMethodSignature -> DEX_ShortMethodSignature -> bool := DEX_METHODSIGNATURE.eq_t.
 
-Definition selift_m reg se i (tau:tag) k :=
-  CheckCdr.for_all_region2 reg i tau (fun j => L.leql_t k (se_get se j)).
+Definition selift_m reg se i k :=
+  CheckCdr.for_all_region2 reg i (fun j => L.leql_t k (se_get se j)).
 
-Definition check_m (p:ExtendedProgram) m sgn reg se S i : bool :=
+Definition check_m (p:DEX_ExtendedProgram) m sgn reg se RT i : bool :=
   match subclass_test p with
     | None => false
     | Some subclass_test =>
       match instructionAt m i with
         | None => false
         | Some ins =>
-          tcheck p subclass_test m sgn (se_get se) (selift_m reg se) (S_get S) i ins
+          DEX_tcheck m sgn (se_get se) (selift_m reg se) (RT_get RT) i ins
       end
   end.
 
-Definition check_ni (p:ExtendedProgram) reg jun se S : bool :=
-  match subclass_test p.(prog) with
+Definition check_ni (p:DEX_ExtendedProgram) reg jun se RT : bool :=
+  match subclass_test p.(DEX_prog) with
     | None => false
     | Some subclass =>
-      check_well_formed_lookupswitch p &&
-      check_all_cdr p subclass reg jun &&
-      check p se S subclass reg
+      (* check_well_formed_lookupswitch p && *)
+      check_all_cdr p reg jun &&
+      check p se RT reg
   end.
 
 Definition NI (p:ExtendedProgram) : Prop :=
-  forall kobs m sgn i h1 h2 l1 l2 hr1 hr2 r1 r2 b1 b2,
+  forall kobs m sgn i r1 r2,
     P p (SM _ _ m sgn) ->
     init_pc m i -> 
-    compat_heap p h1 (ft p) ->
-    compat_localvar p h1 l1 sgn.(lvt) ->
-    compat_heap p h2 (ft p) ->
-    compat_localvar p h2 l2 sgn.(lvt) ->
-    BigStepAnnot.BigStep P.throwableAt (throwableBy p.(prog)) p.(prog) m (i,(h1,nil,l1)) (hr1,r1) -> 
-    BigStepAnnot.BigStep P.throwableAt (throwableBy p.(prog)) p.(prog) m (i,(h2,nil,l2)) (hr2,r2) -> 
-    localvar_in kobs sgn.(lvt) b1 b2 l1 l2 ->
-    hp_in kobs (newArT p) (ft p) b1 b2 h1 h2 ->
-    exists br1, exists br2,
-      border b1 br1 /\
-      border b2 br2 /\
-      hp_in kobs (newArT p) (ft p) br1 br2 hr1 hr2 /\
+    BigStepAnnot.BigStep p.(DEX_prog) m (i,(h1,nil,l1)) (r1) -> 
+    BigStepAnnot.BigStep p.(DEX_prog) m (i,(h2,nil,l2)) (r2) -> 
       indist_return_value kobs sgn hr1 hr2 r1 r2 br1 br2.
 
 Theorem check_ni_correct : forall p reg jun se S,
