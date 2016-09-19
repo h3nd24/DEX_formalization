@@ -6,6 +6,7 @@ Require Export Level.
 Require Export cdr.
 Require Export Axioms.
 Require Export Tactics.
+Require Import Setoid.
 
  Import L.
 
@@ -71,7 +72,7 @@ Variable compat_res : Sign -> rstate -> Prop.
 
 Variable high_result : Sign -> rstate -> Prop.
 
-Variable rt0 : Method -> registertypes -> Prop.
+Variable rt0 : Method -> Sign -> registertypes -> Prop.
 (* Variable init : Method -> istate -> Prop. *)
 Variable init_pc : Method -> PC -> Prop.
 (* Variable init_init_pc : forall m s, init m s -> init_pc m (pc s). *)
@@ -117,7 +118,7 @@ Definition cmp :=
   forall m p sign s r rt,
   P (SM m sign) ->
   init_pc m (pc s) -> 
-  rt0 m rt ->
+  rt0 m sign rt ->
   compat sign s rt ->
   evalsto m p s r ->
   compat_res sign r.
@@ -142,7 +143,7 @@ Variable compat_exec_return : forall sgn m se (* kd *) s r rt,
 Definition ni :=
   forall m p p' sgn s s' r r' rt,
   P (SM m sgn) ->
-  rt0 m rt ->
+  rt0 m sgn rt ->
   indist sgn rt rt s s' ->
   pc s = pc s' ->
   init_pc m (pc s) ->
@@ -281,8 +282,30 @@ Variable high_result_indist : forall sgn res res0,
   high_result sgn res -> high_result sgn res'. *)
 (* *)
 
+Variable eq_map : registertypes -> registertypes -> Prop.
+Variable eq_map_refl : reflexive registertypes eq_map.
+Variable eq_map_sym : symmetric registertypes eq_map.
+Variable eq_map_trans : transitive registertypes eq_map.
+Theorem map_setoid: Setoid_Theory registertypes eq_map.
+ split.
+ exact eq_map_refl.
+ exact eq_map_sym.
+ exact eq_map_trans.
+Qed.
+Add Setoid registertypes eq_map map_setoid as eq_map_rel.
+
+Variable indist_morphism_proof : forall (y : Sign) (x y0 : registertypes),
+eq_map x y0 ->
+forall x0 y1 : registertypes,
+eq_map x0 y1 -> forall y2 y3 : istate, indist y x x0 y2 y3 <-> indist y y0 y1 y2 y3.
+Add Morphism indist : indist_morphism. Proof. exact indist_morphism_proof. Qed.
+
+Variable compat_morphism_proof : forall (y : Sign) (y0 : istate) (x y1 : registertypes),
+eq_map x y1 -> compat y y0 x <-> compat y y0 y1.
+Add Morphism compat : compat_morphism. Proof. exact compat_morphism_proof. Qed.
+
 Definition Typable (m:Method) (H:PM m) (sgn:Sign) (se:Method->Sign->PC->L.t) (RT:Method->Sign->PC->registertypes) : Prop :=
-  (forall i rt, init_pc m i -> rt0 m rt -> RT m sgn i = rt) /\
+  (forall i rt, init_pc m i -> rt0 m sgn rt -> eq_map (RT m sgn i) (rt)) /\
   (forall i (* kd *),
      m |- i =>(*kd*) ->
      texec m H sgn (se m sgn) i (* kd *) (RT m sgn i) None) /\
@@ -374,7 +397,7 @@ Lemma safe_cmp : forall se RT rt,
   TypableProg se RT -> 
   forall m sign s r p (h:P (SM m sign)),
   init_pc m (pc s) -> 
-  rt0 m rt ->
+  rt0 m sign rt ->
   compat sign s rt ->
   evalsto m p s r ->
   compat_res sign r.
@@ -1090,8 +1113,8 @@ Theorem safe_ni : forall m sgn p p' s s' r r' rt,
   P (SM m sgn) ->
   init_pc m (pc s) ->
   init_pc m (pc s') ->
-  rt0 m rt ->
-  rt0 m rt ->
+  rt0 m sgn rt ->
+  rt0 m sgn rt ->
   compat sgn s rt ->
   compat sgn s' rt ->
   indist sgn rt rt s s' ->

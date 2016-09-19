@@ -167,6 +167,24 @@ Proof.
     apply IHl in H0.
     apply in_cons; eauto.
 Qed. 
+
+Lemma not_In_In_test : forall a l, ~In a l <-> In_test a l = false.
+Proof.
+  intros. split; intros.
+  (* -> *)
+  induction l; auto.
+  apply not_in_cons in H. inversion H. unfold In_test.
+  apply orb_false_intro; auto. 
+  generalize (Neq_spec a0 a); intros Heq. destruct (Neq a0 a); auto. apply False_ind; auto.
+  (* <- *)
+  induction l; auto.
+  inversion H. apply orb_false_elim in H1; inversion H1.
+  unfold not; intros.
+  inversion H3; auto.
+  generalize (Neq_spec a0 a); intros Heq; rewrite H0 in Heq; auto.
+  apply IHl in H2; auto.
+Qed.
+  
       
 Fixpoint make_rt_from_lvt_rec (s:DEX_sign) (p:list DEX_Reg) (valid_regs:list DEX_Reg) (default:L.t) {struct valid_regs} : TypeRegisters:=
   match valid_regs with
@@ -178,6 +196,43 @@ Fixpoint make_rt_from_lvt_rec (s:DEX_sign) (p:list DEX_Reg) (valid_regs:list DEX
           VarMap.update _ (make_rt_from_lvt_rec s p t default) r default 
     | nil => VarMap.empty L.t
   end.
+
+Lemma make_rt_from_lvt_prop1 : forall s v p d r, 
+  (forall k, In r p -> Some k = VarMap.get _ (make_rt_from_lvt_rec s p v d) r -> k = (DEX_lvt s r)).
+Proof.
+  intros.
+  induction v.
+  intros. simpl in H0. rewrite VarMap.get_empty in H0. inversion H0.
+  intros.
+  generalize (Neq_spec a r); intros Heq.
+  destruct (Neq a r). subst.
+  simpl in H0. 
+  apply In_In_test in H. rewrite H in H0.
+  rewrite VarMap.get_update1 in H0; auto. inversion H0; auto.
+  simpl in H0.
+  destruct (In_test a p).
+  rewrite VarMap.get_update2 in H0; auto.
+  rewrite VarMap.get_update2 in H0; auto.
+Qed.
+
+Lemma make_rt_from_lvt_prop2 : forall s p v d r,
+  In r v -> ~In r p -> Some d = VarMap.get _ (make_rt_from_lvt_rec s p v d) r.
+Proof.
+  intros.
+  induction v.
+  inversion H.
+  inversion H.
+  subst. simpl. apply not_In_In_test in H0. rewrite H0.
+  rewrite VarMap.get_update1; auto.
+  apply IHv in H1.
+  simpl. 
+  generalize (Neq_spec a r); intros Heq.
+  destruct (Neq a r). subst. 
+  apply not_In_In_test in H0. rewrite H0. rewrite VarMap.get_update1; auto.
+  destruct (In_test a p).
+  subst; rewrite VarMap.get_update2; auto.
+  rewrite VarMap.get_update2; auto.
+Qed.
 
 (* Lemma lvt_rt : forall p r s rt k, 
   make_rt_from_lvt_rec s p = rt ->
