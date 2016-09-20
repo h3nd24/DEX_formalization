@@ -241,7 +241,8 @@ Fixpoint eq_set_r_test (regs dom1 dom2:@list DEX_PC) : bool :=
   end.
 
 Definition eq_set_test (dom1 dom2:list DEX_PC) : bool :=
-  eq_set_r_test dom1 dom1 dom2 && eq_set_r_test dom2 dom1 dom2.
+  beq_nat (length dom1) (length dom2) && 
+    eq_set_r_test dom1 dom1 dom2 && eq_set_r_test dom2 dom1 dom2.
 
 Inductive eq_set (dom1 dom2:@list DEX_PC) : Prop :=
   forall_set : length (dom1) = length (dom2) -> (forall r, In r dom1 <-> In r dom2) -> eq_set dom1 dom2.
@@ -278,7 +279,7 @@ Proof.
   unfold eq_set_test in H. flatten_bool.
   apply eq_set_prop_aux' with (r:=r) in H2; inversion H2; auto.
   unfold eq_set_test in H. flatten_bool.
-  apply eq_set_prop_aux' with (r:=r) in H1; inversion H1; auto.
+  apply eq_set_prop_aux' with (r:=r) in H3; inversion H3; auto.
 Qed.
 
 (* Lemma eq_set_prop_aux2 : forall dom1 dom2, eq_set_test dom1 dom2 = true ->
@@ -325,12 +326,13 @@ Qed.
 Lemma eq_set_test_prop : forall dom1 dom2, eq_set_test dom1 dom2= true -> eq_set dom1 dom2.
 Proof.
   intros. constructor.
-  admit.
+  unfold eq_set_test in H. flatten_bool.
+  apply beq_nat_true; auto.
   intros.
   apply eq_set_prop_aux with (r:=r) in H. inversion H; split; auto.
 Qed.
 
-
+(* 
 
   intros dom1; induction dom1; intros dom2; induction dom2; auto. 
   split; intros; auto.
@@ -353,7 +355,7 @@ Qed.
     specialize H1 with a.
       
   (* <- *) *)
-
+ 
 
 Inductive eq_rt (rt1 rt2:VarMap.t L.t) : Prop :=
   forall_rt : eq_set (VarMap.dom L.t rt1) (VarMap.dom L.t rt2) ->
