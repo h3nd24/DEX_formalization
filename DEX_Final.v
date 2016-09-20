@@ -360,7 +360,7 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
   | sub_cons : forall x1 x2 st1 st2,
     L.leql' x1 x2 -> sub st1 st2 -> sub (x1::st1) (x2::st2). *)
   Inductive sub : registertypes -> registertypes -> Prop :=
-  | forall_sub : forall rt1 rt2, VarMap.dom _ rt1 = VarMap.dom _ rt2 ->
+  | forall_sub : forall rt1 rt2, eq_set (VarMap.dom _ rt1) (VarMap.dom _ rt2) ->
       (forall r k1 k2, Some k1 = VarMap.get _ rt1 r -> Some k2 = VarMap.get _ rt2 r -> L.leql k1 k2) 
       -> sub rt1 rt2
   | nil_sub : sub (VarMap.empty _) (VarMap.empty _). 
@@ -393,37 +393,76 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     apply compat_register_sub with (r:=t) in H; auto.
   Qed.
 
-(*   Definition eq_dom : forall rt1 rt2 r, In r (VarMap.dom _ rt1) <-> In r (VarMap.dom _ rt2). *)
-
-  Inductive eq_rt (rt1 rt2:registertypes) : Prop :=
-    forall_eq : (forall r, In r (VarMap.dom L.t rt1) -> In r (VarMap.dom L.t rt2) ->
-    forall k1 k2, Some k1 = VarMap.get _ rt1 r -> Some k2 = VarMap.get _ rt2 r -> k1 = k2) -> eq_rt rt1 rt2.
-
-  Lemma eq_rt_refl : reflexive registertypes eq_rt.
+  Lemma indist_morphism_proof : forall (y : Sign) (x y0 : registertypes),
+    eq_rt x y0 ->
+    forall x0 y1 : registertypes,
+    eq_rt x0 y1 -> forall y2 y3 : istate, indist y x x0 y2 y3 <-> indist y y0 y1 y2 y3.
   Proof.
-    unfold reflexive.
-    constructor; intros.
-    rewrite <- H1 in H2; congruence.
+    split; intros.
+    (* -> *)
+    inversion_mine H1.
+    constructor.
+    inversion_mine H2.
+    inversion_mine H3.
+    constructor; constructor; intros.
+      (* same domain *)
+      inversion H; inversion H0.
+      rewrite <- H3; rewrite <- H5; auto.
+      (* indistinguishable contents *)
+      assert (H':=H); assert (H0':=H0).
+      inversion_mine H; inversion_mine H0.
+      apply H2 with (rn:=rn) (v:=v) (v':=v') (k:=k) (k':=k'); auto.
+      rewrite H9; auto.
+      rewrite H; auto.
+      rewrite eq_rt_get with (rt1:=x) (rt2:=y0); auto. rewrite H9; auto.
+      rewrite eq_rt_get with (rt1:=x0) (rt2:=y1); auto. rewrite H; auto.
+    (* -> *)
+    inversion_mine H1.
+    constructor.
+    inversion_mine H2.
+    inversion_mine H3.
+    constructor; constructor; intros.
+      (* same domain *)
+      inversion H; inversion H0.
+      rewrite H3; rewrite H5; auto.
+      (* indistinguishable contents *)
+      assert (H':=H); assert (H0':=H0).
+      inversion_mine H; inversion_mine H0.
+      apply H2 with (rn:=rn) (v:=v) (v':=v') (k:=k) (k':=k'); auto.
+      rewrite <- H9; auto.
+      rewrite <- H; auto.
+      rewrite eq_rt_get with (rt1:=y0) (rt2:=x); auto. apply eq_rt_sym; auto. rewrite <- H9; auto.
+      rewrite eq_rt_get with (rt1:=y1) (rt2:=x0); auto. apply eq_rt_sym; auto. rewrite <- H; auto.
   Qed.
 
-  Lemma eq_rt_sym : symmetric registertypes eq_rt.
+  Lemma compat_morphism_proof : forall (y : Sign) (y0 : istate) (x y1 : registertypes),
+    eq_rt x y1 -> compat y y0 x <-> compat y y0 y1.
   Proof.
-    unfold symmetric.
-    constructor; intros.
-    inversion H.
-    specialize H4 with (r:=r).
-    apply H4 with (k1:=k2) (k2:=k1) in H1; auto.
+    split; intros.
+    (* -> *)
+    unfold compat in H0; unfold DEX_compat.compat_state in H0; unfold DEX_compat.compat_registers in H0.
+    unfold compat; unfold DEX_compat.compat_state; unfold DEX_compat.compat_registers.
+    destruct y0.
+    intros.
+    assert (VarMap.get L.t y1 x0 <> None). unfold not; intros. rewrite H3 in H2; inversion H2.
+    rewrite eq_rt_get with (rt2:=x) in H2.
+      apply H0 with (x0:=x0) (v:=v) (k:=k) (1:=H1) (2:=H2). 
+      apply eq_rt_sym; auto.
+      apply VarMap.get_some_in_dom in H3; auto.
+      apply VarMap.get_some_in_dom in H3. 
+      inversion H. rewrite H4; auto.
+    (* <- *)
+    unfold compat in H0; unfold DEX_compat.compat_state in H0; unfold DEX_compat.compat_registers in H0.
+    unfold compat; unfold DEX_compat.compat_state; unfold DEX_compat.compat_registers.
+    destruct y0.
+    intros.
+    assert (VarMap.get L.t x x0 <> None). unfold not; intros. rewrite H3 in H2; inversion H2.
+    rewrite eq_rt_get with (rt2:=y1) in H2; auto.
+      apply H0 with (x:=x0) (v:=v) (k:=k) (1:=H1) (2:=H2). 
+      apply VarMap.get_some_in_dom in H3; auto.
+      apply VarMap.get_some_in_dom in H3; auto. 
+      inversion H. rewrite <- H4; auto.
   Qed.
-  
-  Lemma eq_rt_trans : transitive registertypes eq_rt.
-  Proof.
-    unfold transitive.
-    constructor; intros.
-    inversion H; inversion H0.
-    specialize H5 with (r:=r).
-    specialize H6 with (r:=r).
-    
-    apply H5 in H1. 
 
   Definition TypableProg := TypableProg PC Method step (PM p) Sign registertypes texec rt0 init_pc P PM_P sub eq_rt.
 
@@ -985,7 +1024,10 @@ Section CheckTypable.
     match DEX_METHOD.body m with
       | None => false
       | Some bm => let rt := RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm) in
-                   check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)
+(*                    if eq_set_test (VarMap.dom L.t rt) (DEX_BYTECODEMETHOD.regs bm) then *)
+                     check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)
+                  (*  else
+                     false *)
     end.
 
 (*   Lemma not_valid_regs_check_rt0_false : forall sgn rt locR l r default_level, 
@@ -1002,6 +1044,15 @@ Section CheckTypable.
     apply 
     unfold check_rt0_rec.   *)
     
+  Lemma check_rt0_dom : forall m sgn bm default_level, check_rt0 m sgn = true ->
+    DEX_METHOD.body m = Some bm ->
+    eq_set (VarMap.dom L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm))) 
+      (VarMap.dom L.t (make_rt_from_lvt_rec sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level)).
+  Proof.
+    unfold check_rt0. 
+    intros. rewrite H0 in H. unfold check_rt0_rec in H.
+    induction (DEX_BYTECODEMETHOD.regs bm). 
+    constructor; auto.
 
   Lemma check_rt0_true : forall m sgn bm, check_rt0 m sgn = true ->
     DEX_METHOD.body m = Some bm ->
@@ -1110,6 +1161,8 @@ Section CheckTypable.
       (make_rt_from_lvt_rec sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level).
   Proof.
     constructor.
+      constructor; auto.
+      unfold check_rt0 in H0.
     intros.
     destruct (in_dec PC_eq_dec' r (DEX_BYTECODEMETHOD.regs bm)).
     apply check_rt0_true with (bm:=bm) (r:=r) in H0; auto.

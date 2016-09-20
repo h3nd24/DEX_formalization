@@ -19,7 +19,7 @@ Section p.
 
      Definition compat_registers (*h:Heap.t*) (regs:DEX_Registers.t) (rt:TypeRegisters) : Prop :=
       forall x v k, DEX_Registers.get regs x = Some v -> 
-        BinNatMap.get _ rt x = Some k ->
+        VarMap.get _ rt x = Some k ->
         compat_value (* h *) v k. 
 
 (*     Definition compat_localvar (*h:Heap.t*) (l:LocalVar.t) (lvt:Var->L.t') : Prop :=
@@ -313,7 +313,7 @@ Qed. *)
 
 Lemma compat_registers_n : forall regs rt i k v,
   compat_registers regs rt ->
-  BinNatMap.get _ rt i = Some k ->
+  VarMap.get _ rt i = Some k ->
   DEX_Registers.get regs i = Some v ->
   compat_value v k.
 Proof.

@@ -46,7 +46,7 @@ Inductive Reg_in (observable:L.t) :
 | Reg_nhigh_in : forall k k' v v', Value_in v v' -> Reg_in observable k k' v v'.
 
 Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) : Prop :=
-| Build_Regs_in : VarMap.dom _ rt = VarMap.dom _ rt' ->
+| Build_Regs_in : eq_set (VarMap.dom _ rt) (VarMap.dom _ rt') ->
   (forall (rn:DEX_Reg),
   In rn (VarMap.dom _ rt) -> In rn (VarMap.dom _ rt') -> 
   (forall v v' k k',
@@ -281,8 +281,7 @@ Section p.
     Regs_in kobs r2 r1 rt2 rt1.
   Proof.
     induction 1.
-    constructor.
-    intros. auto.
+    constructor. apply eq_set_sym; auto.
     intros.
     apply H0 with (k:=k') (k':=k) (v:=v') (v':=v) in H3; auto.
     apply Reg_in_sym; auto.

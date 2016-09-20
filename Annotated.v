@@ -234,6 +234,181 @@ Proof.
   rewrite VarMap.get_update2; auto.
 Qed.
 
+Fixpoint eq_set_r_test (regs dom1 dom2:@list DEX_PC) : bool :=
+  match regs with
+    | nil => true
+    | h::t => In_test h dom2 && In_test h dom1 && eq_set_r_test t dom1 dom2
+  end.
+
+Definition eq_set_test (dom1 dom2:list DEX_PC) : bool :=
+  eq_set_r_test dom1 dom1 dom2 && eq_set_r_test dom2 dom1 dom2.
+
+Inductive eq_set (dom1 dom2:@list DEX_PC) : Prop :=
+  forall_set : length (dom1) = length (dom2) -> (forall r, In r dom1 <-> In r dom2) -> eq_set dom1 dom2.
+
+Lemma eq_set_prop_aux' : forall l dom1 dom2 r, eq_set_r_test l dom1 dom2 = true ->
+  In r l -> In r dom1 /\ In r dom2.
+Proof.
+  intro l; induction l; intros.
+  inversion H0.
+  split.
+    specialize IHl with (dom1:=dom1) (dom2:=dom2) (r:=r).
+    inversion H. elim (andb_prop _ _ H2); intros. elim (andb_prop _ _ H1); intros. 
+    (* generalize (Neq_spec a r); destruct (Neq a r); intros.
+    subst; apply In_In_test; auto. *)
+    inversion H0. subst; apply In_In_test; auto.
+      apply IHl in H3; auto. inversion H3; auto.
+  specialize IHl with (dom1:=dom1) (dom2:=dom2) (r:=r).
+    inversion H. elim (andb_prop _ _ H2); intros. elim (andb_prop _ _ H1); intros. 
+    (* generalize (Neq_spec a r); destruct (Neq a r); intros.
+    subst; apply In_In_test; auto. *)
+    inversion H0. subst; apply In_In_test; auto.
+      apply IHl in H3; auto. inversion H3; auto.
+Qed.
+ 
+Ltac flatten_bool :=
+     repeat match goal with
+       [ id : _ && _ = true |- _ ] =>  destruct (andb_prop _ _ id); clear id
+     end.
+
+Lemma eq_set_prop_aux : forall dom1 dom2, eq_set_test dom1 dom2 = true ->
+  forall r, (In r dom2 -> In r dom1) /\ (In r dom1 -> In r dom2).
+Proof.
+  split; intros.
+  unfold eq_set_test in H. flatten_bool.
+  apply eq_set_prop_aux' with (r:=r) in H2; inversion H2; auto.
+  unfold eq_set_test in H. flatten_bool.
+  apply eq_set_prop_aux' with (r:=r) in H1; inversion H1; auto.
+Qed.
+
+(* Lemma eq_set_prop_aux2 : forall dom1 dom2, eq_set_test dom1 dom2 = true ->
+  length (dom1) = length (dom2).
+Proof.
+  intro dom1; induction dom1; intro dom2; induction dom2; intros; auto.
+  unfold eq_set_test in H. flatten_bool. inversion H1. flatten_bool. inversion H4.
+  unfold eq_set_test in H. flatten_bool. inversion H0.
+  assert (forall (a:DEX_PC) l, length (a::l) = S (length l)). auto.
+  rewrite H0. rewrite H0.
+  apply eq_S. 
+  unfold eq_set_test in H. flatten_bool.
+apply IHdom1; auto.
+Qed. *)
+
+Lemma eq_set_refl : reflexive (@list DEX_PC) eq_set.
+Proof. unfold reflexive; intros; constructor; split; auto. Qed.
+Lemma eq_set_sym : symmetric (@list DEX_PC) eq_set.
+Proof. unfold symmetric; intros; inversion H; econstructor. 
+  congruence. 
+  split; apply H1.
+Qed.
+Lemma eq_set_trans : transitive (@list DEX_PC) eq_set.
+Proof. unfold transitive; intros.
+  inversion H; inversion H0.
+  constructor. congruence. 
+  split; intros.
+    apply H4; apply H2; auto.
+    apply H2; apply H4; auto.
+Qed.
+Require Import Setoid.
+Theorem set_setoid: Setoid_Theory (@list DEX_PC) eq_set.
+ split.
+ exact eq_set_refl.
+ exact eq_set_sym.
+ exact eq_set_trans.
+Qed.
+Add Setoid (@list DEX_PC) eq_set set_setoid as eq_set_rel.
+
+Add Morphism (@In DEX_PC) : In_set_r_morphism. 
+  split; intros H0; inversion H as [H1 H2]; apply H2; auto.
+Qed.
+
+Lemma eq_set_test_prop : forall dom1 dom2, eq_set_test dom1 dom2= true -> eq_set dom1 dom2.
+Proof.
+  intros. constructor.
+  admit.
+  intros.
+  apply eq_set_prop_aux with (r:=r) in H. inversion H; split; auto.
+Qed.
+
+
+
+  intros dom1; induction dom1; intros dom2; induction dom2; auto. 
+  split; intros; auto.
+  (* -> *)
+    constructor; auto.
+    split; intros H1; inversion H1.
+    split; intros. inversion H. inversion H0.
+    inversion H.
+    split; intros. inversion H. inversion H0.
+    inversion H.
+    split; intros.
+    inversion H.
+    (* generalize (Neq_spec a a0); intros; destruct (Neq a a0).
+    subst. destruct H1 with a0. *)
+    unfold eq_set_test. repeat (apply andb_true_intro; split).
+    specialize H1 with a. assert (In a (a0::dom2)). apply H1. apply in_eq.
+    apply In_In_test; auto.
+    specialize H1 with a0. assert (In a0 (a::dom1)). apply H1. apply in_eq.
+    apply In_In_test; auto.
+    specialize H1 with a.
+      
+  (* <- *) *)
+
+
+Inductive eq_rt (rt1 rt2:VarMap.t L.t) : Prop :=
+  forall_rt : eq_set (VarMap.dom L.t rt1) (VarMap.dom L.t rt2) ->
+    (forall r, In r (VarMap.dom L.t rt1) -> In r (VarMap.dom L.t rt2) ->
+    forall k1 k2, Some k1 = VarMap.get _ rt1 r -> Some k2 = VarMap.get _ rt2 r -> k1 = k2) -> eq_rt rt1 rt2.
+
+Lemma eq_rt_refl : reflexive (@VarMap.t L.t) eq_rt.
+Proof.
+  unfold reflexive.
+  constructor; intros. 
+  apply eq_set_refl.
+  congruence.
+Qed.
+
+Lemma eq_rt_sym : symmetric (@VarMap.t L.t) eq_rt.
+Proof.
+  unfold symmetric.
+  constructor; intros;
+    inversion H. apply eq_set_sym; auto.
+  specialize H5 with (r:=r).
+  apply H5 with (k1:=k2) (k2:=k1) in H1; auto.
+Qed.
+
+Lemma eq_rt_trans : transitive (@VarMap.t L.t) eq_rt.
+Proof.
+  unfold transitive.
+  constructor; intros;
+  inversion H; inversion H0.
+    apply eq_set_trans with (x:=VarMap.dom L.t x) (y:=VarMap.dom L.t y) (z:=VarMap.dom L.t z); auto.
+  specialize H6 with (r:=r); specialize H8 with (r:=r).
+  assert (H2':=H2).
+  rewrite <- H7 in H2.
+  assert (exists ky, Some ky = VarMap.get L.t y r).
+    apply VarMap.in_dom_get_some in H2. destruct (VarMap.get L.t y r).
+    exists t; auto. elim H2; auto.
+  destruct H9.
+  specialize H6 with (1:=H1) (2:=H2) (3:=H3) (4:=H9) (k1:=k1) (k2:=x0);
+  specialize H8 with (1:=H2) (2:=H2') (3:=H9) (4:=H4) (k1:=x0) (k2:=k2).
+  congruence.
+Qed.
+
+Lemma eq_rt_get : forall rt1 rt2 r, eq_rt (rt1) (rt2) -> 
+  In r (VarMap.dom L.t rt1) -> In r (VarMap.dom L.t rt2) -> 
+  VarMap.get L.t rt1 r = VarMap.get L.t rt2 r.
+Proof.
+  intros.
+  inversion H.
+  specialize H3 with (1:=H0) (2:=H1).
+  destruct (VarMap.get L.t rt1 r) eqn:Hrt1; destruct (VarMap.get L.t rt2 r) eqn:Hrt2; auto.
+  assert (t = t0). apply H3 with (k1:=t) (k2:=t0); auto. 
+  congruence.
+  apply VarMap.in_dom_get_some in H1; apply False_ind; auto.
+  apply VarMap.in_dom_get_some in H0; apply False_ind; auto.
+Qed.
+
 (* Lemma lvt_rt : forall p r s rt k, 
   make_rt_from_lvt_rec s p = rt ->
   In r p -> 
