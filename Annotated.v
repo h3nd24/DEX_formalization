@@ -412,9 +412,9 @@ Proof.
   apply VarMap.in_dom_get_some in H0; apply False_ind; auto.
 Qed.
 
-Lemma fold_rec_subst_leaf_1 : forall p v n, (length (fold_rec L.t (list BinNatMap_Base.key)
+Lemma fold_rec_subst_leaf_1 : forall p v n acc, (length (fold_rec L.t (list BinNatMap_Base.key)
         (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        (subst_leaf (option L.t) None p (Some v)) n nil)) = 1%nat.
+        (subst_leaf (option L.t) None p (Some v)) n acc)) = S (length acc)%nat.
 Proof.
   induction p; auto; intros; try (simpl; apply IHp).
 Qed.
@@ -427,122 +427,259 @@ Proof.
   apply fold_rec_subst_leaf_1 with (p:=p) (v:=v) (n:=1).
 Qed.
 
-(* Lemma bla : forall t1 t2 p v n m, length (
-      fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        (BinMap_Base.modify L.t t2 p (fun _ : option L.t => Some v)) 3
-        (fold_rec L.t (list BinNatMap_Base.key)
-           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 n nil))
-  =
-S
-  (length
-         (fold_rec L.t (list BinNatMap_Base.key)
-           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t2 3
-           (fold_rec L.t (list BinNatMap_Base.key)
-              (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 m nil))
-     ).
-Proof.
-  unfold BinMap_Bawse.mo
-  induction p; intros; simpl; auto.  rewrite <- IHp with (v:=v) (n:=n); auto. *)
+Lemma fold_rec_unroll_None : forall (A B:Type) f t1 t2 n acc,
+  fold_rec A B f (node (option A) (@None A) t1 t2) n acc =
+    fold_rec A B f t2 n~1 (fold_rec A B f t1 n~0 acc).
+Proof. auto. Qed.
 
-(* Lemma forecful : forall p v t1 t2 a0,
-  (length
-     (fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        match p with
-        | p'~1 => node (option L.t) a0 t1 (BinMap_Base.modify L.t t2 p' (fun _ : option L.t => Some v))
-        | p'~0 => node (option L.t) a0 (BinMap_Base.modify L.t t1 p' (fun _ : option L.t => Some v)) t2
-        | 1 => node (option L.t) (Some v) t1 t2
-        end 1 nil)) =
-  (S
-     (length
-        (fold_rec L.t (list BinNatMap_Base.key)
-           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) (node (option L.t) a0 t1 t2) 1
-           nil))).
-Proof.
-  induction p; auto.
-  intros. simpl. apply IHp. . destruct a0. 
-  clear. induction  *)
+Lemma fold_rec_unroll_Some : forall (A B:Type) a f t1 t2 n acc,
+  fold_rec A B f (node (option A) (Some a) t1 t2) n acc =
+    fold_rec A B f t2 n~1 (f (inv_pos n 1) a (fold_rec A B f t1 n~0 acc)).
+Proof. auto. Qed.
 
-(* Lemma random2: forall p m n o,
-L.t ->
-forall (v : L.t) (a0 : option L.t) (t1 t2 : tree (option L.t)),
-~
-In (N.pos p)
-  (0%N
-   :: fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) (node (option L.t) a0 t1 t2) m nil) ->
-length
-  (0%N
-   :: fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        (modify_tree (option L.t) None (node (option L.t) a0 t1 t2) p (fun _ : option L.t => Some v)) n nil) =
-S
-  (length
-     (0%N
-      :: fold_rec L.t (list BinNatMap_Base.key)
-           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) (node (option L.t) a0 t1 t2) o
-           nil)).
+Lemma modify_tree_unroll : forall (A:Type) (bot:option A) p a t1 t2 f,
+  modify_tree (option A) bot (node (option A) a t1 t2) p f =
+   match p with
+      | p'~1 => node _ a t1 (modify_tree _ bot t2 p' f)
+      | p'~0 => node _ a (modify_tree _ bot t1 p' f) t2
+      | 1 => node _ (f a) t1 t2
+      end.
+Proof. auto. Qed.
+
+Lemma L1 : forall t2 n acc,
+  length
+(fold_rec L.t (list BinNatMap_Base.key)
+   (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+    N.pos p0 :: b)
+   (t2) n acc) = (length
+(fold_rec L.t (list BinNatMap_Base.key)
+   (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+    N.pos p0 :: b)
+   (t2) n nil ) + length (acc))%nat.
 Proof.
-  induction p; intros; auto. simpl.
-  destruct a0. apply IHp.
-*)
-(* Lemma random : forall (acc) (p : positive)
-(t : L.t)
-(a0 : option L.t)
-(t1 t2 : tree (option L.t))
-(v : L.t) m n,
-~ In (N.pos p) (VarMap.dom L.t (Some t, node (option L.t) a0 t1 t2)) ->
-length
-  (0%N
-   :: fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        (modify_tree (option L.t) None (node (option L.t) a0 t1 t2) p (fun _ : option L.t => Some v)) m acc) =
-S
-  (length
-     (0%N
-      :: fold_rec L.t (list BinNatMap_Base.key)
-           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-           (node (option L.t) a0 t1 t2) n nil)).
-Proof.
-  induction p; intros; auto. destruct a0. (* simpl. *)
-  assert (fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        (modify_tree (option L.t) None (node (option L.t) (Some t0) t1 t2) p~1 (fun _ : option L.t => Some v)) m nil =
+  induction t2; auto; intros.
+  destruct a.
+  (* a is Some *)
+  rewrite fold_rec_unroll_Some.
+  rewrite IHt2_2.
+  rewrite fold_rec_unroll_Some.
+  replace (length
+ (fold_rec L.t (list BinNatMap_Base.key)
+    (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+     N.pos p0 :: b) t2_2 n~1
+    (N.pos (inv_pos n 1)
+     :: fold_rec L.t (list BinNatMap_Base.key)
+          (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+           => N.pos p0 :: b) t2_1 n~0 nil))) with
+    (length
+ (fold_rec L.t (list BinNatMap_Base.key)
+    (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+     N.pos p0 :: b) t2_2 n~1 nil) + 
+    length
+ (N.pos (inv_pos n 1)
+     :: fold_rec L.t (list BinNatMap_Base.key)
+          (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+           => N.pos p0 :: b) t2_1 n~0 nil))%nat; auto.
+  simpl.
+  rewrite IHt2_1. rewrite <- plus_assoc. auto.
+  (* a is None *)
+  rewrite fold_rec_unroll_None. 
+  rewrite IHt2_2. 
+  rewrite fold_rec_unroll_None. 
+  replace (length (fold_rec L.t (list BinNatMap_Base.key)
+    (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+     N.pos p0 :: b) t2_2 n~1
     (fold_rec L.t (list BinNatMap_Base.key)
-        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
-        (modify_tree (option L.t) None t2 p (fun _ : option L.t => Some v)) m~1
-        (N.pos (inv_pos m 1)
-         :: fold_rec L.t (list BinNatMap_Base.key)
-              (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 m~0 nil))).
-  auto. rewrite H0. simpl. apply IHp.
-  (* simpl in IHp.  *) simpl. *)
+       (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+        N.pos p0 :: b) t2_1 n~0 nil)))
+  with ((length (fold_rec L.t (list BinNatMap_Base.key)
+    (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+     N.pos p0 :: b) t2_2 n~1 nil) + 
+      length 
+        (fold_rec L.t (list BinNatMap_Base.key)
+       (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+        N.pos p0 :: b) t2_1 n~0 nil))%nat ); auto.
+  rewrite IHt2_1. apply Nat.add_assoc.
+  Qed. 
 
-Lemma dom_length_update_nodup : forall a m v, ~In a (VarMap.dom L.t m) -> 
+Lemma L2 : forall t2 p n v acc, length
+(fold_rec L.t (list BinNatMap_Base.key)
+   (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+    N.pos p0 :: b)
+   (modify_tree (option L.t) None t2 p (fun _ : option L.t => Some v)) n acc) = 
+S (length
+(fold_rec L.t (list BinNatMap_Base.key)
+   (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) =>
+    N.pos p0 :: b) t2 n acc)).
+Proof.
+  induction t2; auto; intros.
+  simpl. rewrite fold_rec_subst_leaf_1; auto.
+  rewrite modify_tree_unroll.
+  destruct p. destruct a.
+  rewrite fold_rec_unroll_Some. 
+  rewrite L1. rewrite IHt2_2.
+  rewrite fold_rec_unroll_Some with (t1:=t2_1) (t2:=t2_2).
+  rewrite L1 with (t2:=t2_2) (acc:=(N.pos (inv_pos n 1)
+       :: fold_rec L.t (list BinNatMap_Base.key)
+            (fun (p0 : BinMap_Base.key) (_ : L.t)
+               (b : list BinNatMap_Base.key) => N.pos p0 :: b) t2_1 n~0 acc)).
+  rewrite plus_Sn_m; auto.
+  rewrite fold_rec_unroll_None.
+  rewrite L1. rewrite IHt2_2.
+  rewrite fold_rec_unroll_None.
+  rewrite L1 with (acc:= (fold_rec L.t (list BinNatMap_Base.key)
+         (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+          => N.pos p0 :: b) t2_1 n~0 acc)).
+  rewrite plus_Sn_m; auto.
+  destruct a.
+  rewrite fold_rec_unroll_Some. 
+  rewrite L1. simpl. rewrite IHt2_1.
+  rewrite L1 with (t2:=t2_2) (acc:=(N.pos (inv_pos n 1)
+       :: fold_rec L.t (list BinNatMap_Base.key)
+            (fun (p0 : BinMap_Base.key) (_ : L.t)
+               (b : list BinNatMap_Base.key) => N.pos p0 :: b) t2_1 n~0 acc)).
+  simpl. omega.
+  rewrite fold_rec_unroll_None.
+  rewrite L1. simpl. rewrite IHt2_1.
+  rewrite L1 with (acc:= (fold_rec L.t (list BinNatMap_Base.key)
+         (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+          => N.pos p0 :: b) t2_1 n~0 acc)).
+  omega.
+  destruct a.
+  rewrite ?fold_rec_unroll_Some.
+  admit.
+  rewrite ?fold_rec_unroll_Some.
+  rewrite ?fold_rec_unroll_None.
+  rewrite L1.
+(*     simpl.  *)
+  rewrite L1 with (t2:=t2_2) (acc:= (fold_rec L.t (list BinNatMap_Base.key)
+         (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+          => N.pos p0 :: b) t2_1 n~0 acc)).
+  simpl. omega.
+Admitted.
+
+Lemma dom_length_update_nodup : forall m a v, ~In a (VarMap.dom L.t m) -> 
   length (VarMap.dom L.t (VarMap.update L.t m a v)) = S (length (VarMap.dom L.t m)).
 Proof.
-  intros.
-  destruct m; induction t; auto.
+  intro m.
+  destruct m; induction t; auto; intros.
   destruct o; auto. 
   destruct a; simpl. contradiction H; simpl; auto.
   rewrite fold_subst_leaf_1; auto.
   destruct a; simpl; auto.
   rewrite fold_subst_leaf_1; auto.
   (* IH *)
-  destruct o; destruct a.
+  destruct o; destruct a0.
   contradiction H; simpl; auto.
+  unfold VarMap.dom;
+  unfold BinNatMap_Base.fold;
+  unfold BinMap_Base.fold;
+  unfold fold;
+  unfold VarMap.update; unfold BinNatMap_Base.modify; unfold BinMap_Base.modify.
+  destruct a. 
+  (* case where the fold_rec_unroll_Some *)
+  rewrite modify_tree_unroll.
+  destruct p.
+  (* case of p *)
+  rewrite fold_rec_unroll_Some.
+  rewrite fold_rec_unroll_Some. simpl.
+  rewrite L1.
+  rewrite L1 with (acc:= (N.pos (inv_pos 1 1)
+         :: fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t)
+                 (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 2 nil)).
+  simpl. rewrite <- plus_Sn_m. rewrite L2; auto.
+  (* case of p~0 *)
+  rewrite ?fold_rec_unroll_Some. simpl.
+  rewrite L1.
+  rewrite L1 with (acc:=(N.pos (inv_pos 1 1)
+         :: fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t)
+                 (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 2 nil)).
+  simpl. rewrite L2. omega.
+  (* case of xI *)
+  admit.
+  (* case where the fold_rec_unroll_None *)
+  rewrite modify_tree_unroll.
+  destruct p.
+  (* case of p *)
+  rewrite fold_rec_unroll_None.
+  rewrite fold_rec_unroll_None.
+  simpl. rewrite L1.
+  rewrite L1 with (acc:= (fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t)
+                 (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 2 nil)).
+  simpl. rewrite <- plus_Sn_m.  rewrite L2; simpl; auto.
+  (* case of p~0 *)
+  rewrite ?fold_rec_unroll_None. simpl.
+  rewrite L1.
+  rewrite L1 with (acc:=(fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+            => N.pos p0 :: b) t1 2 nil)).
+  rewrite L2. omega.
+  (* case of xI *)
+  rewrite fold_rec_unroll_Some.
+  rewrite fold_rec_unroll_None. simpl. 
+  rewrite L1. simpl. rewrite L1 with (acc:=(fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+            => N.pos p :: b) t1 2 nil)).
+  rewrite <- plus_n_Sm. auto.
   (* *)
-  admit.
-  (* unfold VarMap.update. unfold BinNatMap_Base.modify. unfold BinMap_Base.modify.
-  unfold VarMap.dom. unfold BinNatMap_Base.fold. unfold BinMap_Base.fold. rewrite <- fold_prop. 
-  simpl. rewrite <- fold_prop. simpl. unfold fold. simpl. 
-  (* unfold modify_tree.
-  simpl.
-  induction p.
-  destruct a0; simpl. clear; induction p. simpl. *) *)
-  admit.
   simpl; auto.
+  (* *)
+  unfold VarMap.dom;
+  unfold BinNatMap_Base.fold;
+  unfold BinMap_Base.fold;
+  unfold fold;
+  unfold VarMap.update; unfold BinNatMap_Base.modify; unfold BinMap_Base.modify.
+  destruct a. 
+  (* case where the fold_rec_unroll_Some *)
+  rewrite modify_tree_unroll.
+  destruct p.
+  (* case of p *)
+  rewrite ?fold_rec_unroll_Some.
+  rewrite L1.
+  rewrite L1 with (acc:= (N.pos (inv_pos 1 1)
+         :: fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t)
+                 (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 2 nil)).
+  simpl. rewrite <- plus_Sn_m. apply Nat.add_cancel_r. 
+  rewrite L2; auto.
+  (* case of p~0 *)
+  rewrite ?fold_rec_unroll_Some.
+  rewrite L1.
+  rewrite L1 with (acc:=(N.pos (inv_pos 1 1)
+         :: fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t)
+                 (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 2 nil)).
+  simpl. rewrite L2. omega.
+  (* case of xI *)
   admit.
+  (* case where the fold_rec_unroll_None *)
+  rewrite modify_tree_unroll.
+  destruct p.
+  (* case of p *)
+  rewrite ?fold_rec_unroll_None.
+  rewrite L1.
+  rewrite L1 with (acc:=(fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+            => N.pos p0 :: b) t1 2 nil)).
+  simpl. rewrite <- plus_Sn_m. apply Nat.add_cancel_r.
+  apply L2.
+  (* case of p~0 *)
+  rewrite ?fold_rec_unroll_None.
+  rewrite L1.
+  rewrite L1 with (acc:=(fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+            => N.pos p0 :: b) t1 2 nil)).
+  rewrite L2. omega.
+  (* case of xI *)
+  rewrite fold_rec_unroll_Some.
+  rewrite fold_rec_unroll_None. 
+  rewrite L1. simpl. rewrite L1 with (acc:=(fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key)
+            => N.pos p :: b) t1 2 nil)).
+  rewrite plus_n_Sm. auto.
 Admitted.
 
 Lemma In_dom_update' : forall a m l v,  ~In a (VarMap.dom L.t m) -> 
