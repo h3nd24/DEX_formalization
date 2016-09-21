@@ -1004,19 +1004,20 @@ Section CheckTypable.
    Definition selift m sgn i (*tau:tag*) k :=
     for_all_region m i (* tau *) (fun j => L.leql_t k (se m sgn j)). 
 
-  Fixpoint check_rt0_rec m sgn p valid_reg default {struct valid_reg}: bool :=
+  Fixpoint check_rt0_rec rt sgn p valid_reg default {struct valid_reg}: bool :=
     match valid_reg with 
     | h :: t => 
-        if In_test h p then
-          match VarMap.get _ m h with
+        (if In_test h p then
+          match VarMap.get _ rt h with
           | None => false
-          | Some k => (L.eq_t k (DEX_lvt sgn h)) && check_rt0_rec m sgn p t default
+          | Some k => (L.eq_t k (DEX_lvt sgn h))
           end
         else
-          match VarMap.get _ m h with
+          match VarMap.get _ rt h with
           | None => false
-          | Some k => (L.eq_t k default) && check_rt0_rec m sgn p t default
-          end
+          | Some k => (L.eq_t k default) 
+        end)
+        && check_rt0_rec rt sgn p t default
     | nil => true
     end.
 
@@ -1025,6 +1026,7 @@ Section CheckTypable.
       | None => false
       | Some bm => let rt := RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm) in
 (*                    if eq_set_test (VarMap.dom L.t rt) (DEX_BYTECODEMETHOD.regs bm) then *)
+                     eq_set_test (VarMap.dom L.t rt) (DEX_BYTECODEMETHOD.regs bm) &&
                      check_rt0_rec rt sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)
                   (*  else
                      false *)
@@ -1044,7 +1046,7 @@ Section CheckTypable.
     apply 
     unfold check_rt0_rec.   *)
     
-  Lemma check_rt0_dom : forall m sgn bm default_level, check_rt0 m sgn = true ->
+(*   Lemma check_rt0_dom : forall m sgn bm default_level, check_rt0 m sgn = true ->
     DEX_METHOD.body m = Some bm ->
     eq_set (VarMap.dom L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm))) 
       (VarMap.dom L.t (make_rt_from_lvt_rec sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level)).
@@ -1052,7 +1054,74 @@ Section CheckTypable.
     unfold check_rt0. 
     intros. rewrite H0 in H. unfold check_rt0_rec in H.
     induction (DEX_BYTECODEMETHOD.regs bm). 
-    constructor; auto.
+    constructor; auto. *)
+
+  Lemma check_rt0_rec_true : forall m sgn bm default_level,
+    check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn 
+      (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level = true ->
+    DEX_METHOD.body m = Some bm -> 
+    (forall r, In r (DEX_BYTECODEMETHOD.regs bm) ->
+    (forall k, In r (DEX_BYTECODEMETHOD.locR bm) -> Some k = VarMap.get _ (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r -> k = (DEX_lvt sgn r)) /\
+    (~In r (DEX_BYTECODEMETHOD.locR bm) -> Some (default_level) = VarMap.get _ (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r)).
+  Proof.
+    intros. (* right. *)
+    split; intros.
+    (* case where the register is in the domain *)
+      induction (DEX_BYTECODEMETHOD.regs bm). inversion H1.
+      unfold check_rt0_rec in H. 
+      assert ((if In_test a (DEX_BYTECODEMETHOD.locR bm) then
+      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
+      | Some k =>
+          L.eq_t k (DEX_lvt sgn a) 
+      | None => false
+      end
+     else
+      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
+      | Some k =>
+          L.eq_t k default_level0 
+      | None => false
+      end) &&
+      check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn (DEX_BYTECODEMETHOD.locR bm) l default_level0
+        = true). auto. clear H.
+      inversion H1.
+      subst.
+      apply In_In_test in H2; rewrite H2 in H4.
+      rewrite <- H3 in H4. flatten_bool.
+      generalize (L.eq_t_spec k (DEX_lvt sgn r)); intros Heq; rewrite H in Heq; auto.
+      destruct (In_test a (DEX_BYTECODEMETHOD.locR bm)).
+      destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a). 
+      flatten_bool. apply IHl; subst; auto.
+      inversion H4. 
+      destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a). 
+      flatten_bool; apply IHl; subst; auto.
+      inversion H4. 
+    (* case where the register is not in the domain *)
+    induction (DEX_BYTECODEMETHOD.regs bm). inversion H1.
+    assert ((if In_test a (DEX_BYTECODEMETHOD.locR bm)
+     then
+      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
+      | Some k =>
+          L.eq_t k (DEX_lvt sgn a) 
+      | None => false
+      end
+     else
+      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
+      | Some k =>
+          L.eq_t k default_level0
+      | None => false
+      end) &&
+      check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn (DEX_BYTECODEMETHOD.locR bm) l default_level0 = true). auto.
+    clear H.
+    inversion H1.
+    apply not_In_In_test in H2.
+    rewrite <- H in H2; rewrite H2 in H3. subst.
+    destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r).
+    flatten_bool; auto.
+    generalize (L.eq_t_spec t default_level0); intros Heq; rewrite H in Heq; rewrite Heq; auto.
+    inversion H3.
+    (* induction case *)
+    flatten_bool. apply IHl; subst; auto.
+  Qed.
 
   Lemma check_rt0_true : forall m sgn bm, check_rt0 m sgn = true ->
     DEX_METHOD.body m = Some bm ->
@@ -1061,76 +1130,8 @@ Section CheckTypable.
     (forall k, In r (DEX_BYTECODEMETHOD.locR bm) -> Some k = VarMap.get _ (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r -> k = (DEX_lvt sgn r)) /\
     (~In r (DEX_BYTECODEMETHOD.locR bm) -> Some (default_level) = VarMap.get _ (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r)).
   Proof.
-    intros. (* right. *)
-    split; intros.
-    (* case where the register is in the domain *)
-      unfold check_rt0 in H. rewrite H0 in H.
-      induction (DEX_BYTECODEMETHOD.regs bm). inversion H1.
-      unfold check_rt0_rec in H. 
-      assert ((if In_test a (DEX_BYTECODEMETHOD.locR bm)
-     then
-      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
-      | Some k =>
-          L.eq_t k (DEX_lvt sgn a) &&
-          check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn (DEX_BYTECODEMETHOD.locR bm) l default_level
-      | None => false
-      end
-     else
-      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
-      | Some k =>
-          L.eq_t k default_level &&
-          check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn (DEX_BYTECODEMETHOD.locR bm) l default_level
-      | None => false
-      end) = true). auto. clear H.
-      inversion H1.
-      subst.
-(*       unfold check_rt0_rec in H5. *)
-      apply In_In_test in H2; rewrite H2 in H4.
-      rewrite <- H3 in H4.
-      elim (andb_prop _ _ H4); intros. 
-      generalize (L.eq_t_spec k (DEX_lvt sgn r)); intros Heq; rewrite H in Heq; auto.
-      destruct (In_test a (DEX_BYTECODEMETHOD.locR bm)).
-      destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a). 
-      elim (andb_prop _ _ H4); intros; apply IHl; subst; auto.
-      inversion H4. 
-      destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a). 
-      elim (andb_prop _ _ H4); intros; apply IHl; subst; auto.
-      inversion H4. 
-    (* case where the register is not in the domain *)
-    unfold check_rt0 in H. rewrite H0 in H.   
-    induction (DEX_BYTECODEMETHOD.regs bm). inversion H1.
-    assert ((if In_test a (DEX_BYTECODEMETHOD.locR bm)
-     then
-      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
-      | Some k =>
-          L.eq_t k (DEX_lvt sgn a) &&
-          check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn (DEX_BYTECODEMETHOD.locR bm) l default_level
-      | None => false
-      end
-     else
-      match VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a with
-      | Some k =>
-          L.eq_t k default_level &&
-          check_rt0_rec (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) sgn (DEX_BYTECODEMETHOD.locR bm) l default_level
-      | None => false
-      end) = true). auto.
-    clear H.
-    inversion H1.
-    apply not_In_In_test in H2.
-    rewrite <- H in H2; rewrite H2 in H3. subst.
-    destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r).
-    elim (andb_prop _ _ H3); intros; auto.
-    generalize (L.eq_t_spec t default_level); intros Heq. rewrite H in Heq; rewrite Heq; auto.
-    inversion H3.
-    (* induction case *)
-    destruct (In_test a (DEX_BYTECODEMETHOD.locR bm)).
-    subst.
-    destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a).
-    elim (andb_prop _ _ H3); intros; apply IHl; subst; auto.
-    inversion H3.
-    destruct (VarMap.get L.t (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) a).
-    elim (andb_prop _ _ H3); intros; apply IHl; subst; auto.
-    inversion H3.
+    intros. unfold check_rt0 in H.
+    rewrite H0 in H. flatten_bool. apply check_rt0_rec_true; auto.  
   Qed.
 
   Definition check : bool := for_all_P p
@@ -1153,16 +1154,21 @@ Section CheckTypable.
     (forall k, In r (DEX_BYTECODEMETHOD.locR bm) -> Some k = VarMap.get _ (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r -> k = (DEX_lvt sgn r)) /\
     (~In r (DEX_BYTECODEMETHOD.locR bm) -> Some (default_level) = VarMap.get _ (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) r)). *)
 
-  Parameter valid_regs_prop : forall m bm r rt, DEX_METHOD.body m = Some bm -> 
-    ~ In r (DEX_BYTECODEMETHOD.regs bm) -> VarMap.get L.t rt r = None.
+   Parameter valid_regs_prop : forall m bm r rt, DEX_METHOD.body m = Some bm -> 
+    ~ In r (DEX_BYTECODEMETHOD.regs bm) -> VarMap.get L.t rt r = None. 
 
   Lemma check_correct1_aux : forall m bm sgn, DEX_METHOD.body m = Some bm -> check_rt0 m sgn = true ->
     eq_rt (RT m sgn (DEX_BYTECODEMETHOD.firstAddress bm)) 
       (make_rt_from_lvt_rec sgn (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) default_level).
   Proof.
     constructor.
-      constructor; auto.
-      unfold check_rt0 in H0.
+      unfold check_rt0 in H0; rewrite H in H0.
+      flatten_bool.
+      apply eq_set_test_prop in H1; auto.
+      generalize make_rt_from_lvt_prop3; intros.
+      specialize H0 with (s:=sgn) (p:=DEX_BYTECODEMETHOD.locR bm) (v:=DEX_BYTECODEMETHOD.regs bm) (d:=default_level)
+        (1:=DEX_BYTECODEMETHOD.noDup_regs bm).
+      rewrite H1. rewrite H0. reflexivity.
     intros.
     destruct (in_dec PC_eq_dec' r (DEX_BYTECODEMETHOD.regs bm)).
     apply check_rt0_true with (bm:=bm) (r:=r) in H0; auto.
@@ -1217,7 +1223,7 @@ Section CheckTypable.
   Proof.
     (* induction st1; destruct st2; simpl; *) intros. (* ; try discriminate. *)
     unfold tsub_rt in H. destruct (andb_prop _ _ H).
-    apply eq_list_prop in H0. 
+    apply eq_set_test_prop in H0. 
     constructor; auto.
     intros.
     apply tsub_rec_leq with (r:=r) (k1:=k1) (k2:=k2) in H1; auto.

@@ -189,11 +189,12 @@ Qed.
 Fixpoint make_rt_from_lvt_rec (s:DEX_sign) (p:list DEX_Reg) (valid_regs:list DEX_Reg) (default:L.t) {struct valid_regs} : TypeRegisters:=
   match valid_regs with
     | r::t => 
-        if In_test r p then
+        VarMap.update _ (make_rt_from_lvt_rec s p t default) r (if In_test r p then DEX_lvt s r else default)
+        (* if In_test r p then
           let k := DEX_lvt s r in
           VarMap.update _ (make_rt_from_lvt_rec s p t default) r k 
         else
-          VarMap.update _ (make_rt_from_lvt_rec s p t default) r default 
+          VarMap.update _ (make_rt_from_lvt_rec s p t default) r default  *)
     | nil => VarMap.empty L.t
   end.
 
@@ -411,6 +412,196 @@ Proof.
   apply VarMap.in_dom_get_some in H0; apply False_ind; auto.
 Qed.
 
+Lemma fold_rec_subst_leaf_1 : forall p v n, (length (fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (subst_leaf (option L.t) None p (Some v)) n nil)) = 1%nat.
+Proof.
+  induction p; auto; intros; try (simpl; apply IHp).
+Qed.
+
+Lemma fold_subst_leaf_1 : forall p v, length (BinMap_Base.fold L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (subst_leaf (option L.t) None p (Some v)) nil) = 1%nat.
+Proof.
+  unfold BinMap_Base.fold. unfold fold. intros.
+  apply fold_rec_subst_leaf_1 with (p:=p) (v:=v) (n:=1).
+Qed.
+
+(* Lemma bla : forall t1 t2 p v n m, length (
+      fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (BinMap_Base.modify L.t t2 p (fun _ : option L.t => Some v)) 3
+        (fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 n nil))
+  =
+S
+  (length
+         (fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t2 3
+           (fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 m nil))
+     ).
+Proof.
+  unfold BinMap_Bawse.mo
+  induction p; intros; simpl; auto.  rewrite <- IHp with (v:=v) (n:=n); auto. *)
+
+(* Lemma forecful : forall p v t1 t2 a0,
+  (length
+     (fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        match p with
+        | p'~1 => node (option L.t) a0 t1 (BinMap_Base.modify L.t t2 p' (fun _ : option L.t => Some v))
+        | p'~0 => node (option L.t) a0 (BinMap_Base.modify L.t t1 p' (fun _ : option L.t => Some v)) t2
+        | 1 => node (option L.t) (Some v) t1 t2
+        end 1 nil)) =
+  (S
+     (length
+        (fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) (node (option L.t) a0 t1 t2) 1
+           nil))).
+Proof.
+  induction p; auto.
+  intros. simpl. apply IHp. . destruct a0. 
+  clear. induction  *)
+
+(* Lemma random2: forall p m n o,
+L.t ->
+forall (v : L.t) (a0 : option L.t) (t1 t2 : tree (option L.t)),
+~
+In (N.pos p)
+  (0%N
+   :: fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) (node (option L.t) a0 t1 t2) m nil) ->
+length
+  (0%N
+   :: fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (modify_tree (option L.t) None (node (option L.t) a0 t1 t2) p (fun _ : option L.t => Some v)) n nil) =
+S
+  (length
+     (0%N
+      :: fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) (node (option L.t) a0 t1 t2) o
+           nil)).
+Proof.
+  induction p; intros; auto. simpl.
+  destruct a0. apply IHp.
+*)
+(* Lemma random : forall (acc) (p : positive)
+(t : L.t)
+(a0 : option L.t)
+(t1 t2 : tree (option L.t))
+(v : L.t) m n,
+~ In (N.pos p) (VarMap.dom L.t (Some t, node (option L.t) a0 t1 t2)) ->
+length
+  (0%N
+   :: fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (modify_tree (option L.t) None (node (option L.t) a0 t1 t2) p (fun _ : option L.t => Some v)) m acc) =
+S
+  (length
+     (0%N
+      :: fold_rec L.t (list BinNatMap_Base.key)
+           (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+           (node (option L.t) a0 t1 t2) n nil)).
+Proof.
+  induction p; intros; auto. destruct a0. (* simpl. *)
+  assert (fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (modify_tree (option L.t) None (node (option L.t) (Some t0) t1 t2) p~1 (fun _ : option L.t => Some v)) m nil =
+    (fold_rec L.t (list BinNatMap_Base.key)
+        (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b)
+        (modify_tree (option L.t) None t2 p (fun _ : option L.t => Some v)) m~1
+        (N.pos (inv_pos m 1)
+         :: fold_rec L.t (list BinNatMap_Base.key)
+              (fun (p0 : BinMap_Base.key) (_ : L.t) (b : list BinNatMap_Base.key) => N.pos p0 :: b) t1 m~0 nil))).
+  auto. rewrite H0. simpl. apply IHp.
+  (* simpl in IHp.  *) simpl. *)
+
+Lemma dom_length_update_nodup : forall a m v, ~In a (VarMap.dom L.t m) -> 
+  length (VarMap.dom L.t (VarMap.update L.t m a v)) = S (length (VarMap.dom L.t m)).
+Proof.
+  intros.
+  destruct m; induction t; auto.
+  destruct o; auto. 
+  destruct a; simpl. contradiction H; simpl; auto.
+  rewrite fold_subst_leaf_1; auto.
+  destruct a; simpl; auto.
+  rewrite fold_subst_leaf_1; auto.
+  (* IH *)
+  destruct o; destruct a.
+  contradiction H; simpl; auto.
+  (* *)
+  admit.
+  (* unfold VarMap.update. unfold BinNatMap_Base.modify. unfold BinMap_Base.modify.
+  unfold VarMap.dom. unfold BinNatMap_Base.fold. unfold BinMap_Base.fold. rewrite <- fold_prop. 
+  simpl. rewrite <- fold_prop. simpl. unfold fold. simpl. 
+  (* unfold modify_tree.
+  simpl.
+  induction p.
+  destruct a0; simpl. clear; induction p. simpl. *) *)
+  admit.
+  simpl; auto.
+  admit.
+Admitted.
+
+Lemma In_dom_update' : forall a m l v,  ~In a (VarMap.dom L.t m) -> 
+  eq_set (VarMap.dom L.t m) (l) ->
+  eq_set (VarMap.dom L.t (VarMap.update L.t m a v)) (a::l).
+  
+Proof.
+  split; intros. inversion H0.
+  (* making sure the length is equal *)
+  rewrite dom_length_update_nodup; auto. simpl; auto.
+  (* dealing with the content *)
+  split; intros. auto.
+  apply VarMap.in_dom_get_some in H1.
+  generalize (Neq_spec a r); destruct (Neq a r); intros.
+  subst; apply in_eq.
+  rewrite VarMap.get_update2 in H1; auto.
+  apply VarMap.get_some_in_dom in H1.
+  apply in_cons. rewrite H0 in H1; auto.
+  generalize (Neq_spec a r); destruct (Neq a r); intros.
+  apply VarMap.get_some_in_dom. subst.
+  rewrite VarMap.get_update1; auto. unfold not; intros. inversion H2.
+  inversion H1. apply False_ind; auto.
+  apply VarMap.get_some_in_dom. 
+  rewrite VarMap.get_update2; auto.
+  apply VarMap.in_dom_get_some.
+  rewrite H0; auto.
+Qed.
+
+Lemma make_rt_from_lvt_prop3 : forall s p v d, NoDup v ->
+  eq_set (VarMap.dom _ (make_rt_from_lvt_rec s p v d)) (v).
+Proof.
+  intros.
+  induction v; constructor; auto.
+  split; intros H0; inversion H0.
+  assert (make_rt_from_lvt_rec s p (a::v) d = 
+    VarMap.update _ (make_rt_from_lvt_rec s p v d) a (if In_test a p then DEX_lvt s a else d)). auto.
+  rewrite H0. inversion H. apply IHv in H4.
+  inversion H4. inversion H0.
+    rewrite dom_length_update_nodup. simpl; auto.
+    rewrite H4; auto.
+  inversion H. apply IHv in H3.
+  inversion H3; split; intros.
+  assert (make_rt_from_lvt_rec s p (a::v) d = 
+    VarMap.update _ (make_rt_from_lvt_rec s p v d) a (if In_test a p then DEX_lvt s a else d)). auto.
+  generalize (Neq_spec r a); destruct (Neq r a); intros. 
+    subst; apply in_eq.
+    rewrite H7 in H6.
+    apply In_dom_update' with (a:=a) (v:=(if In_test a p then DEX_lvt s a else d)) in H3; auto.
+    inversion H3. apply H10; auto. 
+    (* *)
+    unfold not. intros. rewrite H3 in H9. contradiction.  
+  assert (make_rt_from_lvt_rec s p (a::v) d = 
+    VarMap.update _ (make_rt_from_lvt_rec s p v d) a (if In_test a p then DEX_lvt s a else d)). auto.
+  rewrite H7.
+   apply In_dom_update' with (a:=a) (v:=(if In_test a p then DEX_lvt s a else d)) in H3; auto.
+    inversion H3. apply H9; auto.
+    unfold not; intros. rewrite H3 in H8; contradiction. 
+Qed.
+
 (* Lemma lvt_rt : forall p r s rt k, 
   make_rt_from_lvt_rec s p = rt ->
   In r p -> 
@@ -440,6 +631,37 @@ Definition compat_type_rt_lvt (s:DEX_sign) (rt:TypeRegisters)
   forall x, ((Reg_toN x)<n)%nat ->
     exists r k, nth_error p (Reg_toN x) = Some r /\ BinNatMap.get _ rt r = Some k /\
     L.leql(*'*) k (DEX_lvt s x).
+
+  Definition tsub_rt (rt1 rt2 : VarMap.t L.t) : bool :=
+  (eq_set_test (VarMap.dom _ rt1) (VarMap.dom _ rt2)) &&
+  tsub_rec (rt1) (rt2) (VarMap.dom _ rt2).
+
+  Lemma tsub_rec_leq_aux : forall r rt1 rt2, In r (VarMap.dom _ rt2) -> 
+    tsub_rec rt1 rt2 (VarMap.dom _ rt2) = true -> tsub_element rt1 rt2 r = true.
+  Proof.
+    intros. unfold tsub_rec in H0.
+    induction (VarMap.dom L.t rt2).
+      inversion H.
+    elim (andb_prop _ _ H0); intros.
+    destruct (reg_eq_dec a r).
+      rewrite <- e; auto.
+    inversion H. contradiction.
+    apply IHl in H3; auto.
+  Qed.
+
+  Lemma tsub_rec_leq : forall r rt1 rt2 k1 k2, In r (VarMap.dom _ rt2) ->
+    tsub_rec rt1 rt2 (VarMap.dom _ rt2) = true ->
+    Some k1 = VarMap.get _ rt1 r ->
+    Some k2 = VarMap.get _ rt2 r ->
+    L.leql k1 k2.
+  Proof.
+    intros. apply tsub_rec_leq_aux with (rt1:=rt1) in H; auto.
+    unfold tsub_element in H. 
+    rewrite <- H1 in H.
+    rewrite <- H2 in H.
+    generalize (L.leql_t_spec); intros.
+    specialize H3 with k1 k2. rewrite H in H3; auto.
+  Qed.
 
 (* DEX
 Definition elift m pc k st :=

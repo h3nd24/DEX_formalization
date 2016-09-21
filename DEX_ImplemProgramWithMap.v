@@ -447,9 +447,10 @@ Module DEX_Make <: DEX_PROGRAM.
       max_operand_stack_size : nat;
       (* DEX type system locR *)
       locR : list DEX_Reg;
-      regs : list DEX_Reg
+      regs : list DEX_Reg;
+      noDup_regs : NoDup regs
     }.
-    
+
     Definition instructionAt (bm:t) (pc:DEX_PC) : option DEX_Instruction :=
       match  MapN.get _ bm.(instr) pc with
        |Some p => Some (fst p)
@@ -483,6 +484,7 @@ Module DEX_Make <: DEX_PROGRAM.
     (* DEX type system locR *)
     Parameter locR : DEX_BytecodeMethod -> list DEX_Reg.
     Parameter regs : DEX_BytecodeMethod -> list DEX_Reg.
+    Parameter noDup_regs : forall bm, NoDup (regs (bm)).
 
     Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=
       exists i, instructionAt bm pc = Some i.
