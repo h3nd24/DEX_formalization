@@ -96,48 +96,6 @@ Section hyps.
     evalsto m (* n *) s2 r ->
     evalsto m (* (S (n)) *) s1 r. 
 
-(*  Only focusing on DEX I 
-Lemma typeof_stable_trans : forall h1 h2 h3,
-    typeof_stable h1 h2 ->
-    typeof_stable h2 h3 ->
-    typeof_stable h1 h3.
-  Proof.
-    unfold typeof_stable; intros.
-    rewrite H; auto.
-    apply H0.
-    rewrite <- H; auto.
-  Qed. 
-
-  Lemma evalsto_typeof_stable : forall m n s r,
-    evalsto m n s r -> exec_typeof_rel s r.
-  Proof.
-    intros m n; generalize m; clear m; pattern n.
-    apply lt_wf_ind; clear n; intros.
-    destruct s as [i [[h s] l]].
-    inversion_mine H0.
-    inversion_mine H1.
-    apply (typeof_stable_exec_return _ _ _ _ _ H6).
-    apply typeof_stable_exec_call_inr with (1:=H0).  
-    assert (exec_typeof_rel s' ret').
-    apply H with (2:=H2).
-    omega.
-    destruct s' as [i' [[h' s'] l']]; auto.
-    destruct s2 as [i2 [[h2 s2] l2]].
-    simpl.
-    assert (typeof_stable h h2).
-    inversion_mine H1.
-    apply typeof_stable_exec_intra with (1:=H7).
-    apply typeof_stable_exec_call_inl with (1:=H0).
-    assert (exec_typeof_rel s' ret').
-    apply H with (2:=H3).
-    omega.
-    destruct s' as [i' [[h' s'] l']]; auto.
-    assert (typeof_stable h2 (fst r)).
-    apply H with (2:=H2).
-    omega.
-    apply typeof_stable_trans with h2; auto.
-  Qed.
-*)
   Definition pc : istate -> PC := @fst _ _.
 
   Definition registertypes : Type := TypeRegisters.
@@ -471,26 +429,6 @@ Lemma typeof_stable_trans : forall h1 h2 h3,
     Variable se : Method -> Sign -> PC -> L.t.
     Variable RT : Method -> Sign -> PC -> registertypes.
     Variable typable_hyp : TypableProg se RT.
-
-(*     Theorem safe_ses : forall m sgn s r n,
-      P (SM _ _ m sgn) ->
-      init_pc m (pc s) ->
-      compat sgn s s0 ->
-      evalsto m n s r -> 
-      side_effect sgn s (inr _ r).
-    Proof.
-      intros.
-      elim evalsto_Tevalsto with (1:=H2); intros p' Hp.
-      eapply (safe_ses
-        PC Method Kind step (PM p) Sign  istate rstate exec
-        pc tcc0 tcc1 _ texec
-        compat compat_res s0 init_pc side_effect
-        side_effect_trans P PM_P
-        tcc6 tcc7
-        side_effect_exec_intra
-        side_effect_exec_return
-        _ compat_sub); eauto.
-    Qed. *)
 
     Lemma indist2_intra : forall m sgn se rt ut ut' s s' u u',
 (*       (forall k, (k<N)%nat -> ni k) -> *)
@@ -1325,6 +1263,39 @@ Section well_formed_lookupswitch.
   Qed.
 
 End  well_formed_lookupswitch.
+
+Lemma evalsto_path : forall m sgn n s i res,
+    region (cdr m (PM_P _ H)) s (fst i) ->
+    evalsto m n i res ->
+    (exists j, junc (cdr m (PM_P _ H)) s (fst j) /\ path m (fst i) (fst j) /\ 
+    (exists n', evalsto m n' j res /\ n' < n)) \/
+    (forall jun, ~junc (cdr m (PM_P _ H)) s jun).
+  Proof.
+    intros m sgn n. pattern n. apply lt_wf_ind.
+    clear n. intros n IH.
+    intros s i res H Hreg Hevalsto.
+    inversion Hevalsto.
+    (* the case where i is immediately a return point *)
+    apply exec_step_none with (1:=PM_P _ H) in H0.
+    right. intros. apply soap3 with (j:=pc i); auto.
+    (* inductive case *)
+    elim soap2 with PC (step m) (cdr m (PM_P _ H)) s (pc i) (pc s2); intros; auto.
+    (* path stays in region *)
+    elim IH with (H:=H) (s:=s) (m0:=n0) (i:=s2) (res:=res); simpl; intros; auto.
+    Cleanexand.
+    left.
+    exists x. repeat (split; auto).
+    constructor 2 with (k:=pc s2); auto.
+    apply exec_step_some with (1:=PM_P _ H); auto.
+    exists x0. split; auto.
+    omega.
+    (* path is the junction *) 
+    left. exists s2. repeat (split; auto). 
+    constructor 2 with (k:=pc s2); auto. constructor; auto.
+    apply exec_step_some with (1:=PM_P _ H); auto.
+    exists n0; repeat (split; auto).
+    apply exec_step_some with (1:=PM_P _ H); auto.
+  Qed.
 
 (* Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram) (*subclass_test : ClassName -> ClassName -> bool*),
   (*(forall c1 c2, if subclass_test c1 c2 then subclass_name p c1 c2 else ~ subclass_name p c1 c2) ->*)
