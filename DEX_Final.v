@@ -23,7 +23,7 @@ Section hyps.
   Variable p : DEX_ExtendedProgram.
   (* Variable subclass_test : ClassName -> ClassName -> bool.
   Variable subclass_test_correct : forall c1 c2, if subclass_test c1 c2 then subclass_name p c1 c2 else ~ subclass_name p c1 c2. *)
-
+  Definition Reg := DEX_Reg.
   Definition PC := DEX_PC.
   Definition Method := DEX_Method.
   Definition Kind := option DEX_ClassName.
@@ -117,6 +117,127 @@ Section hyps.
     indist_def :forall sgn rt1 rt2 (* b1 b2 *) r1 r2 pc1 pc2 (* h1 h2  l1 l2*),
       st_in kobs (* (newArT p) (ft p) sgn.(lvt) b1 b2 *) rt1 rt2 (pc1,r1) (pc2,r2) ->
       indist sgn rt1 rt2 (pc1,r1) (pc2,r2).
+
+(* TODO *)
+Definition high_reg (rt:registertypes) (r:Reg) : Prop :=
+  match VarMap.get _ rt r with
+  | None => False
+  | Some k => ~L.leql k kobs
+  end.
+
+Definition indist_reg_val (s1 s2: istate) (r: Reg) : Prop :=
+  let rho1 := snd s1 in
+  let rho2 := snd s2 in
+    match DEX_Registers.get rho1 r, DEX_Registers.get rho2 r with
+    | Some v1, Some v2 => v1 = v2
+    | _, _ => False
+    end.
+
+Lemma indist_reg_val_trans : forall s1 s2 s3 r, 
+  indist_reg_val s1 s2 r -> indist_reg_val s2 s3 r -> indist_reg_val s1 s3 r.
+Proof.
+  intros.
+  unfold indist_reg_val in *.
+  destruct (DEX_Registers.get (snd s1) r);
+  destruct (DEX_Registers.get (snd s2) r);
+  destruct (DEX_Registers.get (snd s3) r); auto.
+  rewrite H; auto. inversion H.
+Qed.
+
+Lemma indist_reg_val_sym : forall s1 s2 r, 
+  indist_reg_val s1 s2 r -> indist_reg_val s2 s1 r.
+Proof.
+  unfold indist_reg_val in *.
+  intros.
+  destruct (DEX_Registers.get (snd s1) r);
+  destruct (DEX_Registers.get (snd s2) r); auto.
+Qed.
+
+Inductive indist_reg : registertypes -> registertypes -> istate -> istate -> Reg -> Prop :=
+  | high_indist_reg : forall rt1 rt2 s1 s2 r,
+      high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 r
+  | low_indist_reg : forall rt1 rt2 s1 s2 r, indist_reg_val s1 s2 r -> indist_reg rt1 rt2 s1 s2 r.
+
+Lemma indist_from_reg : forall sgn rt1 rt2 s1 s2, 
+  (forall r, indist_reg rt1 rt2 s1 s2 r) -> indist sgn rt1 rt2 s1 s2.
+Proof.
+  intros.
+  destruct s1; destruct s2.
+  constructor.
+  constructor.
+  constructor.
+  admit.
+  intros.
+  specialize H with rn.
+  inversion H. subst.
+  constructor 1. unfold high_reg in H6. rewrite <- H4 in H6; auto.
+  unfold high_reg in H7. rewrite <- H5 in H7; auto.
+  constructor 2.
+  unfold indist_reg_val in H6.
+  simpl in H6.
+  rewrite <- H2 in H6; rewrite <- H3 in H6; auto.
+  rewrite H6. destruct v'. constructor 1.
+Admitted.
+
+Lemma indist_reg_from_indist : forall sgn rt1 rt2 s1 s2,
+  indist sgn rt1 rt2 s1 s2 -> 
+  forall r, 
+    (high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 r) /\ 
+    ((~high_reg rt1 r /\ ~high_reg rt2 r) \/
+      (high_reg rt1 r /\ ~high_reg rt2 r) \/
+      (~high_reg rt1 r /\ high_reg rt2 r) ->
+    indist_reg_val s1 s2 r).
+Proof.
+  intros. inversion H. inversion H0. inversion H7. subst.
+  specialize H12 with (rn:=r).
+  split; intros.
+  constructor; auto.
+  unfold indist_reg_val.
+  simpl.
+  inversion H1.
+  inversion H2.
+  unfold high_reg in H3, H4.
+  destruct (VarMap.get L.t rt1 r) eqn:Hrt1;
+  destruct (VarMap.get L.t rt2 r) eqn:Hrt2.
+  destruct (DEX_Registers.get r1 r) eqn:Hr1;
+  destruct (DEX_Registers.get r2 r) eqn:Hr2.
+  inversion H11.
+  
+  specialize H12 with (v:=d) (v':=d0) (k:=t) (k':=t0).
+  intros. contradiction. 
+  
+  
+  
+Admitted.
+
+Definition high_result := high_result kobs.
+
+Variable tevalsto_high_result : forall m (H:PM m) sgn se RT s res,
+  ~L.leql (se (pc s)) observable ->
+  tevalsto m H sgn se RT 1 s res -> high_result sgn res.
+Variable tevalsto_diff_high_result : forall m sgn se RT s s' p res res' (H:PM m),
+  pc s = pc s' -> 1 < p ->
+  tevalsto m H sgn se RT 1 s res -> tevalsto m H sgn se RT p s' res' -> 
+  high_result sgn res /\ high_result sgn res'.
+Variable high_result_indist : forall sgn res res0,
+  high_result sgn res -> high_result sgn res0 -> rindist sgn res res0.
+Inductive path (m:Method) (i:PC) : PC -> Prop :=
+  | path_base : forall j, j = i -> path m i j 
+  | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j.
+Variable changed : PC -> PC -> Reg -> Prop.
+Variable changed_high : forall m sgn s i j r (H: P (SM m sgn)), 
+  high_region m (PM_P _ H) sgn s ->
+  region (cdr m (PM_P _ H)) s i ->
+  path m i j -> 
+  changed i j r -> high_reg (RT m sgn j) r.
+Variable not_changed_same : forall m sgn i j r s1 s2 (H: P (SM m sgn)),
+  path m i j -> ~changed i j r -> 
+  pc (s1) = i -> pc (s2) = j ->
+  (~high_reg (RT m sgn i) r -> indist_reg_val s1 s2 r) /\ (high_reg (RT m sgn i) r -> high_reg (RT m sgn j) r). 
+Variable high_reg_dec : forall rt r, high_reg rt r \/ ~high_reg rt r.
+Variable changed_dec : forall m i j r, path m i j ->
+  changed i j r \/ ~changed i j r. 
+(* end TODO *)
 
 (*   Inductive irindist : Sign -> stacktype -> pbij -> pbij -> istate -> rstate -> Prop :=
   | irindist_def : forall sgn b1 b2 s1 st1 v2 h2,
