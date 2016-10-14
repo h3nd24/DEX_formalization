@@ -458,6 +458,7 @@ Module Type DEX_PROGRAM.
     (* DEX for type system *)
     Parameter locR : DEX_BytecodeMethod -> list DEX_Reg.
     Parameter regs : DEX_BytecodeMethod -> list DEX_Reg.
+(*     Parameter init_reg : DEX_BytecodeMethod -> DEX_REGISTERS.t. *)
     Parameter noDup_regs : forall bm, NoDup (regs (bm)).
 
     Definition DefinedInstruction (bm:DEX_BytecodeMethod) (pc:DEX_PC) : Prop :=

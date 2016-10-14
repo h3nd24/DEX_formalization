@@ -630,8 +630,11 @@ Proof.
   rewrite H0 in H6; auto.
 Qed.
 
-Inductive path (m:Method) (i:PC) : PC -> Prop :=
+(* Inductive path (m:Method) (i:PC) : PC -> Prop :=
   | path_base : forall j, j = i -> path m i j 
+  | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j. *)
+Inductive path (m:Method) (i:PC) : PC -> Prop :=
+  | path_base : forall j, step m i (Some j) -> path m i j 
   | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j.
 
 Lemma evalsto_path : forall m sgn n s i res (H: P (SM m sgn)),
@@ -673,8 +676,11 @@ Proof.
   apply compat_exec_intra with (m:=m) (se:=se m sgn) (s:=i) (rt:=RT m sgn (pc i)) (H0:=H); auto.
   (* path is the junction *) 
   left. exists s2. repeat (split; auto). 
+  (* *)
+  constructor 1 with (j:=pc s2); auto. apply exec_step_some with (1:=PM_P _ H) in H0; auto.
+  (* (* *)
   constructor 2 with (k:=pc s2); auto. constructor; auto.
-  apply exec_step_some with (1:=PM_P _ H); auto.
+  apply exec_step_some with (1:=PM_P _ H); auto. *)
   (* compat *)
   destruct (T m sgn H).
   Cleanexand.
