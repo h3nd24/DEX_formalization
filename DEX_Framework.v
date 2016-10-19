@@ -633,15 +633,20 @@ Qed.
 (* Inductive path (m:Method) (i:PC) : PC -> Prop :=
   | path_base : forall j, j = i -> path m i j 
   | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j. *)
-Inductive path (m:Method) (i:PC) : PC -> Prop :=
+(* Inductive path (m:Method) (i:PC) : PC -> Prop :=
   | path_base : forall j, step m i (Some j) -> path m i j 
-  | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j.
+  | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j. *)
+Inductive path (m:Method) (sgn:Sign) (H:PM m) (i:istate) : istate -> Prop :=
+  | path_base : forall j ort, texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> 
+      exec m i (inl j) -> path m sgn H i j 
+  | path_step : forall j k ort, path m sgn H k j -> exec m i (inl k) -> 
+      texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> path m sgn H i j.
 
 Lemma evalsto_path : forall m sgn n s i res (H: P (SM m sgn)),
   region (cdr m (PM_P _ H)) s (pc i) ->
   compat sgn i (RT m sgn (pc i)) ->
   evalsto m n i res ->
-  (exists j, junc (cdr m (PM_P _ H)) s (pc j) /\ path m (pc i) (pc j) /\
+  (exists j, junc (cdr m (PM_P _ H)) s (pc j) /\ path m sgn (PM_P _ H) i j /\
     compat sgn j (RT m sgn (pc j)) /\ 
     (exists n', evalsto m n' j res /\ n' < n)) 
   \/ (forall jun, ~junc (cdr m (PM_P _ H)) s jun).
@@ -660,8 +665,14 @@ Proof.
   Cleanexand.
   left.
   exists x. repeat (split; auto).
-  constructor 2 with (k:=pc s2); auto.
-  apply exec_step_some with (1:=PM_P _ H); auto.
+  destruct (T m sgn H). Cleanexand.
+  assert (H0':=H0).
+  apply exec_step_some with (1:=PM_P _ H) in H0. 
+  specialize H13 with (i:=pc i) (j:=pc s2) (1:=H0).
+  Cleanexand.
+  constructor 2 with (k:=s2) (ort:=Some x1); auto.
+(*   auto.
+  apply exec_step_some with (1:=PM_P _ H); auto. *)
   exists x0. split; auto.
   omega.
   (* compat *)
@@ -677,7 +688,11 @@ Proof.
   (* path is the junction *) 
   left. exists s2. repeat (split; auto). 
   (* *)
-  constructor 1 with (j:=pc s2); auto. apply exec_step_some with (1:=PM_P _ H) in H0; auto.
+  assert (H0':=H0).
+  apply exec_step_some with (1:=PM_P _ H) in H0. 
+  destruct (T m sgn H). Cleanexand.
+  specialize H8 with (i:=pc i) (j:=pc s2) (1:=H0). Cleanexand.
+  constructor 1 with (j:=s2) (ort:=Some x); auto. (* apply exec_step_some with (1:=PM_P _ H) in H0; auto. *)
   (* (* *)
   constructor 2 with (k:=pc s2); auto. constructor; auto.
   apply exec_step_some with (1:=PM_P _ H); auto. *)

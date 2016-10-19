@@ -621,24 +621,32 @@ Proof.
   inversion H1; auto.
 Qed.
 
-Inductive path (m:Method) (i:PC) : PC -> Type :=
-  | path_base : forall j, step m i (Some j) -> path m i j 
-  | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j.
+Inductive path (m:Method) (i:istate) : istate -> Type :=
+  | path_base : forall j, exec m i (inl j) -> path m i j 
+  | path_step : forall j k, path m k j -> exec m i (inl k) -> path m i j.
 
-Inductive path_prop (m:Method) (i j:PC) : Prop := path_exists : path m i j -> path_prop m i j.
+(* Inductive path (m:Method) (sgn:Sign) (H:PM _ m) (i:istate) : istate -> Type :=
+  | path_base : forall j ort, texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> 
+      exec m i (inl j) -> path m sgn H i j
+  | path_step : forall j k ort, path m sgn H k j -> exec m i (inl k) -> 
+      texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> path m sgn H i j. *)
 
-Inductive changed_at (m:Method) (i:PC) (r:Reg) : Prop :=
-  | const_change : forall k v, instructionAt m i = Some (DEX_Const k r v) -> changed_at m i r
-  | move_change : forall k rs, instructionAt m i = Some (DEX_Move k r rs) -> changed_at m i r
-  | ineg_change : forall rs, instructionAt m i = Some (DEX_Ineg r rs) -> changed_at m i r
-  | inot_change : forall rs, instructionAt m i = Some (DEX_Inot r rs) -> changed_at m i r
-  | i2b_change : forall rs, instructionAt m i = Some (DEX_I2b r rs) -> changed_at m i r
-  | i2s_change : forall rs, instructionAt m i = Some (DEX_I2s r rs) -> changed_at m i r
-  | ibinop_change : forall op ra rb, instructionAt m i = Some (DEX_Ibinop op r ra rb) -> changed_at m i r
-  | ibinopConst_change : forall op rs v, instructionAt m i = Some (DEX_IbinopConst op r rs v) -> changed_at m i r.
+Inductive path_prop (m:Method) (i j:istate) : Prop := path_exists : path m i j -> path_prop m i j.
+(* Inductive path_prop (m:Method) (sgn:Sign) (H:PM _ m) (i j:istate) : Prop := 
+  path_exists : path m sgn H i j -> path_prop m sgn H i j. *)
 
-Definition changed_at_t (m:Method) (i:PC) (r:Reg) : bool :=
-  match instructionAt m i with
+Inductive changed_at (m:Method) (i:istate) (r:Reg) : Prop :=
+  | const_change : forall k v, instructionAt m (pc i) = Some (DEX_Const k r v) -> changed_at m i r
+  | move_change : forall k rs, instructionAt m (pc i) = Some (DEX_Move k r rs) -> changed_at m i r
+  | ineg_change : forall rs, instructionAt m (pc i) = Some (DEX_Ineg r rs) -> changed_at m i r
+  | inot_change : forall rs, instructionAt m (pc i) = Some (DEX_Inot r rs) -> changed_at m i r
+  | i2b_change : forall rs, instructionAt m (pc i) = Some (DEX_I2b r rs) -> changed_at m i r
+  | i2s_change : forall rs, instructionAt m (pc i) = Some (DEX_I2s r rs) -> changed_at m i r
+  | ibinop_change : forall op ra rb, instructionAt m (pc i) = Some (DEX_Ibinop op r ra rb) -> changed_at m i r
+  | ibinopConst_change : forall op rs v, instructionAt m (pc i) = Some (DEX_IbinopConst op r rs v) -> changed_at m i r.
+
+Definition changed_at_t (m:Method) (i:istate) (r:Reg) : bool :=
+  match instructionAt m (pc i) with
     | Some (DEX_Const k r' v) => Reg_eq r r'
     | Some (DEX_Move _ r' _) => Reg_eq r r'
     | Some (DEX_Ineg r' _) => Reg_eq r r'
@@ -659,7 +667,7 @@ Lemma changed_at_spec : forall m i r, if changed_at_t m i r then changed_at m i 
 Proof.
   intros.
   unfold changed_at_t.
-  destruct (instructionAt m i) eqn:Hins.
+  destruct (instructionAt m (pc i)) eqn:Hins.
   unfold Reg_eq.
   destruct d; try (not_changed_auto; fail);
   try (destruct (Neq r rt) eqn:Heq; generalize (Neq_spec r rt); rewrite Heq; intros);
@@ -676,93 +684,311 @@ Proof.
   (* the case where the instructionAt is none *)
   unfold not; intros H; inversion H;
   match goal with 
-    | [H:instructionAt m i = None, H':instructionAt m i = Some _ |- _] => rewrite H' in H; inversion H
+    | [H:instructionAt m (pc i) = None, H':instructionAt m (pc i) = Some _ |- _] => rewrite H' in H; inversion H
   end.
 Qed.
 
-Inductive changed (m:Method) (i j: PC) : (path m i j) -> Reg -> Prop :=
+Inductive changed (m:Method) (i j: istate) : (path m i j) -> Reg -> Prop :=
   | changed_onestep : forall r (p:path m i j), changed_at m i r -> changed m i j p r
-(*   | changed_step : forall r k H H1, changed_at m i r -> changed m i j (path_step m i j k H H1) r *)
-  | changed_path : forall k r (p:path m k j) (H:step m i (Some k)), 
+  | changed_path : forall k r (p:path m k j) (H:exec m i (inl k)), 
       changed m k j p r -> changed m i j (path_step m i j k p H) r.
 
+(* Inductive changed (m:Method) (sgn:Sign) (H:PM _ m) (i j: istate) : (path m sgn H i j) -> Reg -> Prop :=
+  (* | changed_onestep : forall r (*p:path m i j*) (H: step m i (Some j)), 
+      changed_at m i r -> changed m i j (path_base m i j H) r
+  | changed_step : forall r k (p:path m k j) (H:step m i (Some k)),
+      changed_at m i r -> changed m i j (path_step m i j k p H) r *)
+  | changed_onestep : forall r (p:path m sgn H i j), changed_at m i r -> changed m sgn H i j p r
+  | changed_path : forall k r ort (p:path m sgn H k j) (Hexec:exec m i (inl k)) 
+      (Htexec:texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort), 
+      changed m sgn H k j p r -> changed m sgn H i j (path_step m sgn H i j k ort p Hexec Htexec) r.
+ *)
 (* Inductive changed : Set -> Reg -> Prop :=
   | changed_onestep : forall m i j r, changed_at m i r -> changed (path m i j) r
 (*   | changed_onestep : forall k, step m i (Some k) -> path m k j -> changed_at m i r -> changed m i j r *)
   | changed_path : forall m i j k r, step m i (Some k) -> (* path m k j ->  *)
       changed (path m k j) r -> changed (path m i j) r. *)
 
-Lemma changed_dec : forall m i j r (p:path m i j), (* path_prop m i j -> *)
+Lemma changed_dec : forall m (* sgn (H:PM _ m) *) i j r (*p:path m sgn H i j*) (p:path m i j), (* path_prop m i j -> *)
 (*   changed (path m i j) r \/ ~changed (path m i j) r. *)
-  changed m i j (p) r \/ ~changed m i j (p) r. 
+  changed m (* sgn H *) i j (p) r \/ ~changed m (* sgn H *) i j (p) r. 
 Proof.
-  intros. induction p0.  admit.
-  inversion IHp0.
-  left. constructor 2 with (p0 := p0); auto.
+  intros.
+  apply excluded_middle with (P:=changed m (* sgn H *) i j p0 r). 
+  (*  intros. induction p0.  
   generalize (changed_at_spec m i r).
-  destruct (changed_at_t m i r); intros.
+  destruct (changed_at_t m i r); intros; auto.
+  left. constructor 1; auto. right.
+  unfold not; intros. 
+  inversion H1. contradiction.
+  inversion IHp0.
+  left. constructor 2 with (p := p0); auto.
+  generalize (changed_at_spec m i r).
+  destruct (changed_at_t m i r); intros; auto.
   left.
   constructor; auto.
   right.
   unfold not; intros. 
-  destruct H1. contradiction. subst.
-  assert (forall m i j k (p:path m k j) (H:step m i (Some k)), 
-    changed m i j (path_step m i j k p H) r -> changed_at m i r \/ changed m k j p r). 
-    clear. intros.
-    induction p0; auto. inversion H0; auto.
-    admit. 
-    generalize (changed_at_spec m i r).
+  inversion H2. contradiction. subst.
+  assert (existT (fun k : istate => path m sgn H k j) k p2 = existT (fun k : istate => path m sgn H k j) k p0).
+(*   apply Eqdep_dec.inj_pair2_eq_dec in H6; auto. *)
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec.
+  clear.
+  unfold istate. unfold DEX_IntraNormalState.
+  intros.
+    unfold istate.
+(*     generalize (eq_dec istate x y). *)
+    destruct x. destruct y.
+    generalize (Neq_spec d d0). intros.
+   destruct (Neq d d0).
+    rewrite H. 
+    eq_dec
+  intros.
+  injection H6.
+  (* injection H6. 
+  assert (projT2((existT (fun k : istate => path m k j) k p2)) =
+     projT2((existT (fun k : istate => path m k j) k p0))). inj
+  assert (projT2(existT (fun j : istate => {k : istate & path m k j}) j (existT (fun k : istate => path m k j) k p2)) =
+     projT2(existT (fun j : istate => {k : istate & path m k j}) j (existT (fun k : istate => path m k j) k p0))).
+  Check existT (fun j : istate => {k : istate & path m k j}) j (existT (fun k : istate => path m k j) k p0).
+  auto. simpl in H2.
+  rewrite H6.
+  Check existT (fun j : istate => {k : istate & path m k j}) j (existT (fun k : istate => path m k j) k p2). *)
+  assert (forall m k j (p:path m k j) i q (H:exec m i (inl k)), 
+    changed m i j (q) r -> q = path_step m i j k p H -> changed_at m i r \/ changed m k j p r).
+  clear. intros. induction H0; intros. auto. injection H1. induction p0.
+  generalize (changed_at_spec m i r).
   destruct (changed_at_t m i r); intros; auto.
-    right.
-    inversion H0; auto. admit.
-    
-    inversion H0; auto; subst.
-  apply H2 in H1.
-  inversion H1. contradiction.
-  contradiction.
+  right. 
+  
+  right. inversion H0. contradiction. subst. *)
 Qed.
-inversion H1. contradiction.
-  unfold not in H; apply H.
-  inversion H1. 
 
-  induction H. admit. 
-  inversion IHpath. admit.
-  generalize (changed_at_spec m i r).
-  destruct (changed_at_t m i r); intros.
-  left. constructor; auto.
-  right.
-  unfold not; intros. 
-(* unfold not in H0.
-  intros; apply H0. *)
-  assert (forall m i j k r, changed (path m i j r) -> changed_at m i r \/ changed (path m k j r))
-  inversion H2; subst. admit. auto.
-  generalize False_ind. or elim H; intros. admit. admit. 
-  induction (path m i j). inversion H. induction H0. 
-  induction H. 
-  generalize (changed_at_spec m i r).
-  destruct (changed_at_t m i r); intros.
-  left. constructor; auto.
-  right. unfold not; intros.
-  inversion H1. contradiction.
-  admit. 
-  inversion IHpath.
-  left. constructor 2 with (k:=k); auto.
-  generalize (changed_at_spec m i r).
-  destruct (changed_at_t m i r); intros.
-  left. constructor 1; auto.
-  right.
-  admit. 
-Admitted. 
-(* 
-Variable changed_high : forall m sgn s i j r (H:P (SM _ _ m sgn)), 
-  high_region kobs PC m (PM_P _ H) sgn s ->
-  region (cdr m (PM_P _ H)) s i ->
-  path m i j -> 
-  changed i j r -> high_reg (RT m sgn j) r.
-Variable not_changed_same : forall m sgn i j r s1 s2 (H: P (SM m sgn)),
-  path m i j -> ~changed i j r -> 
-  pc (s1) = i -> pc (s2) = j ->
-  (~high_reg (RT m sgn i) r -> indist_reg_val s1 s2 r) /\ (high_reg (RT m sgn i) r -> high_reg (RT m sgn j) r).  *)
+Lemma changed_high_onestep : forall m sgn s i j r (H: P (SM _ _ m sgn)),
+  (forall k:PC, region (cdr m (PM_P _ H)) s (* kd *) k -> ~ L.leql (se m sgn k) kobs) ->
+  region (cdr m (PM_P _ H)) s (pc i) ->
+  exec m i (inl j) ->
+  In r (VarMap.dom _ (RT m sgn (pc j))) ->
+  changed_at m i r -> high_reg (RT m sgn (pc j)) r.
+Proof.
+  intros.
+  assert (H2':=H2).
+  apply tcc0 with (1:=PM_P _ H) in H2'.
+  destruct (typable_hyp m sgn H). Cleanexand. 
+  specialize H7 with (i:=pc i) (j:=pc j) (1:=H2'). 
+  destruct H7. Cleanexand. 
+  inversion H7. Cleanexand. 
+  specialize H0 with (pc i). apply H0 in H1. 
+  inversion_mine H4. 
+  (* Const *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (se m sgn (pc i))) r = Some k). 
+  exists (se m sgn (pc i)). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=(se m sgn (pc i))); auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* Move *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) k_rs)) r = Some k). 
+  exists (L.join (se m sgn (pc i)) k_rs). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* Ineg *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
+  exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* Inot *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
+  exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* I2b *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
+  exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* I2s *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
+  exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* Ibinop *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (L.join ka kb) (se m sgn (pc i)))) r = Some k). 
+  exists (L.join (L.join ka kb) (se m sgn (pc i))). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+  (* IbinopConst *)
+  rewrite H11 in H10. injection H10; intros; subst. 
+  inversion_mine H9.
+  unfold high_reg.
+  generalize sub_forall; intros.
+  specialize H4 with (1:=H8) (r:=r).
+  destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
+  assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join ks (se m sgn (pc i)))) r = Some k). 
+  exists (L.join ks (se m sgn (pc i))). rewrite VarMap.get_update1; auto.
+  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
+  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
+  apply leql_join_each in H12. Cleanexand; auto.
+  apply VarMap.in_dom_get_some in H3. contradiction.
+Defined.
+
+Variable RT_domain_same : forall m sgn i j r, In r (VarMap.dom L.t (RT m sgn i)) -> In r (VarMap.dom L.t (RT m sgn j)).
+
+Axiom excluded_middleT : forall (P:Prop), {P} + {~P}.
+Lemma eq_excluded_middleT : forall (x y:Prop), {x=y} + {x<>y}.
+Proof (fun x y => excluded_middleT _).
+Lemma eq_excluded_middleT2 : forall (x y:Type), {x=y} + {x<>y}.
+Proof (fun x y => excluded_middleT _).
+
+Lemma not_changed_same_onestep : forall m sgn i j r,
+  ~changed_at m i r -> 
+  exec m i (inl j) ->
+  (indist_reg_val i j r) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
+Proof.
+Admitted.
+
+Lemma not_changed_inv1 : forall m i j r (Hpath: path m i j),
+  ~ changed m i j Hpath r -> ~changed_at m i r.
+Proof.
+  intros. unfold not in *; intro Hgoal; apply H; constructor 1; auto.
+Qed.
+
+Lemma not_changed_inv2 : forall m i j k r (Hpath: path m k j) (e:exec m i (inl k)),
+  ~ changed m i j (path_step m i j k Hpath e) r -> ~changed m k j Hpath r.
+Proof.
+  intros. unfold not in *; intro Hgoal; apply H; constructor 2; auto.
+Qed.
+
+Lemma not_changed_same : forall m sgn i j (Hpath: path m i j) r (H: P (SM _ _ m sgn)) ,
+  ~changed m i j Hpath r -> 
+  (indist_reg_val i j r) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
+Proof.
+  intros m sgn i j Hpath r H H0.
+  induction Hpath; intros.
+  (* base case *)
+  apply not_changed_inv1 in H0.
+  apply not_changed_same_onestep with (1:=H0); auto. 
+  (* induction step *)
+  assert (H0':=H0).
+  apply not_changed_inv2 in H0.
+  apply IHHpath in H0.
+  assert (~ changed m i j (path_step m i j k Hpath e) r -> ~ changed_at m i r).
+  unfold not; intros. apply H1.
+  constructor 1. auto. apply H1 in H0'.
+  elim not_changed_same_onestep with (m:=m) (sgn:=sgn) (i:=i) (j:=k) (1:=H0') (2:=e); intros.
+  inversion H0.
+  split; auto.
+  unfold indist_reg_val in *.
+  destruct (DEX_Registers.get (snd i) r);
+  destruct (DEX_Registers.get (snd k) r);
+  destruct (DEX_Registers.get (snd j) r); try (congruence); try (contradiction). 
+Qed.
+
+Lemma changed_high : forall m sgn s i j r (H:P (SM _ _ m sgn)) (Hpath: path m (* sgn (PM_P _ H) *) i j), 
+  (forall k:PC, region (cdr m (PM_P _ H)) s (* kd *) k -> ~ L.leql (se m sgn k) kobs) ->
+  region (cdr m (PM_P _ H)) s (pc i) ->
+  junc (cdr m (PM_P _ H)) s (pc j) ->
+  In r (VarMap.dom _ (RT m sgn (pc j))) ->
+  changed m (* sgn (PM_P _ H) *) i j Hpath r -> high_reg (RT m sgn (pc j)) r.
+Proof.
+  intros.
+  induction Hpath.
+  (* base case *)
+  inversion_mine H4; apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto.
+
+  (* induction case *)
+  assert (e':=e); apply tcc0 with (1:=PM_P _ H) in e'.
+  elim soap2 with PC (step m) (cdr m (PM_P _ H)) s (pc i) (pc k); auto; intros.
+  inversion H4.
+  (* the case where the change is happening at the current step *)
+  generalize changed_high_onestep; intros.
+  assert (H3':=H3). apply RT_domain_same with (i:=pc j) (j:=pc k) (r:=r) in H3'.
+  specialize H9 with (m:=m) (sgn:=sgn) (s:=s) (i:=i) (j:=k) (r:=r) (H:=H) (1:=H0) (2:=H1) (3:=e) (4:=H3') (5:=H6).
+  elim (changed_dec m k j r Hpath); intros.
+  apply IHHpath; auto.
+  apply not_changed_same with (sgn:=sgn) in H10; auto.
+  inversion H10; auto.
+  (* the case where the change is happening in the chain *)
+  assert ((existT (fun k : istate => path m k j) k p1) = (existT (fun k : istate => path m k j) k Hpath)).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H10); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  assert (p1 = Hpath).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H6); auto.
+  intros x y; apply excluded_middleT with (P:=x=y). subst; auto.
+  generalize junc_func. intros.
+  specialize H6 with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=s) (j1:=pc k) (j2:=pc j) (1:=H5) (2:=H2); auto.
+  rewrite <- H6.
+  inversion_mine H4. apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto. rewrite <- H6 in H3; auto.
+Admitted.
 (* end TODO *)
 
     Lemma indist2_intra : forall m sgn se rt ut ut' s s' u u',
