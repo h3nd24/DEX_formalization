@@ -633,20 +633,30 @@ Qed.
 (* Inductive path (m:Method) (i:PC) : PC -> Prop :=
   | path_base : forall j, j = i -> path m i j 
   | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j. *)
-(* Inductive path (m:Method) (i:PC) : PC -> Prop :=
-  | path_base : forall j, step m i (Some j) -> path m i j 
-  | path_step : forall j k, path m k j -> step m i (Some k) -> path m i j. *)
-Inductive path (m:Method) (sgn:Sign) (H:PM m) (i:istate) : istate -> Prop :=
+Inductive path (m:Method) (i:istate) : istate -> Type :=
+  | path_base : forall j, exec m i (inl j) -> path m i j 
+  | path_step : forall j k, path m k j -> exec m i (inl k) -> path m i j.
+
+Inductive path_prop (m:Method) (i j:istate) (p:path m i j) : Prop := path_prop_cons : path_prop m i j p.
+
+Inductive path_in_region (m:Method) (cdr: CDR (step m)) (s:PC) (i j:istate) : (path m i j) -> Prop :=
+  | path_in_reg_base : forall (Hexec:exec m i (inl j)), region cdr s (pc i) -> 
+      path_in_region m cdr s i j (path_base m i j Hexec)
+  | path_in_reg_ind : forall k (Hexec:exec m i (inl k)) (p:path m k j), region cdr s (pc i) ->
+      path_in_region m cdr s k j p -> path_in_region m cdr s i j (path_step m i j k p Hexec).
+
+(* Inductive path (m:Method) (sgn:Sign) (H:PM m) (i:istate) : istate -> Prop :=
   | path_base : forall j ort, texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> 
       exec m i (inl j) -> path m sgn H i j 
   | path_step : forall j k ort, path m sgn H k j -> exec m i (inl k) -> 
       texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> path m sgn H i j.
-
+ *)
 Lemma evalsto_path : forall m sgn n s i res (H: P (SM m sgn)),
   region (cdr m (PM_P _ H)) s (pc i) ->
   compat sgn i (RT m sgn (pc i)) ->
   evalsto m n i res ->
-  (exists j, junc (cdr m (PM_P _ H)) s (pc j) /\ path m sgn (PM_P _ H) i j /\
+  (exists j p, junc (cdr m (PM_P _ H)) s (pc j) /\ path_prop m i j p /\
+    path_in_region m (cdr m (PM_P _ H)) s i j p /\
     compat sgn j (RT m sgn (pc j)) /\ 
     (exists n', evalsto m n' j res /\ n' < n)) 
   \/ (forall jun, ~junc (cdr m (PM_P _ H)) s jun).
@@ -663,18 +673,22 @@ Proof.
   (* path stays in region *)
   elim IH with (H:=H) (s:=s) (m0:=n0) (i:=s2) (res:=res); simpl; intros; auto.
   Cleanexand.
-  left.
-  exists x. repeat (split; auto).
-  destruct (T m sgn H). Cleanexand.
+  left. 
+  exists x. exists (path_step m i x s2 x0 H0).
+  repeat (split; auto).
+  constructor 2; auto.
+  exists x1. split; auto.
+  omega.
+ (*  destruct (T m sgn H). Cleanexand.
   assert (H0':=H0).
   apply exec_step_some with (1:=PM_P _ H) in H0. 
-  specialize H13 with (i:=pc i) (j:=pc s2) (1:=H0).
+  specialize H4 with (i:=pc i) (j:=pc s2) (1:=H0).
   Cleanexand.
   constructor 2 with (k:=s2) (ort:=Some x1); auto.
 (*   auto.
   apply exec_step_some with (1:=PM_P _ H); auto. *)
   exists x0. split; auto.
-  omega.
+  omega. *)
   (* compat *)
   destruct (T m sgn H).
   Cleanexand.
@@ -686,8 +700,10 @@ Proof.
   apply sub_compat with (rt1:=x); auto.
   apply compat_exec_intra with (m:=m) (se:=se m sgn) (s:=i) (rt:=RT m sgn (pc i)) (H0:=H); auto.
   (* path is the junction *) 
-  left. exists s2. repeat (split; auto). 
-  (* *)
+  left. exists s2. exists (path_base m i s2 H0).
+  repeat (split; auto).
+  constructor 1; auto. 
+  (* (* *)
   assert (H0':=H0).
   apply exec_step_some with (1:=PM_P _ H) in H0. 
   destruct (T m sgn H). Cleanexand.
@@ -695,7 +711,7 @@ Proof.
   constructor 1 with (j:=s2) (ort:=Some x); auto. (* apply exec_step_some with (1:=PM_P _ H) in H0; auto. *)
   (* (* *)
   constructor 2 with (k:=pc s2); auto. constructor; auto.
-  apply exec_step_some with (1:=PM_P _ H); auto. *)
+  apply exec_step_some with (1:=PM_P _ H); auto. *) *)
   (* compat *)
   destruct (T m sgn H).
   Cleanexand.
@@ -711,19 +727,28 @@ Proof.
   apply exec_step_some with (1:=PM_P _ H); auto.
 Qed.
 
-Variable changed : PC -> PC -> Reg -> Prop.
-Variable changed_high : forall m sgn s i j r (H: P (SM m sgn)), 
-  high_region m (PM_P _ H) sgn s ->
+Variable changed : forall (m:Method) (i j:istate), path m i j -> Reg -> Prop.
+(* Variable changed_high : forall m sgn s i j r (H: P (SM m sgn)), 
+  (forall k:PC, region (cdr m (PM_P _ H)) s (* kd *) k -> ~ L.leql (se m sgn k) observable) ->
   region (cdr m (PM_P _ H)) s i ->
+  junc (cdr m (PM_P _ H)) s (pc j) ->
   path m i j -> 
-  changed i j r -> high_reg (RT m sgn j) r.
-Variable not_changed_same : forall m sgn i j r s1 s2 (H: P (SM m sgn)),
+  changed i j r -> high_reg (RT m sgn j) r. *)
+Variable changed_high : forall m sgn s i j r (H:P (SM m sgn)) (Hpath: path m i j), 
+  (forall k:PC, region (cdr m (PM_P _ H)) s k -> ~ L.leql (se m sgn k) observable) ->
+  region (cdr m (PM_P _ H)) s (pc i) ->
+  junc (cdr m (PM_P _ H)) s (pc j) ->
+  changed m (* sgn (PM_P _ H) *) i j Hpath r -> high_reg (RT m sgn (pc j)) r.
+(* Variable not_changed_same : forall m sgn i j r s1 s2 (H: P (SM m sgn)),
   path m i j -> ~changed i j r -> 
   pc (s1) = i -> pc (s2) = j ->
-  (~high_reg (RT m sgn i) r -> indist_reg_val s1 s2 r) /\ (high_reg (RT m sgn i) r -> high_reg (RT m sgn j) r). 
+  (~high_reg (RT m sgn i) r -> indist_reg_val s1 s2 r) /\ (high_reg (RT m sgn i) r -> high_reg (RT m sgn j) r).  *)
+Variable not_changed_same : forall m sgn i j (Hpath: path m i j) r (H: P (SM m sgn)) ,
+  ~changed m i j Hpath r -> 
+  (indist_reg_val i j r) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
 Variable high_reg_dec : forall rt r, high_reg rt r \/ ~high_reg rt r.
-Variable changed_dec : forall m i j r, path m i j ->
-  changed i j r \/ ~changed i j r. 
+Variable changed_dec : forall m i j r (p:path m i j),
+  changed m i j (p) r \/ ~changed m i j (p) r. 
 
 Lemma junction_indist : forall m sgn ns ns' s s' u u' res res' i (H: P (SM m sgn)),
   compat sgn s (RT m sgn (pc s)) -> compat sgn s' (RT m sgn (pc s')) ->  
@@ -767,7 +792,7 @@ Proof.
     apply compat_exec_intra with (m:=m) (se:=se m sgn) (s:=s') (rt:=RT m sgn (pc s')) (H0:=H); auto.
     elim evalsto_path with (1:=H5) (2:=H11) (3:=H8); 
     elim evalsto_path with (1:=H6) (2:=H12) (3:=H9); intros.  
-  left. destruct H14 as [v H14]; destruct H13 as [v' H13].
+  left. destruct H14 as [v H14]; destruct H14 as [path H14]; destruct H13 as [v' H13]; destruct H13 as [path' H13].
     exists v; exists v'.
     Cleanexand.
     exists x; exists x0. 
@@ -775,44 +800,44 @@ Proof.
     omega. omega.
     apply indist_from_reg.
     intros.
-    elim changed_dec with (m:=m) (i:=pc u) (j:=pc v) (r:=r);
-    elim changed_dec with (m:=m) (i:=pc u') (j:=pc v') (r:=r); intros; auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H23; 
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H24; auto.
+    elim changed_dec with (m:=m) (i:=u) (j:=v) (p:=path) (r:=r);
+    elim changed_dec with (m:=m) (i:=u') (j:=v') (p:=path') (r:=r); intros; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H25; 
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H26; auto.
     constructor; auto.
     constructor 1; auto. 
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H24; auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H24; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H26; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H26; auto.
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v) (j2:=pc v'); auto.
     constructor 1; auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H23; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H25; auto.
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v') (j2:=pc v); auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H23; auto.
-    apply not_changed_same with (m:=m) (sgn:=sgn) (s1:=u') (s2:=v') in H23; auto.
-    apply not_changed_same with (m:=m) (sgn:=sgn) (s1:=u) (s2:=v) in H24; auto.
-    inversion H23; inversion H24.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H25; auto.
+    apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u') (j:=v') in H25; auto.
+    apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u) (j:=v) in H26; auto.
+    inversion H25; inversion H26.
     destruct high_reg_dec with (rt:=RT m sgn (pc u)) (r:=r);
     destruct high_reg_dec with (rt:=RT m sgn (pc u')) (r:=r).
-    specialize H26 with (1:=H30); specialize H28 with (1:=H29).
+    specialize H28 with (1:=H32); specialize H30 with (1:=H31).
     constructor 1; auto.
-    specialize H28 with (1:=H29).
+    specialize H30 with (1:=H31).
     constructor 1; auto.
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v) (j2:=pc v'); auto.
-    specialize H26 with (1:=H30).
+    specialize H28 with (1:=H32).
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v') (j2:=pc v); auto.
     constructor 1; auto.
-    specialize H25 with (1:=H30); specialize H27 with (1:=H29).
+(*     specialize H25 with (1:=H30); specialize H27 with (1:=H29). *)
     constructor 2; auto.
     apply indist_reg_val_trans with (s2:=u).
     apply indist_reg_val_sym; auto.
     apply indist_reg_val_trans with (s2:=u'); auto.
     apply indist_reg_from_indist in H10.
     Cleanexand.
-    apply H33; auto.
+    apply H35; auto.
   (* one of them doesn't have a junction point *)
   destruct H14. Cleanexand.
   specialize H13 with (pc x). contradiction.

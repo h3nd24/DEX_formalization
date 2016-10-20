@@ -442,6 +442,7 @@ Definition indist_reg_val (s1 s2: istate) (r: Reg) : Prop :=
   let rho2 := snd s2 in
     match DEX_Registers.get rho1 r, DEX_Registers.get rho2 r with
     | Some v1, Some v2 => v1 = v2
+    | None, None => True
     | _, _ => False
     end.
 
@@ -631,6 +632,12 @@ Inductive path (m:Method) (i:istate) : istate -> Type :=
   | path_step : forall j k ort, path m sgn H k j -> exec m i (inl k) -> 
       texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> path m sgn H i j. *)
 
+Inductive path_in_region (m:Method) (cdr: CDR (step m)) (s:PC) (i j:istate) : (path m i j) -> Prop :=
+  | path_in_reg_base : forall (Hexec:exec m i (inl j)), region cdr s (pc i) -> 
+      path_in_region m cdr s i j (path_base m i j Hexec)
+  | path_in_reg_ind : forall k (Hexec:exec m i (inl k)) (p:path m k j), region cdr s (pc i) ->
+      path_in_region m cdr s k j p -> path_in_region m cdr s i j (path_step m i j k p Hexec).
+
 Inductive path_prop (m:Method) (i j:istate) : Prop := path_exists : path m i j -> path_prop m i j.
 (* Inductive path_prop (m:Method) (sgn:Sign) (H:PM _ m) (i j:istate) : Prop := 
   path_exists : path m sgn H i j -> path_prop m sgn H i j. *)
@@ -694,10 +701,6 @@ Inductive changed (m:Method) (i j: istate) : (path m i j) -> Reg -> Prop :=
       changed m k j p r -> changed m i j (path_step m i j k p H) r.
 
 (* Inductive changed (m:Method) (sgn:Sign) (H:PM _ m) (i j: istate) : (path m sgn H i j) -> Reg -> Prop :=
-  (* | changed_onestep : forall r (*p:path m i j*) (H: step m i (Some j)), 
-      changed_at m i r -> changed m i j (path_base m i j H) r
-  | changed_step : forall r k (p:path m k j) (H:step m i (Some k)),
-      changed_at m i r -> changed m i j (path_step m i j k p H) r *)
   | changed_onestep : forall r (p:path m sgn H i j), changed_at m i r -> changed m sgn H i j p r
   | changed_path : forall k r ort (p:path m sgn H k j) (Hexec:exec m i (inl k)) 
       (Htexec:texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort), 
@@ -909,11 +912,113 @@ Proof (fun x y => excluded_middleT _).
 Lemma eq_excluded_middleT2 : forall (x y:Type), {x=y} + {x<>y}.
 Proof (fun x y => excluded_middleT _).
 
-Lemma not_changed_same_onestep : forall m sgn i j r,
+Lemma not_changed_same_onestep : forall m sgn i j r (HPM: P (SM _ _ m sgn)),
   ~changed_at m i r -> 
   exec m i (inl j) ->
   (indist_reg_val i j r) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
 Proof.
+  intros.
+  generalize (changed_at_spec m i r); intros.
+  destruct (changed_at_t m i r) eqn:Hchanged_at.
+  contradiction.
+  unfold changed_at_t in Hchanged_at.
+  destruct (instructionAt m (pc i)) eqn:Hins. 
+  destruct d eqn:Hins'. 
+  (* const *)
+  inversion H0. inversion_mine H5. inversion_mine H6;
+  match goal with 
+    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some DEX_Nop |- _] =>
+      try (simpl in Hins; rewrite H in Hins; inversion Hins)
+  end.
+  split.
+  unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  simpl. destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H6 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H6. 
+  Cleanand. rewrite H2 in H10. inversion H10. subst. inversion H9. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H8; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. apply VarMap.get_some_in_dom in H11. 
+  apply RT_domain_same with (j:=pc') in H11. apply VarMap.in_dom_get_some in H11. contradiction.
+  inversion H7.
+  (* move *)
+  split.
+  inversion H0. inversion_mine H5. inversion_mine H6;
+  match goal with 
+    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some (DEX_Move k rt rs) |- _] =>
+      try (simpl in Hins; rewrite H in Hins; inversion Hins)
+  end.
+  unfold indist_reg_val. simpl. admit. admit. admit. admit.
+  admit.
+  (* goto *)
+  inversion H0. inversion_mine H5. inversion_mine H6;
+  match goal with 
+    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some (DEX_Goto o) |- _] =>
+      try (simpl in Hins; rewrite H in Hins; inversion Hins)
+  end.
+  split.
+  unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  simpl. destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
+  specialize H6 with (i:=pc0) (j:=(DEX_OFFSET.jump pc0 o0)) (1:=e).
+  Cleanexand. 
+  inversion H6. 
+  Cleanand. rewrite H2 in H10. inversion H10. subst. inversion H9. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H8; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. apply VarMap.get_some_in_dom in H4. 
+  apply RT_domain_same with (j:=(DEX_OFFSET.jump pc0 o)) in H4. apply VarMap.in_dom_get_some in H4. contradiction.
+  inversion H7.
+  (* Ifeq *)
+  inversion H0. inversion_mine H5. inversion_mine H6; 
+  match goal with 
+    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some (DEX_Ifcmp cmp ra rb o) |- _] =>
+      try (simpl in Hins; rewrite H in Hins; inversion Hins)
+  end.
+  split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  simpl. destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
+  specialize H16 with (i:=pc0) (j:=(DEX_OFFSET.jump pc0 o0)) (1:=e).
+  Cleanexand. 
+  inversion H16. 
+  Cleanand. rewrite H2 in H20. inversion H20. subst. inversion H19. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H18; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. apply VarMap.get_some_in_dom in H11. 
+  apply RT_domain_same with (j:=(DEX_OFFSET.jump pc0 o)) in H11. apply VarMap.in_dom_get_some in H11. contradiction.
+  inversion H17.
+  
+ (*  rewrite (DEX_Registers.get_update2). admit.
+  destruct (DEX_Registers.get regs r).
+  unfold Reg_eq in Hchanged_at.
+
+  simpl in Hins. 
+  (* the case where there is no instruction *)
+  inversion H0. inversion_mine H5. apply False_ind. inversion_mine H6; 
+  match goal with 
+    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = None |- _] =>
+      simpl in Hins; rewrite H in Hins; inversion Hins
+  end.  *)
 Admitted.
 
 Lemma not_changed_inv1 : forall m i j r (Hpath: path m i j),
@@ -936,7 +1041,7 @@ Proof.
   induction Hpath; intros.
   (* base case *)
   apply not_changed_inv1 in H0.
-  apply not_changed_same_onestep with (1:=H0); auto. 
+  apply not_changed_same_onestep with (1:=H); auto. 
   (* induction step *)
   assert (H0':=H0).
   apply not_changed_inv2 in H0.
@@ -944,7 +1049,7 @@ Proof.
   assert (~ changed m i j (path_step m i j k Hpath e) r -> ~ changed_at m i r).
   unfold not; intros. apply H1.
   constructor 1. auto. apply H1 in H0'.
-  elim not_changed_same_onestep with (m:=m) (sgn:=sgn) (i:=i) (j:=k) (1:=H0') (2:=e); intros.
+  elim not_changed_same_onestep with (m:=m) (sgn:=sgn) (i:=i) (j:=k) (1:=H) (2:=H0') (3:=e); intros.
   inversion H0.
   split; auto.
   unfold indist_reg_val in *.
@@ -955,6 +1060,7 @@ Qed.
 
 Lemma changed_high : forall m sgn s i j r (H:P (SM _ _ m sgn)) (Hpath: path m (* sgn (PM_P _ H) *) i j), 
   (forall k:PC, region (cdr m (PM_P _ H)) s (* kd *) k -> ~ L.leql (se m sgn k) kobs) ->
+  path_in_region m (cdr m (PM_P _ H)) s i j Hpath ->
   region (cdr m (PM_P _ H)) s (pc i) ->
   junc (cdr m (PM_P _ H)) s (pc j) ->
   In r (VarMap.dom _ (RT m sgn (pc j))) ->
@@ -963,18 +1069,26 @@ Proof.
   intros.
   induction Hpath.
   (* base case *)
-  inversion_mine H4; apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto.
+  inversion_mine H5; apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto.
 
   (* induction case *)
-  assert (e':=e); apply tcc0 with (1:=PM_P _ H) in e'.
-  elim soap2 with PC (step m) (cdr m (PM_P _ H)) s (pc i) (pc k); auto; intros.
-  inversion H4.
+  (* assert (e':=e); apply tcc0 with (1:=PM_P _ H) in e'.
+  elim soap2 with PC (step m) (cdr m (PM_P _ H)) s (pc i) (pc k); auto; intros. *)
+  inversion H5.
   (* the case where the change is happening at the current step *)
   generalize changed_high_onestep; intros.
-  assert (H3':=H3). apply RT_domain_same with (i:=pc j) (j:=pc k) (r:=r) in H3'.
-  specialize H9 with (m:=m) (sgn:=sgn) (s:=s) (i:=i) (j:=k) (r:=r) (H:=H) (1:=H0) (2:=H1) (3:=e) (4:=H3') (5:=H6).
+  assert (H4':=H4). apply RT_domain_same with (i:=pc j) (j:=pc k) (r:=r) in H4'.
+  specialize H9 with (m:=m) (sgn:=sgn) (s:=s) (i:=i) (j:=k) (r:=r) (H:=H) (1:=H0) (2:=H2) (3:=e) (4:=H4') (5:=H6).
   elim (changed_dec m k j r Hpath); intros.
-  apply IHHpath; auto.
+  apply IHHpath; auto. inversion H1; auto.
+  assert ((existT (fun k : istate => path m k j) k p2) = (existT (fun k : istate => path m k j) k Hpath)).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H12); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  assert (p2 = Hpath).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H15); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  subst; auto.
+  inversion H1. inversion H14; auto.
   apply not_changed_same with (sgn:=sgn) in H10; auto.
   inversion H10; auto.
   (* the case where the change is happening in the chain *)
@@ -983,12 +1097,16 @@ Proof.
   intros x y; apply excluded_middleT with (P:=x=y).
   assert (p1 = Hpath).
   apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H6); auto.
-  intros x y; apply excluded_middleT with (P:=x=y). subst; auto.
-  generalize junc_func. intros.
-  specialize H6 with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=s) (j1:=pc k) (j2:=pc j) (1:=H5) (2:=H2); auto.
-  rewrite <- H6.
-  inversion_mine H4. apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto. rewrite <- H6 in H3; auto.
-Admitted.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  rewrite H12 in H11. inversion H1. 
+  assert ((existT (fun k : istate => path m k j) k p2) = (existT (fun k : istate => path m k j) k Hpath)).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H14); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  assert (p2 = Hpath).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H17); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  apply IHHpath; subst; auto. inversion H16; auto. 
+Qed.
 (* end TODO *)
 
     Lemma indist2_intra : forall m sgn se rt ut ut' s s' u u',
