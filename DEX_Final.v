@@ -5,7 +5,7 @@ Require Export DEX_ElemLemmaIntra.
 Require Export DEX_ElemLemmaReturn.
 (* Require Export ElemLemmaCall1.
 Require Export ElemLemmaSideEffect. *)
-Require DEX_compat. 
+(* Require DEX_compat.  *)
 Require Export DEX_step.
 Require Export DEX_typing_rules.
 
@@ -17,6 +17,8 @@ Definition ValidMethod (p:DEX_Program) (m:DEX_Method) : Prop :=
 Definition step (p:DEX_Program) (* subclass_test *) : DEX_Method -> DEX_PC (* -> option DEX_ClassName *) -> option DEX_PC -> Prop := 
 fun m pc (* tau *) opc =>
   ValidMethod p m /\ exists i, instructionAt m pc = Some i /\ DEX_step (*p subclass_test *) m pc i (* None *) opc.
+
+Variable RT_domain_same : forall rt1 rt2 r, In r (VarMap.dom L.t rt1) -> In r (VarMap.dom L.t rt2).
 
 Section hyps.
   Variable kobs: L.t.
@@ -107,10 +109,10 @@ Section hyps.
       exists i, texec (*p subclass_test m*) sgn (region (cdr m H)) se pc i (* None *) rt ort
         /\ instructionAt m pc = Some i.
 
-  Definition compat : Sign -> istate -> registertypes -> Prop := 
+(*   Definition compat : Sign -> istate -> registertypes -> Prop := 
     DEX_compat.compat_state.
   Definition compat_res : Sign -> rstate -> Prop :=
-    DEX_compat.compat_res.
+    DEX_compat.compat_res. *)
 
   Inductive indist : Sign -> registertypes ->
     registertypes -> (* pbij -> pbij ->*) istate -> istate -> Prop :=
@@ -199,17 +201,23 @@ Section hyps.
       high_opstack st (pc,(h,s,l)). *)
 
   (* Definition s0 : stacktype := nil. *)
-  Inductive rt0 (m:Method) (sgn:Sign): registertypes -> Prop := 
+(*   Inductive rt0 (m:Method) (sgn:Sign): registertypes -> Prop := 
     rt0_def : forall bm, 
       DEX_METHOD.body m = Some bm ->
       P (SM _ _ m sgn) ->
-      rt0 m sgn (Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)).
+      rt0 m sgn (Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level)). *)
+
+  Definition rt0 (m:Method) (sgn:Sign): registertypes := 
+  match DEX_METHOD.body m with
+  | Some bm => (Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level))
+  | None => VarMap.empty L.t
+  end.
 
  (*  Definition rt0 (m:Method) : registertypes := 
     Annotated.make_rt_from_lvt_rec (sgn) (DEX_BYTECODEMETHOD.locR bm) (DEX_BYTECODEMETHOD.regs bm) (default_level). *)
 
 
-  Definition ni := ni _ _ _ _ _ exec pc registertypes indist rindist compat rt0 init_pc P.
+  Definition ni := ni _ _ _ _ _ exec pc registertypes indist rindist (* compat *) rt0 init_pc P.
 
   Open Scope nat_scope.
 
@@ -235,6 +243,17 @@ Section hyps.
     exists 1; constructor 1; auto.
     inversion IHevalsto.
     exists (S x). constructor 2 with (s2:=s2); auto.
+  Qed.
+
+  Lemma evalsto_Tevalsto2 : forall m s r p,
+    DEX_Framework.evalsto Method istate rstate exec m p s r ->
+    evalsto m s r.
+  Proof.
+(*     intros m n; pattern n; apply lt_wf_ind; clear n; intros. *)
+    intros.
+    induction H.
+    constructor 1; auto.
+    constructor 2 with (s2:=s2); auto.
   Qed.
 
   Lemma tcc0 : forall m s s',
@@ -275,7 +294,7 @@ Section hyps.
     apply side_effect_trans.
   Qed. *)
 
-  Lemma tcc6 : forall sgn m se s s' rt rt',
+(*   Lemma tcc6 : forall sgn m se s s' rt rt',
     ((* forall k : nat, (k < n)%nat -> *)
       cmp _ _ _ _ _ exec pc registertypes compat compat_res rt0 init_pc P) ->
     forall H0:P (SM Method Sign m sgn),
@@ -293,9 +312,9 @@ Section hyps.
       elim well_types_imply_exec_intra with (1:=H7) (2:=Hi) (3:=H2); eauto.
     eapply DEX_compat.compat_intra; eauto.
     econstructor; eauto.
-  Qed.
+  Qed. *)
 
-  Lemma tcc7 : forall sgn m se s r rt,
+(*   Lemma tcc7 : forall sgn m se s r rt,
     ((* forall k : nat,
       (k < n)%nat -> *)
       cmp _ _ _ _ _ exec pc registertypes compat compat_res rt0 init_pc P) ->
@@ -311,7 +330,7 @@ Section hyps.
     assert (DEX_BigStepWithTypes.ReturnStep p se m sgn i s rt (Normal o)).
       elim well_types_imply_exec_return with (1:=H7) (2:=Hi) (3:=H2); eauto.
     eapply DEX_compat.compat_return; eauto. econstructor; eauto.
-  Qed.
+  Qed. *)
 
   (* Inductive sub : stacktype -> stacktype -> Prop :=
   | sub_nil : sub nil nil
@@ -332,7 +351,7 @@ Section hyps.
     rewrite VarMap.get_empty in H1. inversion H1.
   Qed.
 
-  Lemma compat_register_sub : forall (rt1 rt2 : registertypes),
+(*   Lemma compat_register_sub : forall (rt1 rt2 : registertypes),
     sub rt1 rt2 -> forall r,
       DEX_compat.compat_registers r rt1 ->
       DEX_compat.compat_registers r rt2.
@@ -341,15 +360,15 @@ Section hyps.
     unfold DEX_compat.compat_registers in H0.
     unfold DEX_compat.compat_registers. 
     intros. destruct v; constructor; auto. 
-  Qed.
+  Qed. *)
 
-  Lemma compat_sub : forall (sgn : Sign) (s : istate) (rt1 rt2 : registertypes),
+(*   Lemma compat_sub : forall (sgn : Sign) (s : istate) (rt1 rt2 : registertypes),
     sub rt1 rt2 -> compat sgn s rt1 -> compat sgn s rt2.
   Proof.
     intros.
     destruct s.
     apply compat_register_sub with (r:=t) in H; auto.
-  Qed.
+  Qed. *)
 
   Lemma indist_morphism_proof : forall (y : Sign) (x y0 : registertypes),
     eq_rt x y0 ->
@@ -393,7 +412,7 @@ Section hyps.
       rewrite eq_rt_get with (rt1:=y1) (rt2:=x0); auto. apply eq_rt_sym; auto. rewrite <- H; auto.
   Qed.
 
-  Lemma compat_morphism_proof : forall (y : Sign) (y0 : istate) (x y1 : registertypes),
+(*   Lemma compat_morphism_proof : forall (y : Sign) (y0 : istate) (x y1 : registertypes),
     eq_rt x y1 -> compat y y0 x <-> compat y y0 y1.
   Proof.
     split; intros.
@@ -420,7 +439,7 @@ Section hyps.
       apply VarMap.get_some_in_dom in H3; auto.
       apply VarMap.get_some_in_dom in H3; auto. 
       inversion H. rewrite <- H4; auto.
-  Qed.
+  Qed. *)
 
   Definition TypableProg := TypableProg PC Method step (PM p) Sign registertypes texec rt0 init_pc P PM_P sub eq_rt.
 
@@ -431,6 +450,14 @@ Section hyps.
     Variable typable_hyp : TypableProg se RT.
 
 (* TODO *)
+Lemma not_none_some : forall {A:Type} (a:option A) (b:A),
+  a <> None <-> exists b, a = Some b.
+Proof.
+  split; intros. destruct a. exists a; auto.
+    apply False_ind; auto.
+  unfold not; intros. destruct H. rewrite H0 in H. inversion H.
+Qed.
+
 Definition high_reg (rt:registertypes) (r:Reg) : Prop :=
   match VarMap.get _ rt r with
   | None => False
@@ -472,7 +499,7 @@ Inductive indist_reg : registertypes -> registertypes -> istate -> istate -> Reg
   | low_indist_reg : forall rt1 rt2 s1 s2 r, indist_reg_val s1 s2 r -> indist_reg rt1 rt2 s1 s2 r.
 
 Lemma indist_from_reg : forall sgn rt1 rt2 s1 s2, 
-  (forall r, In r (VarMap.dom _ rt1) /\ In r (VarMap.dom _ rt2) /\ indist_reg rt1 rt2 s1 s2 r) -> indist sgn rt1 rt2 s1 s2.
+  (forall r, indist_reg rt1 rt2 s1 s2 r) -> indist sgn rt1 rt2 s1 s2.
 Proof.
   intros.
   destruct s1; destruct s2.
@@ -481,19 +508,26 @@ Proof.
   constructor.
   constructor.
     admit.
-    split; intros;
+    admit.
+    (* split; intros;
     specialize H with r;
-    Cleanexand; auto.
+    Cleanexand. inversion H. unfold high_reg in H2.
+    destruct (VarMap.get L.t rt2 r) eqn:Hrt.
+    assert (VarMap.get L.t rt2 r <> None). unfold not; intros. rewrite H8 in Hrt; inversion Hrt.
+    apply VarMap.get_some_in_dom in H8; auto.
+    inversion H2. *)
+    
   intros.
-  specialize H with rn. Cleanexand.
-  inversion H7. subst.
-  constructor 1. unfold high_reg in H8. rewrite <- H4 in H8; auto.
-  unfold high_reg in H9. rewrite <- H5 in H9; auto.
+  specialize H with rn. 
+  inversion H. (*  Cleanexand.
+  inversion H7. subst. *)
+  constructor 1. unfold high_reg in H6. rewrite <- H4 in H6; auto.
+  unfold high_reg in H7. rewrite <- H5 in H7; auto.
   constructor 2.
-  unfold indist_reg_val in H8.
-  simpl in H8.
-  rewrite <- H2 in H8; rewrite <- H3 in H8; auto.
-  rewrite H8. destruct v'. constructor 1.
+  unfold indist_reg_val in H6.
+  simpl in H6.
+  rewrite <- H2 in H6; rewrite <- H3 in H6; auto.
+  rewrite H6. destruct v'. constructor 1.
 Admitted.
 
 Lemma indist_reg_from_indist : forall sgn rt1 rt2 s1 s2,
@@ -538,20 +572,16 @@ Proof.
   admit.
   admit. 
   admit.
-
   specialize H12 with (v:=d) (v':=d0) (k:=t) (k':=t0).
   intros. contradiction.  *)
-  
-  
-  
 Admitted.
 
 Definition high_result := high_result kobs.
 
-Lemma tevalsto_high_result : forall m sgn (H:P (SM _ _ m sgn)) se s RT res,
+Lemma tevalsto_high_result : forall m sgn (H:PM p m) se s RT res,
   ~L.leql (se m sgn (pc s)) kobs ->
   exec m s (inr res) ->
-  texec m (PM_P _ H) sgn (se m sgn) (pc s) (RT m sgn (pc s)) None -> high_result sgn res.
+  texec m H sgn (se m sgn) (pc s) (RT m sgn (pc s)) None -> high_result sgn res.
 Proof.
   intros.
 (*   induction typable_hyp with m sgn H. *)
@@ -570,12 +600,12 @@ Qed.
 
 (* this is only applicable to exception instructions, so normal instructions 
   only need to be proved via contradiction *)
-Lemma tevalsto_diff_high_result : forall m sgn se RT s s' s1' rt res res' (H:P (SM _ _ m sgn)),
+Lemma tevalsto_diff_high_result : forall m sgn se RT s s' s1' rt res res' (H:PM p m),
   pc s = pc s' ->
   exec m s (inr res) ->
-  texec m (PM_P _ H) sgn (se m sgn) (pc s) (RT m sgn (pc s)) None ->
+  texec m H sgn (se m sgn) (pc s) (RT m sgn (pc s)) None ->
   exec m s' (inl s1') ->
-  texec m (PM_P _ H) sgn (se m sgn) (pc s') (RT m sgn (pc s')) (Some rt) ->
+  texec m H sgn (se m sgn) (pc s') (RT m sgn (pc s')) (Some rt) ->
   evalsto m s' res' -> 
   high_result sgn res /\ high_result sgn res'.
 Proof.
@@ -588,6 +618,28 @@ Proof.
     | [ H0 : pc s = pc s', H : instructionAt m (pc s) = ?P, H' : instructionAt m (pc s') = ?Q |- _ ] => 
       rewrite <- H0 in H'; rewrite H' in H; inversion H
   end.
+Qed.
+
+Lemma tevalsto_diff_high_result' : forall m sgn s s' p0 res res' (H:PM p m),
+  pc s = pc s' -> 1 < p0 ->
+  DEX_Framework.tevalsto PC Method (PM p) Sign istate rstate exec (pc) (registertypes) texec
+    sub m H sgn (se m sgn) (RT m sgn) 1 s res -> 
+  DEX_Framework.tevalsto PC Method (PM p) Sign istate rstate exec (pc) (registertypes) texec
+    sub m H sgn (se m sgn) (RT m sgn) p0 s' res' -> 
+  high_result sgn res /\ high_result sgn res'. 
+Proof.
+  intros.
+  inversion_mine H3. omega.
+  inversion_mine H4.
+  apply tevalsto_diff_high_result with (m:=m) (se:=se) (RT:=RT) (s:=s) (s':=s') (s1':=s2) (rt:=rt') (H:=H); auto.
+  inversion_mine H2; auto.
+  inversion H3; auto.
+  inversion H8.
+  inversion_mine H2; auto. inversion_mine H3; auto.
+  inversion H8.
+  apply DEX_Framework.tevalsto_evalsto in H5; auto.
+  apply evalsto_Tevalsto2 with (p:=S n).
+  constructor 2 with (s2:=s2); auto.
 Qed.
 
 Lemma high_result_indist : forall sgn res res0 k,
@@ -622,9 +674,11 @@ Proof.
   inversion H1; auto.
 Qed.
 
-Inductive path (m:Method) (i:istate) : istate -> Type :=
+Definition path := DEX_Framework.path Method istate rstate exec.
+
+(* Inductive path (m:Method) (i:istate) : istate -> Type :=
   | path_base : forall j, exec m i (inl j) -> path m i j 
-  | path_step : forall j k, path m k j -> exec m i (inl k) -> path m i j.
+  | path_step : forall j k, path m k j -> exec m i (inl k) -> path m i j. *)
 
 (* Inductive path (m:Method) (sgn:Sign) (H:PM _ m) (i:istate) : istate -> Type :=
   | path_base : forall j ort, texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> 
@@ -632,11 +686,12 @@ Inductive path (m:Method) (i:istate) : istate -> Type :=
   | path_step : forall j k ort, path m sgn H k j -> exec m i (inl k) -> 
       texec m H sgn (se m sgn) (pc i) (RT m sgn (pc i)) ort -> path m sgn H i j. *)
 
-Inductive path_in_region (m:Method) (cdr: CDR (step m)) (s:PC) (i j:istate) : (path m i j) -> Prop :=
+Definition path_in_region := DEX_Framework.path_in_region PC Method step istate rstate exec pc.
+(* Inductive path_in_region (m:Method) (cdr: CDR (step m)) (s:PC) (i j:istate) : (path m i j) -> Prop :=
   | path_in_reg_base : forall (Hexec:exec m i (inl j)), region cdr s (pc i) -> 
       path_in_region m cdr s i j (path_base m i j Hexec)
   | path_in_reg_ind : forall k (Hexec:exec m i (inl k)) (p:path m k j), region cdr s (pc i) ->
-      path_in_region m cdr s k j p -> path_in_region m cdr s i j (path_step m i j k p Hexec).
+      path_in_region m cdr s k j p -> path_in_region m cdr s i j (path_step m i j k p Hexec). *)
 
 Inductive path_prop (m:Method) (i j:istate) : Prop := path_exists : path m i j -> path_prop m i j.
 (* Inductive path_prop (m:Method) (sgn:Sign) (H:PM _ m) (i j:istate) : Prop := 
@@ -698,7 +753,7 @@ Qed.
 Inductive changed (m:Method) (i j: istate) : (path m i j) -> Reg -> Prop :=
   | changed_onestep : forall r (p:path m i j), changed_at m i r -> changed m i j p r
   | changed_path : forall k r (p:path m k j) (H:exec m i (inl k)), 
-      changed m k j p r -> changed m i j (path_step m i j k p H) r.
+      changed m k j p r -> changed m i j (path_step Method istate rstate exec m i j k p H) r.
 
 (* Inductive changed (m:Method) (sgn:Sign) (H:PM _ m) (i j: istate) : (path m sgn H i j) -> Reg -> Prop :=
   | changed_onestep : forall r (p:path m sgn H i j), changed_at m i r -> changed m sgn H i j p r
@@ -771,146 +826,146 @@ Lemma changed_high_onestep : forall m sgn s i j r (H: P (SM _ _ m sgn)),
   (forall k:PC, region (cdr m (PM_P _ H)) s (* kd *) k -> ~ L.leql (se m sgn k) kobs) ->
   region (cdr m (PM_P _ H)) s (pc i) ->
   exec m i (inl j) ->
-  In r (VarMap.dom _ (RT m sgn (pc j))) ->
+(*   In r (VarMap.dom _ (RT m sgn (pc j))) -> *)
   changed_at m i r -> high_reg (RT m sgn (pc j)) r.
 Proof.
   intros.
   assert (H2':=H2).
   apply tcc0 with (1:=PM_P _ H) in H2'.
   destruct (typable_hyp m sgn H). Cleanexand. 
-  specialize H7 with (i:=pc i) (j:=pc j) (1:=H2'). 
-  destruct H7. Cleanexand. 
-  inversion H7. Cleanexand. 
+  specialize H6 with (i:=pc i) (j:=pc j) (1:=H2'). 
+  Cleanexand. 
+  inversion H6. Cleanexand. 
   specialize H0 with (pc i). apply H0 in H1. 
-  inversion_mine H4. 
+  inversion_mine H3. 
   (* Const *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (se m sgn (pc i))) r = Some k). 
   exists (se m sgn (pc i)). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=(se m sgn (pc i))); auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H15.
+  apply VarMap.in_dom_get_some in H15. contradiction.
   (* Move *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) k_rs)) r = Some k). 
   exists (L.join (se m sgn (pc i)) k_rs). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H16.
+  apply VarMap.in_dom_get_some in H16. contradiction.
   (* Ineg *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
   exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H14; apply VarMap.in_dom_get_some in H14; contradiction.
   (* Inot *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
   exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H14; apply VarMap.in_dom_get_some in H14; contradiction.
   (* I2b *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
   exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H14; apply VarMap.in_dom_get_some in H14; contradiction.
   (* I2s *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (se m sgn (pc i)) ks)) r = Some k). 
   exists (L.join (se m sgn (pc i)) ks). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H14; apply VarMap.in_dom_get_some in H14; contradiction.
   (* Ibinop *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join (L.join ka kb) (se m sgn (pc i)))) r = Some k). 
   exists (L.join (L.join ka kb) (se m sgn (pc i))). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H16; apply VarMap.in_dom_get_some in H16; contradiction.
   (* IbinopConst *)
-  rewrite H11 in H10. injection H10; intros; subst. 
-  inversion_mine H9.
+  rewrite H10 in H9. injection H9; intros; subst. 
+  inversion_mine H8.
   unfold high_reg.
   generalize sub_forall; intros.
-  specialize H4 with (1:=H8) (r:=r).
+  specialize H3 with (1:=H7) (r:=r).
   destruct (VarMap.get _ (RT m sgn (pc j)) r) eqn:Hval.
   assert (exists k, VarMap.get L.t (VarMap.update L.t (RT m sgn (pc i)) r (L.join ks (se m sgn (pc i)))) r = Some k). 
   exists (L.join ks (se m sgn (pc i))). rewrite VarMap.get_update1; auto.
-  destruct H9. specialize H4 with (k1:=x) (k2:=t). rewrite H9 in H4.
-  assert (Some x = Some x /\ Some t = Some t); auto. apply H4 in H12.
-  rewrite VarMap.get_update1 in H9. inversion_mine H9.
+  destruct H8. specialize H3 with (k1:=x) (k2:=t). rewrite H8 in H3.
+  assert (Some x = Some x /\ Some t = Some t); auto. apply H3 in H11.
+  rewrite VarMap.get_update1 in H8. inversion_mine H8.
   apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
-  apply leql_join_each in H12. Cleanexand; auto.
-  apply VarMap.in_dom_get_some in H3. contradiction.
+  apply leql_join_each in H11. Cleanexand; auto.
+  apply RT_domain_same with (rt2:=RT m sgn (pc j)) in H16; apply VarMap.in_dom_get_some in H16; contradiction.
 Defined.
 
-Variable RT_domain_same : forall m sgn i j r, In r (VarMap.dom L.t (RT m sgn i)) -> In r (VarMap.dom L.t (RT m sgn j)).
-
-Axiom excluded_middleT : forall (P:Prop), {P} + {~P}.
-Lemma eq_excluded_middleT : forall (x y:Prop), {x=y} + {x<>y}.
-Proof (fun x y => excluded_middleT _).
-Lemma eq_excluded_middleT2 : forall (x y:Type), {x=y} + {x<>y}.
-Proof (fun x y => excluded_middleT _).
+Ltac clear_other_ins ins :=
+  match goal with 
+  | [H:instructionAt ?m ?pc0 = Some ?ins, Hins:instructionAt ?m ?pc = Some ins |- _] =>
+    try (simpl in Hins; rewrite H in Hins; inversion Hins)
+  end.
 
 Lemma not_changed_same_onestep : forall m sgn i j r (HPM: P (SM _ _ m sgn)),
   ~changed_at m i r -> 
@@ -925,16 +980,14 @@ Proof.
   destruct (instructionAt m (pc i)) eqn:Hins. 
   destruct d eqn:Hins'. 
   (* const *)
-  inversion H0. inversion_mine H5. inversion_mine H6;
-  match goal with 
-    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some DEX_Nop |- _] =>
-      try (simpl in Hins; rewrite H in Hins; inversion Hins)
-  end.
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Nop).
   split.
   unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
-  simpl. destruct (typable_hyp m sgn HPM).
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
   Cleanexand.
-  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
   specialize H6 with (i:=pc0) (j:=pc') (1:=e).
   Cleanexand. 
   inversion H6. 
@@ -947,25 +1000,71 @@ Proof.
   assert (VarMap.get L.t (RT m sgn pc0) r <> None).
   destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
   inversion Hrt0. apply VarMap.get_some_in_dom in H11. 
-  apply RT_domain_same with (j:=pc') in H11. apply VarMap.in_dom_get_some in H11. contradiction.
-  inversion H7.
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H11. apply VarMap.in_dom_get_some in H11. contradiction.
+  contradiction.
   (* move *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Move k rt rs).
   split.
-  inversion H0. inversion_mine H5. inversion_mine H6;
-  match goal with 
-    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some (DEX_Move k rt rs) |- _] =>
-      try (simpl in Hins; rewrite H in Hins; inversion Hins)
-  end.
-  unfold indist_reg_val. simpl. admit. admit. admit. admit.
-  admit.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H14 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H14. 
+  Cleanand. rewrite H2 in H18. inversion H18. subst. inversion H17. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H16; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H10. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H10. apply VarMap.in_dom_get_some in H10. contradiction.
+  contradiction.
+  (* Return *)
+  inversion H0. inversion H5. inversion_mine H6; clear_other_ins (DEX_Return).
+  (* VReturn *)
+  inversion H0. inversion H5. inversion_mine H6; clear_other_ins (DEX_VReturn k rt).
+  (* Const *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Const k rt v).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H12 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H12. 
+  Cleanand. rewrite H2 in H17. inversion H17. subst. inversion H16. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H15; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H8. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H8. apply VarMap.in_dom_get_some in H8. contradiction.
+  contradiction.
   (* goto *)
-  inversion H0. inversion_mine H5. inversion_mine H6;
-  match goal with 
-    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some (DEX_Goto o) |- _] =>
-      try (simpl in Hins; rewrite H in Hins; inversion Hins)
-  end.
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Goto o).
   split.
   unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  (* the case where the registers is high *)
   simpl. destruct (typable_hyp m sgn HPM).
   Cleanexand.
   assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
@@ -981,15 +1080,13 @@ Proof.
   assert (VarMap.get L.t (RT m sgn pc0) r <> None).
   destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
   inversion Hrt0. apply VarMap.get_some_in_dom in H4. 
-  apply RT_domain_same with (j:=(DEX_OFFSET.jump pc0 o)) in H4. apply VarMap.in_dom_get_some in H4. contradiction.
-  inversion H7.
+  apply RT_domain_same with (rt2:=RT m sgn (DEX_OFFSET.jump pc0 o)) in H4. apply VarMap.in_dom_get_some in H4. contradiction.
+  contradiction.
   (* Ifeq *)
-  inversion H0. inversion_mine H5. inversion_mine H6; 
-  match goal with 
-    | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = Some (DEX_Ifcmp cmp ra rb o) |- _] =>
-      try (simpl in Hins; rewrite H in Hins; inversion Hins)
-  end.
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Ifcmp cmp ra rb o).
+  (* the case where the successor is the target *)
   split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  (* the case where the registers is high *)
   simpl. destruct (typable_hyp m sgn HPM).
   Cleanexand.
   assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
@@ -1005,21 +1102,239 @@ Proof.
   assert (VarMap.get L.t (RT m sgn pc0) r <> None).
   destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
   inversion Hrt0. apply VarMap.get_some_in_dom in H11. 
-  apply RT_domain_same with (j:=(DEX_OFFSET.jump pc0 o)) in H11. apply VarMap.in_dom_get_some in H11. contradiction.
-  inversion H17.
-  
- (*  rewrite (DEX_Registers.get_update2). admit.
-  destruct (DEX_Registers.get regs r).
-  unfold Reg_eq in Hchanged_at.
-
-  simpl in Hins. 
+  apply RT_domain_same with (rt2:=RT m sgn (DEX_OFFSET.jump pc0 o)) in H11. apply VarMap.in_dom_get_some in H11. contradiction.
+  contradiction.
+  (* the case where the successor is the next instruction *)
+  split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  (* the case where the registers is high *)
+  simpl. destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
+  specialize H17 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H17. 
+  Cleanand. rewrite H2 in H21. inversion H21. subst. inversion H20. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H19; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. apply VarMap.get_some_in_dom in H12. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H12. apply VarMap.in_dom_get_some in H12. contradiction.
+  contradiction.
+  (* Ifz *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Ifz cmp r0 o).
+  (* the case where the successor is the target *)
+  split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  (* the case where the registers is high *)
+  simpl. destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
+  specialize H12 with (i:=pc0) (j:=(DEX_OFFSET.jump pc0 o0)) (1:=e).
+  Cleanexand. 
+  inversion H12. 
+  Cleanand. rewrite H2 in H16. inversion H16. subst. inversion H15. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H14; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. apply VarMap.get_some_in_dom in H8. 
+  apply RT_domain_same with (rt2:=RT m sgn (DEX_OFFSET.jump pc0 o)) in H8. apply VarMap.in_dom_get_some in H8. contradiction.
+  contradiction.
+  (* the case where the successor is the next instruction *)
+  split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+  (* the case where the registers is high *)
+  simpl. destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0). apply tcc0 with (1:=PM_P _ HPM) in e. simpl in e.
+  specialize H12 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H12. 
+  Cleanand. rewrite H2 in H16. inversion H16. subst. inversion H15. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H14; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. apply VarMap.get_some_in_dom in H8. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H8. apply VarMap.in_dom_get_some in H8. contradiction.
+  contradiction.
+  (* Ineg *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Ineg rt rs).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H13 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H13. 
+  Cleanand. rewrite H2 in H17. inversion H17. subst. inversion H16. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H15; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H10. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H10. apply VarMap.in_dom_get_some in H10. contradiction.
+  contradiction.
+  (* Inot *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Inot rt rs).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H13 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H13. 
+  Cleanand. rewrite H2 in H17. inversion H17. subst. inversion H16. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H15; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H10. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H10. apply VarMap.in_dom_get_some in H10. contradiction.
+  contradiction.
+  (* I2b *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_I2b rt rs).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H13 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H13. 
+  Cleanand. rewrite H2 in H17. inversion H17. subst. inversion H16. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H15; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H10. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H10. apply VarMap.in_dom_get_some in H10. contradiction.
+  contradiction.
+  (* I2s *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_I2s rt rs).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H13 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H13. 
+  Cleanand. rewrite H2 in H17. inversion H17. subst. inversion H16. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H15; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H10. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H10. apply VarMap.in_dom_get_some in H10. contradiction.
+  contradiction.
+  (* Ibinop *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_Ibinop op rt ra rb).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H18 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H18. 
+  Cleanand. rewrite H2 in H22. inversion H22. subst. inversion H21. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H20; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H13. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H13. apply VarMap.in_dom_get_some in H13. contradiction.
+  contradiction.
+  (* IbinopConst *)
+  inversion H0. inversion_mine H5. inversion_mine H6; clear_other_ins (DEX_IbinopConst op rt r0 v).
+  split.
+  unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+  unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  (* the case where the registers is high *)
+  simpl. 
+  destruct (typable_hyp m sgn HPM).
+  Cleanexand.
+  assert (e:=H0); apply tcc0 with (1:=PM_P _ HPM) in e.
+  specialize H15 with (i:=pc0) (j:=pc') (1:=e).
+  Cleanexand. 
+  inversion H15. 
+  Cleanand. rewrite H2 in H19. inversion H19. subst. inversion H18. subst.
+  unfold high_reg in *.
+  destruct (VarMap.get L.t (RT m sgn pc0) r) eqn:Hrt0.
+  destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+  apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in H17; auto.
+  apply not_leql_trans with (k1:=t); auto.
+  split; auto. rewrite VarMap.get_update2; auto.
+  unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+  assert (VarMap.get L.t (RT m sgn pc0) r <> None).
+  destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+  inversion Hrt0. 
+  apply VarMap.get_some_in_dom in H10. 
+  apply RT_domain_same with (rt2:=RT m sgn pc') in H10. apply VarMap.in_dom_get_some in H10. contradiction.
+  contradiction.
   (* the case where there is no instruction *)
   inversion H0. inversion_mine H5. apply False_ind. inversion_mine H6; 
   match goal with 
     | [H:instructionAt m ?pc0 = Some ?ins, Hins:instructionAt m ?pc = None |- _] =>
       simpl in Hins; rewrite H in Hins; inversion Hins
-  end.  *)
-Admitted.
+  end.  
+Qed.
 
 Lemma not_changed_inv1 : forall m i j r (Hpath: path m i j),
   ~ changed m i j Hpath r -> ~changed_at m i r.
@@ -1028,7 +1343,7 @@ Proof.
 Qed.
 
 Lemma not_changed_inv2 : forall m i j k r (Hpath: path m k j) (e:exec m i (inl k)),
-  ~ changed m i j (path_step m i j k Hpath e) r -> ~changed m k j Hpath r.
+  ~ changed m i j (path_step Method istate rstate exec m i j k Hpath e) r -> ~changed m k j Hpath r.
 Proof.
   intros. unfold not in *; intro Hgoal; apply H; constructor 2; auto.
 Qed.
@@ -1046,7 +1361,7 @@ Proof.
   assert (H0':=H0).
   apply not_changed_inv2 in H0.
   apply IHHpath in H0.
-  assert (~ changed m i j (path_step m i j k Hpath e) r -> ~ changed_at m i r).
+  assert (~ changed m i j (path_step Method istate rstate exec m i j k Hpath e) r -> ~ changed_at m i r).
   unfold not; intros. apply H1.
   constructor 1. auto. apply H1 in H0'.
   elim not_changed_same_onestep with (m:=m) (sgn:=sgn) (i:=i) (j:=k) (1:=H) (2:=H0') (3:=e); intros.
@@ -1063,49 +1378,49 @@ Lemma changed_high : forall m sgn s i j r (H:P (SM _ _ m sgn)) (Hpath: path m (*
   path_in_region m (cdr m (PM_P _ H)) s i j Hpath ->
   region (cdr m (PM_P _ H)) s (pc i) ->
   junc (cdr m (PM_P _ H)) s (pc j) ->
-  In r (VarMap.dom _ (RT m sgn (pc j))) ->
+(*   In r (VarMap.dom _ (RT m sgn (pc j))) -> *)
   changed m (* sgn (PM_P _ H) *) i j Hpath r -> high_reg (RT m sgn (pc j)) r.
 Proof.
   intros.
   induction Hpath.
   (* base case *)
-  inversion_mine H5; apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto.
+  inversion_mine H4; apply changed_high_onestep with (s:=s) (i:=i) (H:=H); auto.
 
   (* induction case *)
   (* assert (e':=e); apply tcc0 with (1:=PM_P _ H) in e'.
   elim soap2 with PC (step m) (cdr m (PM_P _ H)) s (pc i) (pc k); auto; intros. *)
-  inversion H5.
+  inversion H4.
   (* the case where the change is happening at the current step *)
   generalize changed_high_onestep; intros.
-  assert (H4':=H4). apply RT_domain_same with (i:=pc j) (j:=pc k) (r:=r) in H4'.
-  specialize H9 with (m:=m) (sgn:=sgn) (s:=s) (i:=i) (j:=k) (r:=r) (H:=H) (1:=H0) (2:=H2) (3:=e) (4:=H4') (5:=H6).
+(*   assert (H4':=H4). apply RT_domain_same with (i:=pc j) (j:=pc k) (r:=r) in H4'. *)
+  specialize H8 with (m:=m) (sgn:=sgn) (s:=s) (i:=i) (j:=k) (r:=r) (H:=H) (1:=H0) (2:=H2) (3:=e) (* (4:=H4') *) (4:=H5).
   elim (changed_dec m k j r Hpath); intros.
   apply IHHpath; auto. inversion H1; auto.
   assert ((existT (fun k : istate => path m k j) k p2) = (existT (fun k : istate => path m k j) k Hpath)).
-  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H12); auto.
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H11); auto.
   intros x y; apply excluded_middleT with (P:=x=y).
   assert (p2 = Hpath).
-  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H15); auto.
-  intros x y; apply excluded_middleT with (P:=x=y).
-  subst; auto.
-  inversion H1. inversion H14; auto.
-  apply not_changed_same with (sgn:=sgn) in H10; auto.
-  inversion H10; auto.
-  (* the case where the change is happening in the chain *)
-  assert ((existT (fun k : istate => path m k j) k p1) = (existT (fun k : istate => path m k j) k Hpath)).
-  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H10); auto.
-  intros x y; apply excluded_middleT with (P:=x=y).
-  assert (p1 = Hpath).
-  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H6); auto.
-  intros x y; apply excluded_middleT with (P:=x=y).
-  rewrite H12 in H11. inversion H1. 
-  assert ((existT (fun k : istate => path m k j) k p2) = (existT (fun k : istate => path m k j) k Hpath)).
   apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H14); auto.
   intros x y; apply excluded_middleT with (P:=x=y).
-  assert (p2 = Hpath).
-  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H17); auto.
+  subst; auto.
+  inversion H1. inversion H13; auto.
+  apply not_changed_same with (sgn:=sgn) in H9; auto.
+  inversion H9; auto.
+  (* the case where the change is happening in the chain *)
+  assert ((existT (fun k : istate => path m k j) k p1) = (existT (fun k : istate => path m k j) k Hpath)).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H9); auto.
   intros x y; apply excluded_middleT with (P:=x=y).
-  apply IHHpath; subst; auto. inversion H16; auto. 
+  assert (p1 = Hpath).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H5); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  rewrite H11 in H10. inversion H1. 
+  assert ((existT (fun k : istate => path m k j) k p2) = (existT (fun k : istate => path m k j) k Hpath)).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H13); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  assert (p2 = Hpath).
+  apply Coq.Logic.Eqdep_dec.inj_pair2_eq_dec with (2:=H16); auto.
+  intros x y; apply excluded_middleT with (P:=x=y).
+  apply IHHpath; subst; auto. inversion H15; auto. 
 Qed.
 (* end TODO *)
 
@@ -1118,38 +1433,38 @@ Qed.
         exec m s' (inl _ u') ->
         texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
         texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
-        compat sgn s rt ->
-        compat sgn s' rt ->
+(*         compat sgn s rt ->
+        compat sgn s' rt -> *)
 (*         exists bu, exists bu',
           border b bu /\
           border b' bu' /\ *)
           indist sgn ut ut' (* bu bu'  *) u u'.
     Proof.
-      unfold pc; intros.
-      inversion_mine H2. inversion_mine H3.
+      unfold pc; intros m sgn se0 rt ut ut' s s' u u' H Hindist Hpc Hexec Hexec' Htexec Htexec'.
+      inversion_mine Hexec. inversion_mine Hexec'.
   (**)
-      elim DEX_BigStepWithTypes.exec_intra_instructionAt with (1:=H11); intros i Hi.
-      destruct H4 as [i' [Ti Ti']]; DiscrimateEq.
+      elim DEX_BigStepWithTypes.exec_intra_instructionAt with (1:=H3); intros i Hi.
+      destruct Htexec as [i' [Ti Ti']]; DiscrimateEq.
       
 (*       elim well_types_imply_exec_intra with (1:=H11) (3:=Ti); auto. *)
-      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) m sgn i s rt u ut).
-        elim well_types_imply_exec_intra with (1:=H11) (3:=Ti); eauto. 
+      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H))) m sgn i s rt u ut).
+        elim well_types_imply_exec_intra with (1:=H3) (3:=Ti); eauto. 
 (*       intros b2 [T1 T2]. *)
-      destruct H5 as [i' [Ui Ui']]; DiscrimateEq.
-      rewrite H1 in Ui.
+      destruct Htexec' as [i' [Ui Ui']]; DiscrimateEq.
+      rewrite Hpc in Ui.
 (*       elim well_types_imply_exec_intra with (1:=H10) (3:=Ui); auto. *)
-      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) m sgn i s' rt u' ut').
-        elim well_types_imply_exec_intra with (1:=H10) (3:=Ui); eauto.
-      rewrite H1 in Ui'; auto. 
-      inversion_mine H.
+      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H))) m sgn i s' rt u' ut').
+        elim well_types_imply_exec_intra with (1:=H4) (3:=Ui); eauto.
+      rewrite Hpc in Ui'; auto. 
+      inversion_mine Hindist.
       destruct u as [pu ru].
       destruct u' as [pu' ru'].
       constructor.
       eapply indist2_intra; eauto. 
       constructor; eauto.
-      rewrite H1; constructor; eauto.
-      simpl. simpl in H1.
-      rewrite <- H1 in H4; auto.
+      rewrite Hpc; constructor; eauto.
+      simpl. simpl in Hpc.
+      rewrite <- Hpc in H2; auto.
     Qed.
 
 (*     Lemma tcc2 : forall m  rt1 rt2 rt3 s1 s2 s3,
@@ -1251,33 +1566,33 @@ Qed.
 (*         n' <= N -> *)
         texec m (PM_P _ H) sgn se (pc s) rt None ->
         texec m (PM_P _ H) sgn se (pc s) rt None ->
-        compat sgn s rt ->
-        compat sgn s' rt ->
+(*         compat sgn s rt -> *)
+(*         compat sgn s' rt -> *)
         (* exists bu : pbij,
           (exists bu' : pbij,
             border b bu /\ border b' bu' /\  *)rindist sgn (* bu bu' *) u u'.
     Proof.
-      unfold pc; intros.
-      destruct H4 as [i' [Ti Ti']].
-      destruct H5 as [i [Ui Ui']]; DiscrimateEq.
+      unfold pc; intros m sgn se0 rt s s' u u' H Hindist Hpc Hexec Hexec' Htexec Htexec'.
+      destruct Htexec as [i' [Ti Ti']].
+      destruct Htexec' as [i [Ui Ui']]; DiscrimateEq.
       destruct s as [pp regs].
       destruct s' as [pp' regs'].
-      simpl in H1; subst; simpl in *.
+      simpl in Hpc; subst; simpl in *.
       destruct u as [vu].
       destruct u' as [vu'].
-      inversion_mine H0;
-      inversion_mine H2; inversion_mine H3.
+      inversion_mine Hindist;
+      inversion_mine Hexec; inversion_mine Hexec'.
   (**)
       (* elim well_types_imply_exec_return with (1:=H5) (3:=Ti); auto.
       intros. (*  [T1 T2]. *) *)
       assert (DEX_BigStepWithTypes.ReturnStep p se0 m sgn i (pp', regs) rt (Normal vu)).
-        elim well_types_imply_exec_return with (1:=H5) (3:=Ti); auto.
+        elim well_types_imply_exec_return with (1:=H3) (3:=Ti); auto.
       assert (DEX_BigStepWithTypes.ReturnStep p se0 m sgn i (pp', regs') rt (Normal vu')).
-        elim well_types_imply_exec_return with (1:=H4) (3:=Ui); auto.
+        elim well_types_imply_exec_return with (1:=H5) (3:=Ui); auto.
       apply DEX_BigStepWithTypes.exec_return_normal in H0.
       apply DEX_BigStepWithTypes.exec_return_normal in H1.
       constructor. 
-      apply indist2_return with (1:=H0) (2:=H1) (3:=H9). 
+      apply indist2_return with (1:=H0) (2:=H1) (3:=H4). 
     Qed.
 
 (*     Lemma opstack1: forall m sgn se st st' n k s s' (H:P (SM _ _ m sgn)),
@@ -1320,29 +1635,30 @@ Qed.
           exec m s' (inl _ u') -> 
           texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
           texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
-          compat sgn s rt ->
-          compat sgn s' rt ->
+(*           compat sgn s rt -> *)
+(*           compat sgn s' rt -> *)
           pc u <> pc u' -> 
 (*           high_opstack ut u /\ *)
           forall j:PC, region (cdr m (PM_P _ H0)) (pc s) j -> ~ L.leql (se j) kobs.
       Proof.
-        intros.
-        destruct H4 as [i' [Ti Ui]].
-        destruct H5 as [i [Ti' Ui']]. DiscrimateEq.
-        inversion_mine H.
+        intros m sgn se0 rt ut ut' s s' u u' H0 Hindist Hpcs Hexec Hexec' Htexec Htexec' Hpcu.
+        intros j Hreg.
+        destruct Htexec as [i' [Ti Ui]].
+        destruct Htexec' as [i [Ti' Ui']]. DiscrimateEq.
+        inversion_mine Hindist.
         destruct u as [ppu regs].
         destruct u' as [ppu' regs'].
-        inversion_mine H3; inversion_mine H2; simpl in *; subst.
+        inversion_mine Hexec'; inversion_mine Hexec; simpl in *; subst.
   (**)
         assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
           m sgn i (pc2,r1) rt (ppu,regs) ut).
-             elim well_types_imply_exec_intra with (1:=H10) (3:=Ti); auto.
+             elim well_types_imply_exec_intra with (1:=H5) (3:=Ti); auto.
         assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
           m sgn i (pc2,r2) rt (ppu',regs') ut').
-             elim well_types_imply_exec_intra with (1:=H11) (3:=Ti'); auto.
-        apply DEX_BigStepWithTypes.exec_intra_normal in H;
-        apply DEX_BigStepWithTypes.exec_intra_normal in H1.
-        apply soap2_intra with (4:=H1) (3:=H) (6:= H4); auto.
+             elim well_types_imply_exec_intra with (1:=H4) (3:=Ti'); auto.
+        apply DEX_BigStepWithTypes.exec_intra_normal in H1;
+        apply DEX_BigStepWithTypes.exec_intra_normal in H2.
+        apply soap2_intra with (4:=H2) (3:=H1) (6:= H); auto.
       Qed.
 
 (*       Lemma soap2_basic_return : forall m sgn se rt ut s s' u u',
@@ -1421,13 +1737,6 @@ Qed.
         inversion_mine H2; constructor; auto; eapply os_in_sub_double; eauto.
       Qed. *)
 
-      Lemma not_none_some : forall (A:Type) (a:option A) (b:A),
-        a <> None -> exists b, a = Some b.
-      Proof.
-        intros. destruct a. exists a; auto.
-          apply False_ind; auto.
-      Qed.
-
       Lemma Regs_in_sub_simple : forall rt rt0 s s0,
         Regs_in kobs s0 s rt0 rt -> forall rt',
           sub rt rt' -> 
@@ -1474,7 +1783,7 @@ Qed.
 
   End TypableProg.
 
-End hyps.
+End hyps. 
 
 Require check_cdr.
 Module MapKind' := MapOption_Base Map2P(*ClassName*).
@@ -1578,7 +1887,6 @@ Module MapKind' := MapOption_Base Map2P(*ClassName*).
   Qed.
 
 End CDR_dummy.
-
 
 
 Section CheckTypable.
@@ -1804,7 +2112,7 @@ Section CheckTypable.
     rewrite n in H3; inversion H3.
   Qed.
 
-  Lemma check_correct1 : check = true ->
+(*   Lemma check_correct1 : check = true ->
     forall m sgn, P p (SM _ _ m sgn) ->
       forall i rt, init_pc m i -> rt0 p m sgn rt -> eq_rt (RT m sgn i) (rt).
   Proof.
@@ -1815,7 +2123,19 @@ Section CheckTypable.
     assert (T:=for_all_P_true _ _ H _ _ H0).
     destruct (andb_prop _ _ T) as [TT _].
     apply check_correct1_aux with (m:=m) (bm:=bm0) (sgn:=sgn); auto.
-  Qed. 
+  Qed.   *)
+
+  Lemma check_correct1 : check = true ->
+    forall m sgn, P p (SM _ _ m sgn) ->
+      forall i, init_pc m i -> eq_rt (RT m sgn i) (rt0 m sgn).
+  Proof.
+    unfold check; intros.
+    inversion_mine H1.
+    assert (T:=for_all_P_true _ _ H _ _ H0).
+    destruct (andb_prop _ _ T) as [TT _].
+    unfold rt0. rewrite H2.
+    apply check_correct1_aux with (m:=m) (bm:=bm) (sgn:=sgn); auto.
+  Qed.
 
   Lemma check_correct2 : check = true ->
     forall m sgn (h:P p (SM _ _ m sgn)),
@@ -1949,16 +2269,29 @@ Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram) (*subclass_test : Cl
   forall cdr : forall m, PM p m -> CDR (step p (* subclass_test *) m),
     (exists se, exists RT, TypableProg p (* subclass_test *) cdr se RT) ->
 (*     (forall m sgn, P p (SM _ _ m sgn) -> well_formed_lookupswitch m) -> *)
-    forall m sgn i rt r1 r2 res1 res2,
+    forall m sgn i (* rt *) r1 r2 res1 res2,
       P p (SM _ _ m sgn) ->
       init_pc m i -> 
-      rt0 p m sgn rt ->
-      compat sgn (i,r1) rt ->
-      compat sgn (i,r2) rt ->
+(*       rt0 p m sgn rt -> *)
+(*       compat sgn (i,r1) rt -> *)
+(*       compat sgn (i,r2) rt -> *)
       evalsto p m (i,r1) (res1) -> 
       evalsto p m (i,r2) (res2) -> 
         indist_return_value kobs sgn res1 res2.
 Proof.
+  intros kobs p cdr [se [RT HT]] m sgn i r1 r2 res1 res2 H Hinit Hevalsto1 Hevalsto2.
+  assert (Hni:=safe_ni kobs PC Method (step p) (PM p) cdr Reg Sign istate rstate (exec p) pc 
+    (tcc0 p) (tcc1 p) registertypes (texec p cdr) (high_reg kobs)
+    (indist_reg_val) (indist_reg_val_trans) (indist_reg_val_sym)
+    (indist kobs) _ (*indist_from_reg*) _ (*indist_reg_from_indist kobs p cdr se RT HT*)
+    (rindist kobs) _ (*indist_sym*) (high_result kobs) (rt0) (init_pc)
+    (P p) (PM_P p) (indist2_intra kobs p cdr) (indist2_return kobs p cdr)
+    (soap2_basic_intra kobs p cdr) (sub) (sub_simple kobs)
+    (tevalsto_high_result kobs p cdr ) (tevalsto_diff_high_result' kobs p cdr ) _ (*high_result_indist kobs*)
+    (eq_rt) (indist_morphism_proof kobs) se RT HT (changed p) (changed_high kobs p cdr se RT HT)
+    (not_changed_same kobs p cdr se RT HT) _ (* (high_reg_dec kobs) *) (changed_dec p) _ (*branch_indist*)
+    m sgn
+  ). 
   (* intros kobs p sub_test Hst cdr [se [S HT]] Hwf m sgn i h1 h2 l1 l2 hr1 hr2 r1 r2 n1 n2 b1 b2 H H0 H1 H2 H3 H4 H5 H6.
   assert (Hni:=safe_ni _ _ _ _ _ _ cdr _ _ _ (exec p) pc
     (tcc0 p _ Hst) (tcc1 p _ Hst) _ pbij (texec p sub_test cdr)
@@ -2039,12 +2372,12 @@ Theorem correctness : forall
       (se : Method -> DEX_sign -> PC -> L.t) 
       (RT :  Method -> DEX_sign -> PC -> VarMap.t L.t),
       check p se RT reg = true ->
-      forall m sgn i res1 res2 r1 r2 rt,
+      forall m sgn i res1 res2 r1 r2,
         P p (SM _ _ m sgn) ->
         init_pc m i -> 
-        rt0 p m sgn rt ->
-        compat sgn (i,r1) rt ->
-        compat sgn (i,r2) rt ->
+(*         rt0 p m sgn rt -> *)
+(*         compat sgn (i,r1) rt -> *)
+(*         compat sgn (i,r2) rt -> *)
         evalsto p m (i,r1) res1 -> 
         evalsto p m (i,r2) res2 -> 
 (*         localvar_in kobs sgn.(lvt) b1 b2 l1 l2 -> *)
@@ -2052,10 +2385,10 @@ Theorem correctness : forall
 Proof.
   intros p (* stest Hsubclass Hwf *) kobs reg jun Hcheck se RT.
   intros Hc.
-  intros m sgn i res1 res2 r1 r2 H H0 H1 H2 H3 H4 H5 H6.
+  intros m sgn i res1 res2 r1 r2 H H0 H1 H2 (* H3 H4 *) (*H5 H6 *).
   assert (T:=check_all_cdr_correct p (reg) (jun) Hcheck).
   assert (TT:=check_correct _ _ _ _ jun T Hc).
-  eapply ni_safe with (5:=H3) (6:=H4); eauto.
+  eapply ni_safe (* with (5:=H3) (6:=H4) *); eauto.
 Qed.
 
 Definition m_reg_empty := DEX_MapShortMethSign.empty (MapN.t (MapN.t bool)).
@@ -2164,15 +2497,9 @@ Proof.
   generalize (BigStep_evalsto _ _ _ _ H2). (* as [n1 T6]. *)
   generalize (BigStep_evalsto _ _ _ _ H3). (* as [n2 T7]. *)
   intros.
-  eapply correctness with (9:=H6) (8:=H7); eauto.
-  eapply check_correct1 with (m:=m) (sgn:=sgn) (RT:=RT) (i:=i) in H5; eauto.
-  admit. admit.
-  unfold compat. econstructor 1. ; auto.
-  constructor; auto.
-  split; auto; constructor.
-  constructor; auto.
-  split; auto; constructor.
-  discriminate.
+  assert (T:=for_all_P_true _ _ H5 _ _ H0).
+  destruct (andb_prop _ _ T).
+  eapply correctness with (6:=H6) (5:=H7); eauto.
 Qed.
 
 
