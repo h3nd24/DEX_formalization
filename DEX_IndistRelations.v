@@ -9,13 +9,8 @@ Import DEX_BigStepAnnot.DEX_BigStepAnnot DEX_BigStep.DEX_BigStep DEX_Dom DEX_Pro
 
 (* Hendra 12082016 - remove beta function, focus on DEX I *)
 Inductive Value_in  (*b b':FFun.t Location*) : DEX_value -> DEX_value -> Prop :=
-(*| Value_in_null: Value_in (*b b'*) Null Null *)
 | Value_in_num: forall n,
-  Value_in (*b b'*) (Num n) (Num n)
-(*| Value_in_ref: forall loc loc' n, 
-  b n = Some loc ->
-  b' n = Some loc' ->
-  Value_in b b' (Ref loc) (Ref loc')*).
+  Value_in (*b b'*) (Num n) (Num n).
 
 Inductive Value_in_opt (*b b':FFun.t Location*) : 
   option DEX_value -> option DEX_value -> Prop :=
@@ -25,25 +20,12 @@ Inductive Value_in_opt (*b b':FFun.t Location*) :
     Value_in_opt (*b b'*) (Some v) (Some v')
 | Value_in_opt_none: Value_in_opt (*b b'*) None None.
 
-(*
-Definition localvar_in (observable:L.t) (lvt:Var->L.t') (*b b'*) l l' := 
-  forall x:Var, L.leql (lvt x) observable -> 
-  Value_in_opt b b' (LocalVar.get l x) (LocalVar.get l' x).
-*)
-(*
-Inductive high_st (observable:L.t) : OperandStack.t -> TypeStack ->  Prop := 
-  high_nil :  high_st observable nil nil
-| high_cons: forall s v st (k:L.t'),
-  ~(L.leql k observable) ->
-  high_st observable s st -> 
-  high_st observable (v::s) (k::st).
-*)
-
+(* older regs in
 Inductive Reg_in (observable:L.t) :
   L.t -> L.t -> DEX_value -> DEX_value -> Prop :=
 | Reg_high_in : forall k k' v v', ~(L.leql k observable) -> ~(L.leql k' observable) ->
     Reg_in observable k k' v v'
-| Reg_nhigh_in : forall k k' v v', Value_in v v' -> Reg_in observable k k' v v'.
+| Reg_nhigh_in : forall k k' v v', Value_in v v' -> Reg_in observable k k' v v'. 
 
 Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) : Prop :=
 | Build_Regs_in : eq_set (VarMap.dom _ rt) (VarMap.dom _ rt') ->
@@ -52,7 +34,16 @@ Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegister
   (forall v v' k k',
   Some v = DEX_Registers.get r rn -> Some v' = DEX_Registers.get r' rn ->
   Some k = VarMap.get _ rt rn -> Some k' = VarMap.get _ rt' rn ->
-  Reg_in observable k k' v v')) -> Regs_in observable r r' rt rt'.
+  Reg_in observable k k' v v')) -> Regs_in observable r r' rt rt'. *)
+
+Inductive Reg_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) (rn:DEX_Reg) : Prop :=
+| Reg_high_in : forall k k', VarMap.get L.t rt rn = Some k -> VarMap.get L.t rt' rn = Some k' ->
+    ~(L.leql k observable) -> ~(L.leql k' observable) -> Reg_in observable r r' rt rt' rn
+| Reg_nhigh_in : Value_in_opt (DEX_Registers.get r rn) (DEX_Registers.get r' rn) -> Reg_in observable r r' rt rt' rn.
+
+Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) : Prop :=
+| Build_Regs_in : eq_set (VarMap.dom _ rt) (VarMap.dom _ rt') ->
+  (forall (rn:DEX_Reg), Reg_in observable r r' rt rt' rn) -> Regs_in observable r r' rt rt'.
 
 (* Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) : Prop :=
 | High_Regs_in : 
@@ -218,7 +209,7 @@ Section p.
     apply L.leql_trans with (l2:=L.join k k1); auto. apply L.join_right.
   Qed.
 
-  Lemma Reg_in_inv : forall obs k k' v v',
+(*   Lemma Reg_in_inv : forall obs k k' v v',
     Reg_in obs k k' v v' <->
       (~(L.leql k obs) /\ ~(L.leql k' obs)) \/ (Value_in v v').
   Proof.
@@ -252,7 +243,7 @@ Section p.
     constructor 1; auto. 
     apply not_leql_trans with (k1:=k) (k3:=obs) (k2:=k'') in H1; auto. 
     constructor 2; auto.
-  Qed. 
+  Qed.  *)
 
  (* Lemma Regs_in_inv : forall r1 r2 rt1 rt2,
     Regs_in kobs r1 r2 rt1 rt2 -> forall (rn:DEX_Reg), In rn (VarMap.dom _ rt1) -> In rn (VarMap.dom _ rt2) ->
@@ -276,6 +267,17 @@ Section p.
  subst. admit. split; auto. *)
       
 
+  Lemma Reg_in_sym : forall obs r r' rt rt' rn, 
+    Reg_in obs r r' rt rt' rn -> 
+    Reg_in obs r' r rt' rt rn.
+  Proof.
+    intros.
+    inversion H.
+      constructor 1 with (k:=k') (k':=k); auto.
+      constructor 2; auto.
+      apply Value_in_opt_sym; auto.
+  Qed.  
+
  Lemma Regs_in_sym : forall r1 r2 rt1 rt2,
     Regs_in kobs r1 r2 rt1 rt2 ->
     Regs_in kobs r2 r1 rt2 rt1.
@@ -283,13 +285,8 @@ Section p.
     induction 1.
     constructor. apply eq_set_sym; auto.
     intros.
-    apply H0 with (k:=k') (k':=k) (v:=v') (v':=v) in H3; auto.
     apply Reg_in_sym; auto.
-    (*apply Build_Regs_in with (r:=r1) (r':=r2) (rt:=rt1) (rt':=rt2).
-    constructor 1 with (rn:=rn) (k:=k') (k':=k) (v:=v') (v':=v); auto.
-      constructor 1; auto.
-    constructor 1 with (rn:=rn) (k:=k') (k':=k) (v:=v') (v':=v); auto.
-      constructor 2; apply Value_in_sym; trivial.*)
+(*     apply H0 with (k:=k') (k':=k) (v:=v') (v':=v) in H3; auto. *)
   Qed.
 
   Lemma st_in_sym : forall (*lvt b b'*) rt rt' r r',

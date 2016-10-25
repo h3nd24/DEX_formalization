@@ -15,7 +15,19 @@ Proof. intros; inversion H; auto. Qed.
 Lemma leql_join_eq: forall (k k1 k2: L.t) , k2 = L.join k k1 -> L.leql k k2.
 Proof. intros. subst; apply leql_join2; apply L.leql_refl; auto. Qed.
 
-(* Locally Respect *)
+Lemma indist2_intra_normal : 
+ forall se reg m sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2',
+   instructionAt m pc = Some i ->
+
+   NormalStep se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
+   NormalStep se reg m sgn i (pc,r1') rt1' (pc2',r2') rt2' ->
+   st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
+
+   st_in kobs rt2 rt2' (pc2,r2) (pc2',r2').
+Proof.
+Admitted.
+
+(* (* Locally Respect *)
 Lemma indist2_intra_normal : 
  forall se reg m sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2',
    instructionAt m pc = Some i ->
@@ -305,7 +317,7 @@ subst. inversion H2.
     apply VarMap.get_some_in_dom in H18.
 (*     rewrite VarMap.domain_inv in H11; auto; rewrite VarMap.domain_inv in H18; auto. *)
     apply H10 with (k:=k1) (k':=k') (v:=v0) (v':=v') in H11; auto.
-Qed.
+Qed. *)
 
 
 End p.

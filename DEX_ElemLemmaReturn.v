@@ -44,13 +44,17 @@ Proof.
   inversion H; inversion H0; DiscrimateEq; auto. 
   constructor; auto.
 (*   inversion H22; subst. *)
-  apply H3 with (k':=k2) (v':=val0) (v:=val) (k:=k1) in H23 ; auto.
-  constructor 1 with kr0; inversion H6; auto. 
-  intros.
-  inversion H23; auto.
-  apply not_leql_join1 with (k2:=(se pc)) in H16.
-  apply L.leql_trans with (l1:=L.join k2 (se pc)) (l3:=kobs) in H4; auto.
-  contradiction.
+  specialize H3 with reg0.
+(*   apply H3 with (k':=k2) (v':=val0) (v:=val) (k:=k1) in H23 ; auto. *)
+  inversion H3; auto.
+  constructor 1 with kr0; try (inversion H6); auto.  
+  intros. apply not_leql_join1 with (k2:=(se pc)) in H16.
+  rewrite H5 in H26. inversion H26. subst.
+  apply L.leql_trans with (l1:=L.join k' (se pc)) (l3:=kobs) in H33; auto. contradiction.
+  constructor 1 with kr0; try (inversion H6); auto.
+  intros. inversion_mine H4. rewrite <- H16 in H10; inversion H10. 
+  rewrite <- H17 in H25; inversion H25. inversion H19. constructor.
+  rewrite <- H19 in H25; inversion H25.
 Qed.
 
 (* Implicit Arguments indist2_exception. *)

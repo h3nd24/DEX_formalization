@@ -336,7 +336,8 @@ eq_map x y1 -> compat y y0 x <-> compat y y0 y1.
 Add Morphism compat : compat_morphism. Proof. exact compat_morphism_proof. Qed. *)
 
 Definition Typable (m:Method) (H:PM m) (sgn:Sign) (se:Method->Sign->PC->L.t) (RT:Method->Sign->PC->registertypes) : Prop :=
-  (forall i, init_pc m i -> eq_map (RT m sgn i) (rt0 m sgn)) /\
+  (forall i, init_pc m i -> eq_map (RT m sgn i) (rt0 m sgn)) /\ 
+(*   (forall s1 s2, init_pc m (pc s1) -> init_pc m (pc s2) -> indist sgn (RT m sgn (pc s1)) (RT m sgn (pc s2)) s1 s2) /\ *)
   (forall i (* kd *),
      m |- i =>(*kd*) ->
      texec m H sgn (se m sgn) i (* kd *) (RT m sgn i) None) /\
@@ -356,16 +357,16 @@ Lemma typable_evalsto : forall se RT m sgn n s r
   tevalsto m H sgn (se m sgn) (RT m sgn) n s r.
 Proof.
   intros until r; intros HP H.
-  destruct H as [_ [H H0]].
+  destruct H as [_ [H0 H1]].
   induction 1.
   (* ret *)
   constructor 1 (* with k *); auto.
   constructor; auto.
-  apply H; auto.
+  apply H0; auto.
   eapply exec_step_none; eauto.
   (* next *)
   constructor 2 with (* k *) s2; auto.  
-  elim H0 with (pc s1) (pc s2) (* k *).
+  elim H1 with (pc s1) (pc s2) (* k *).
   intros st (HT,Hs).
   constructor 1 with st; auto.
   eapply exec_step_some; eauto.  
@@ -968,7 +969,8 @@ Proof.
   rewrite T1 with (rt:=rt); auto. *)
 Qed.
 
-Variable branch_indist : forall m sgn s s' u u', 
+Variable branch_indist : forall m sgn s s' u u' (H:P (SM m sgn)), 
+  pc s = pc s' ->
   indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) s s' ->
   exec m s (inl u) ->
   exec m s' (inl u') ->

@@ -27,26 +27,44 @@ Lemma soap2_intra_normal :
 
    (*high_st kobs s2 st2 /\*) forall j, reg pc (* None *) j -> ~ L.leql (se j) kobs.
 Proof.
+  
+Admitted.
+(* (* High Branching *)
+Lemma soap2_intra_normal : 
+ forall sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2' ,
+   instructionAt m pc = Some i ->
+
+   NormalStep se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
+   NormalStep se reg m sgn i (pc,r1') rt1' (pc2',r2') rt2' ->
+
+   pc2 <> pc2' ->
+   st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
+
+   (*high_st kobs s2 st2 /\*) forall j, reg pc (* None *) j -> ~ L.leql (se j) kobs.
+Proof.
   intros.
   destruct i; simpl in H, H0, H1, H3; 
 (*   try (elim Hs; fail); *)
   inversion_clear H0 in H H1 H2 H3;
-  inversion_clear H1 in H2 H3; subst;
+  inversion_clear H1 in H2 H3; subst.
 (*   destruct (inv_st_in H3) as [Rin]; clear H3; *)
-  apply inv_st_in in H3;
+  apply inv_st_in in H3.
   DiscrimateEq; try (elim H2; reflexivity); try (contradiction).
 (*   unfold not; intros.  *)
   (* If_icmp *)
   inversion H3.
     (* ra *)
-    apply H25 with (v:=Num (I i1)) (v':=Num (I i3)) (k:=k1) (k':=k0) in H7; auto .
-    inversion H7. apply H24 in H4.
-    apply not_leql_trans with (k2:=se j) in H27; auto. 
+(*     apply H25 with (v:=Num (I i1)) (v':=Num (I i3)) (k:=k1) (k':=k0) in H7; auto . *)
+(*     inversion H7.  *) assert (H25':=H25).
+    specialize H25 with ra. inversion H25; auto.
+    apply H24 in H4.
+    apply not_leql_trans with (k2:=se j) in H29; auto. rewrite H27 in H21. inversion H21. subst.
     apply leql_join_each in H4; inversion H4; auto.
     (* rb *)
-    apply H25 with (v:=Num (I i2)) (v':=Num (I i0)) (k:=k2) (k':=k3) in H8; auto.
-    inversion H8. apply H24 in H4.
-    apply not_leql_trans with (k2:=se j) in H32; auto.
+(*     apply H25 with (v:=Num (I i2)) (v':=Num (I i0)) (k:=k2) (k':=k3) in H8; auto. *)
+    specialize H25' with rb. inversion H25'; auto.
+    (* inversion H8.  *) apply H14 in H4.
+    apply not_leql_trans with (k2:=se j) in H29; auto. rewrite H27 in H12. inversion H12. subst.
     apply leql_join_each in H4; inversion H4; auto.
     (* both are low *)
     inversion H26. inversion H31.
@@ -78,7 +96,7 @@ Proof.
     apply not_leql_trans with (k2:=se j) in H19; auto. 
     inversion H18.
     subst; contradiction. 
-Qed.
+Qed. *)
 (*
 Lemma opstack1_intra_normal : 
  forall sgn pc pc2 i h1 h2 s1 l1 st1 b1 b2 s2 st2 l2,

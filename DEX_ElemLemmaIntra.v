@@ -109,8 +109,9 @@ Proof.
   intros.
   inversion_mine H0; inversion_mine H1.
 
-  eapply soap2_intra_normal. eauto. 
-  apply H5. eauto. eauto. 
+  eapply soap2_intra_normal. eauto.
+  apply H. apply H5.
+  (* apply H5. *) eauto. eauto. 
   eauto. eauto.
 
   (* elim indist2_normal_exception with (1:=H5) (2:=H18) (3:=H4) (4:=H21);
