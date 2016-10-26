@@ -14,118 +14,71 @@ Variable reg : DEX_PC -> (* option DEX_ClassName -> *) DEX_PC -> Prop.
 Variable m : DEX_Method.
 (* Variable lookupswitch_hyp : well_formed_lookupswitch m. *)
 
+Ltac soap2_intra_normal_aux Hreg_in H Hreg r lvl Hget_ori Hvalue_opt_in k k':=
+  specialize Hreg_in with r;
+  inversion Hreg_in as [k k' Hget Hget' Hleq Hleq'| Hvalue_opt_in];
+  try (apply H in Hreg; apply leql_join_each in Hreg; inversion Hreg as [Hleql1 Hleql1'];
+    apply not_leql_trans with (k2:=lvl) in Hleq; auto);
+  try (apply H in Hreg; apply not_leql_trans with (k2:=lvl) in Hleq; auto);
+  try (rewrite Hget in Hget_ori; inversion Hget_ori; subst; auto).
+
 (* High Branching *)
 Lemma soap2_intra_normal : 
  forall sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2' ,
    instructionAt m pc = Some i ->
-
    NormalStep se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
    NormalStep se reg m sgn i (pc,r1') rt1' (pc2',r2') rt2' ->
-
    pc2 <> pc2' ->
    st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
 
-   (*high_st kobs s2 st2 /\*) forall j, reg pc (* None *) j -> ~ L.leql (se j) kobs.
+    forall j, reg pc j -> ~ L.leql (se j) kobs.
 Proof.
-  
-Admitted.
-(* (* High Branching *)
-Lemma soap2_intra_normal : 
- forall sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2' ,
-   instructionAt m pc = Some i ->
-
-   NormalStep se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
-   NormalStep se reg m sgn i (pc,r1') rt1' (pc2',r2') rt2' ->
-
-   pc2 <> pc2' ->
-   st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
-
-   (*high_st kobs s2 st2 /\*) forall j, reg pc (* None *) j -> ~ L.leql (se j) kobs.
-Proof.
-  intros.
-  destruct i; simpl in H, H0, H1, H3; 
-(*   try (elim Hs; fail); *)
-  inversion_clear H0 in H H1 H2 H3;
-  inversion_clear H1 in H2 H3; subst.
-(*   destruct (inv_st_in H3) as [Rin]; clear H3; *)
-  apply inv_st_in in H3.
-  DiscrimateEq; try (elim H2; reflexivity); try (contradiction).
-(*   unfold not; intros.  *)
+  intros sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2' Hins Hstep Hstep' Hpc Hst_in j Hreg.
+  destruct i; simpl in Hins, Hstep, Hstep', Hst_in; 
+  inversion_clear Hstep in Hins Hstep' Hpc Hst_in;
+  inversion_clear Hstep' in Hpc Hst_in; subst;
+  apply inv_st_in in Hst_in;
+  DiscrimateEq; try (elim Hpc; reflexivity); try (contradiction).
   (* If_icmp *)
-  inversion H3.
+  inversion Hst_in as [Heqset Hreg_in].
     (* ra *)
-(*     apply H25 with (v:=Num (I i1)) (v':=Num (I i3)) (k:=k1) (k':=k0) in H7; auto . *)
-(*     inversion H7.  *) assert (H25':=H25).
-    specialize H25 with ra. inversion H25; auto.
-    apply H24 in H4.
-    apply not_leql_trans with (k2:=se j) in H29; auto. rewrite H27 in H21. inversion H21. subst.
-    apply leql_join_each in H4; inversion H4; auto.
+    assert (Hreg_in':=Hreg_in).
+    soap2_intra_normal_aux Hreg_in H8 Hreg ra (se j) H5 Hvalue_opt_in k k'.
     (* rb *)
-(*     apply H25 with (v:=Num (I i2)) (v':=Num (I i0)) (k:=k2) (k':=k3) in H8; auto. *)
-    specialize H25' with rb. inversion H25'; auto.
-    (* inversion H8.  *) apply H14 in H4.
-    apply not_leql_trans with (k2:=se j) in H29; auto. rewrite H27 in H12. inversion H12. subst.
-    apply leql_join_each in H4; inversion H4; auto.
+    soap2_intra_normal_aux Hreg_in' H8 Hreg rb (se j) H6 Hvalue_opt_in' k k'.
     (* both are low *)
-    inversion H26. inversion H31.
-    subst; contradiction. 
-  inversion H3.
-  apply H25 with (v:=Num (I i1))(v':=Num (I i3)) (k:=k1) (k':=k0) in H8; auto . 
+    rewrite <- H3 in Hvalue_opt_in; rewrite <- H4 in Hvalue_opt_in'; 
+    rewrite <- H14 in Hvalue_opt_in; rewrite <- H15 in Hvalue_opt_in'.
+    inversion Hvalue_opt_in as [v v' Hvalue_in | Hnone]; 
+    inversion Hvalue_opt_in' as [v2 v2' Hvalue_in' | Hnone'];
+    inversion Hvalue_in; inversion Hvalue_in'. 
+    subst; contradiction.  
+  inversion Hst_in as [Heqset Hreg_in].
     (* ra *)
-    inversion H8. apply H24 in H4.
-    apply not_leql_trans with (k2:=se j) in H27; auto. 
-    apply leql_join_each in H4; inversion H4; auto.
+    assert (Hreg_in':=Hreg_in).
+    soap2_intra_normal_aux Hreg_in H9 Hreg ra (se j) H6 Hvalue_opt_in k k'.
     (* rb *)
-    apply H25 with (v:=Num (I i2)) (v':=Num (I i0)) (k:=k2) (k':=k3) in H9; auto.
-    inversion H9. apply H24 in H4.
-    apply not_leql_trans with (k2:=se j) in H32; auto.
-    apply leql_join_each in H4; inversion H4; auto.
+    soap2_intra_normal_aux Hreg_in' H9 Hreg rb (se j) H7 Hvalue_opt_in' k k'.
     (* both are low *)
-    inversion H26. inversion H31.
-    subst; contradiction. 
+    rewrite <- H4 in Hvalue_opt_in; rewrite <- H5 in Hvalue_opt_in'; 
+    rewrite <- H14 in Hvalue_opt_in; rewrite <- H15 in Hvalue_opt_in'.
+    inversion Hvalue_opt_in as [v v' Hvalue_in | Hnone]; 
+    inversion Hvalue_opt_in' as [v2 v2' Hvalue_in' | Hnone'];
+    inversion Hvalue_in; inversion Hvalue_in'. 
+    subst; contradiction.   
   (* If_z *)
-  inversion H3.
-    apply H17 with (v:=Num (I i)) (v':= Num (I i0)) (k:=k) (k':=k0) in H6; auto .
-    inversion H6. apply H16 in H4.
-    apply not_leql_trans with (k2:=se j) in H19; auto. 
-    inversion H18.
-    subst; contradiction. 
-  inversion H3.
-  apply H17 with (v:=Num (I i)) (v':=Num (I i0)) (k:=k) (k':=k0) in H6; auto . 
-    inversion H6. apply H16 in H4.
-    apply not_leql_trans with (k2:=se j) in H19; auto. 
-    inversion H18.
-    subst; contradiction. 
-Qed. *)
-(*
-Lemma opstack1_intra_normal : 
- forall sgn pc pc2 i h1 h2 s1 l1 st1 b1 b2 s2 st2 l2,
-   
-   instructionAt m pc = Some i ->
-   ~ L.leql (se pc) kobs ->
-   high_st kobs s1 st1 ->
-   NormalStep kobs p se reg m sgn i
-     (pc,(h1,s1,l1)) st1 b1 (pc2,(h2,s2,l2)) st2 b2 ->
-   high_st kobs s2 st2.
-Proof.
-  intros.
-  destruct i; simpl in H2; inversion_mine H2;
-  try (match goal with
-    [ id : high_st kobs (_++?s) (_++?st) |- _ ] =>
-    assert (hi:high_st kobs s st); [apply (@high_st_app _ _ _ _ id); congruence|idtac]
-  end);
-  repeat match goal with
-      [ id : high_st _ (_::_) (_::_) |- _ ] => inversion_mine id
-  end;
-  repeat constructor; auto;
-  try (apply lift_os_high; auto);
-  try (apply elift_os_high; auto);
-  simpl in *; eauto with lattice.
-  destruct op; auto; try (apply lift_os_high; auto).
-  try (apply elift_os_high; auto).
-  try (apply elift_os_high; auto).
-Qed.
-*)
+  inversion Hst_in as [Heq_set Hreg_in].
+    soap2_intra_normal_aux Hreg_in H4 Hreg r (se j) H2 Hvalue_opt_in k1 k1'.
+    rewrite <- H1 in Hvalue_opt_in; rewrite <- H8 in Hvalue_opt_in;
+      inversion Hvalue_opt_in as [v v' Hvalue_in | Hnone]; 
+      inversion Hvalue_in; subst; contradiction.
+  inversion Hst_in as [Heq_set Hreg_in].
+    soap2_intra_normal_aux Hreg_in H5 Hreg r (se j) H3 Hvalue_opt_in k1 k1'.
+    rewrite <- H2 in Hvalue_opt_in; rewrite <- H8 in Hvalue_opt_in;
+      inversion Hvalue_opt_in as [v v' Hvalue_in | Hnone]; 
+      inversion Hvalue_in; subst; contradiction.
+Qed. 
+
 End p.
 
 
