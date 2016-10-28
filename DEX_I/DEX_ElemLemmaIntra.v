@@ -24,6 +24,7 @@ Qed.
 Lemma soap2_intra : 
  forall kobs (p:DEX_ExtendedProgram) se reg m sgn pc pc2 pc2' i r1 rt1
                    r1' rt1' r2 r2' rt2 rt2',
+   well_formed_lookupswitch m ->
    instructionAt m pc = Some i ->
 
    exec_intra se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
@@ -35,9 +36,8 @@ Lemma soap2_intra :
    forall j, reg pc j -> ~ L.leql (se j) kobs.
 Proof.
   intros.
-  inversion_mine H0; inversion_mine H1.
-
-  eapply soap2_intra_normal. eauto.  apply H5.
+  inversion_mine H1; inversion_mine H2.
+  eapply soap2_intra_normal. eauto. eauto. apply H6. eauto. 
   eauto. eauto. 
-  eauto. eauto.
+  eauto.
 Qed.

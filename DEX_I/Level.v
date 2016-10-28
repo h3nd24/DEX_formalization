@@ -204,17 +204,6 @@ Qed.
 
 Definition lift_st (k:L.t) (st:list L.t') : list L.t' := map (L.join' k) st.
 
-Fixpoint lift_rec (k:L.t) (keys:list N) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
-  match keys with
-    nil => rt
-    | h :: t => 
-        let new_rt := BinNatMap.update _ rt h (L.Simple k) in
-          lift_rec (k) (t) (new_rt)
-  end.
-
-Definition lift_rt (k:L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
-  let keys := BinNatMap.dom _ rt in lift_rec (k) (keys) (rt).
-
 Inductive leql'_opt : option L.t' -> option L.t' -> Prop :=
 | leql'_opt_none : leql'_opt None None
 | leql'_opt_some : forall k1 k2,
@@ -236,12 +225,6 @@ Definition olift_st (ok:option L.t) (st:list L.t') : list L.t' :=
   match ok with
     None => st
     | Some k => lift_st k st
-  end.
-
-Definition olift_rt (ok:option L.t) (rt:BinNatMap.t L.t') : BinNatMap.t L.t' :=
-  match ok with
-    None => rt
-    | Some k => lift_rt k rt
   end.
 
 Fixpoint join_list (A:Type) (r:A->L.t) (l:list A) {struct l}: L.t :=

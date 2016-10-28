@@ -45,8 +45,8 @@
     instructionAt m pc = Some (DEX_Goto o) ->
 
     DEX_NormalStep p m (pc, regs) ((DEX_OFFSET.jump pc o), regs)
-(*  
-  | packedswitch_step_ok1 : forall h m pc l v r firstKey size list_offset n o,
+  
+  | packedswitch_step_ok1 : forall m pc l v r firstKey size list_offset n o,
     
     instructionAt m pc = Some (DEX_PackedSwitch r firstKey size list_offset) ->
     Some (Num (I v)) = DEX_Registers.get l r ->
@@ -56,9 +56,9 @@
     nth_error list_offset n = Some o ->
     DEX_METHOD.valid_reg m r ->
     
-    DEX_NormalStep p m (pc, (h, l)) ((DEX_OFFSET.jump pc o), (h, l))
+    DEX_NormalStep p m (pc, l) ((DEX_OFFSET.jump pc o), l)
 
-  | packedswitch_step_ok2 : forall h m pc pc' l v r firstKey size list_offset,
+  | packedswitch_step_ok2 : forall m pc pc' l v r firstKey size list_offset,
     
     instructionAt m pc = Some (DEX_PackedSwitch r firstKey size list_offset) ->
     Some (Num (I v)) = DEX_Registers.get l r ->
@@ -67,9 +67,9 @@
     next m pc = Some pc' ->
     DEX_METHOD.valid_reg m r ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l))
+    DEX_NormalStep p m (pc, l) (pc', l)
   
-  | sparseswitch_step_ok1 : forall h m pc l v v' o r size listkey,
+  | sparseswitch_step_ok1 : forall m pc l v v' o r size listkey,
     
     instructionAt m pc = Some (DEX_SparseSwitch r size listkey) ->
     length listkey = size ->
@@ -78,9 +78,9 @@
     v' = Int.toZ v ->
     DEX_METHOD.valid_reg m r ->
     
-    DEX_NormalStep p m (pc, (h, l)) ((DEX_OFFSET.jump pc o), (h, l))
+    DEX_NormalStep p m (pc, l) ((DEX_OFFSET.jump pc o), l)
 
-  | sparseswitch_step_ok2 : forall h m pc pc' l v r size listkey,
+  | sparseswitch_step_ok2 : forall m pc pc' l v r size listkey,
 
     instructionAt m pc = Some (DEX_SparseSwitch r size listkey) ->
     length listkey = size ->
@@ -89,8 +89,7 @@
     next m pc = Some pc' ->
     DEX_METHOD.valid_reg m r ->
 
-    DEX_NormalStep p m (pc, (h, l)) (pc', (h, l))
-*)
+    DEX_NormalStep p m (pc, l) (pc', l)
 
   | ifcmp_step_jump : forall m pc regs va vb cmp ra rb o,
 

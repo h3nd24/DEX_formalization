@@ -162,6 +162,14 @@ Section hyps.
     constructor 2 with (s2:=s2); auto.
   Qed.
 
+  Lemma in_snd : forall (A B:Type) (a:A) (b:B) l, In (a, b) l -> In b (map snd l).
+  Proof.
+    induction l; intros.
+      inversion H.
+      inversion H. left. rewrite H0; auto.
+      right; apply IHl; auto.
+  Qed.
+
   Lemma tcc0 : forall m s s',
     PM p m -> exec m s (inl rstate s') -> step m (pc s) (Some (pc s')).
   Proof.
@@ -171,11 +179,15 @@ Section hyps.
     inversion_clear H.
     inversion_clear H0.
     inversion_clear H;
-      match goal with
+      try (match goal with
         | [ id : instructionAt _ _ = Some ?i |- _] =>
           exists i; simpl; split; [assumption|idtac]; constructor; 
-            simpl; auto
-      end.
+            simpl; auto; fail
+      end).
+      exists (DEX_PackedSwitch r firstKey size list_offset); simpl; split; auto.
+      constructor 16. apply nth_error_In with (n:=n); auto.
+      exists (DEX_SparseSwitch r size listkey); simpl; split; auto.
+      constructor 18. apply in_snd with (a:=v'); auto.
   Qed.
 
   Lemma tcc1 : forall m s s',
@@ -716,6 +728,70 @@ Section hyps.
         apply VarMap.in_dom_get_some in H; contradiction
       end). 
       contradiction.
+      (* PackedSwitch *)
+      inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_PackedSwitch rt firstKey size l).
+      (* the case where the successor is the next instruction *)
+      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
+      destruct (VarMap.get L.t (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in Hsub; auto.
+      apply not_leql_trans with (k1:=t); auto.
+      assert (VarMap.get L.t (RT m sgn pc0) r <> None) as Hget.
+      destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply VarMap.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn (DEX_OFFSET.jump pc0 o)) in H; 
+        apply VarMap.in_dom_get_some in H; contradiction
+      end). 
+      contradiction.
+      (* the case where the successor is the targets *)
+      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.  
+      destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in Hsub; auto.
+      apply not_leql_trans with (k1:=t); auto.
+      assert (VarMap.get L.t (RT m sgn pc0) r <> None) as Hget.
+      destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply VarMap.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn pc') in H; 
+        apply VarMap.in_dom_get_some in H; contradiction
+      end). 
+      contradiction.
+      (* SparseSwitch *)
+      inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_SparseSwitch rt size l).
+      (* the case where the successor is the next instruction *)
+      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
+      destruct (VarMap.get L.t (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in Hsub; auto.
+      apply not_leql_trans with (k1:=t); auto.
+      assert (VarMap.get L.t (RT m sgn pc0) r <> None) as Hget.
+      destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply VarMap.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn (DEX_OFFSET.jump pc0 o)) in H; 
+        apply VarMap.in_dom_get_some in H; contradiction
+      end). 
+      contradiction.
+      (* the case where the successor is the targets *)
+      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.  
+      destruct (VarMap.get L.t (RT m sgn pc') r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in Hsub; auto.
+      apply not_leql_trans with (k1:=t); auto.
+      assert (VarMap.get L.t (RT m sgn pc0) r <> None) as Hget.
+      destruct (VarMap.get L.t (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply VarMap.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn pc') in H; 
+        apply VarMap.in_dom_get_some in H; contradiction
+      end). 
+      contradiction.
       (* Ifeq *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Ifcmp cmp ra rb o).
       (* the case where the successor is the target *)
@@ -1076,36 +1152,42 @@ Section hyps.
       apply indist2_return with (1:=H0) (2:=H1) (3:=H4). 
     Qed.
 
-    Lemma soap2_basic_intra : forall m sgn se rt ut ut' s s' u u',
-      forall H0:P (SM _ _ m sgn),
-        indist sgn rt rt s s' -> 
-        pc s = pc s' ->
-        exec m s (inl _ u) ->
-        exec m s' (inl _ u') -> 
-        texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
-        texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
-        pc u <> pc u' -> 
-        forall j:PC, region (cdr m (PM_P _ H0)) (pc s) j -> ~ L.leql (se j) kobs.
-    Proof.
-      intros m sgn se0 rt ut ut' s s' u u' H0 Hindist Hpcs Hexec Hexec' Htexec Htexec' Hpcu.
-      intros j Hreg.
-      destruct Htexec as [i' [Ti Ui]].
-      destruct Htexec' as [i [Ti' Ui']]. DiscrimateEq.
-      inversion_mine Hindist.
-      destruct u as [ppu regs].
-      destruct u' as [ppu' regs'].
-      inversion_mine Hexec'; inversion_mine Hexec; simpl in *; subst.
-(**)
-      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
-        m sgn i (pc2,r1) rt (ppu,regs) ut).
-           elim well_types_imply_exec_intra with (1:=H5) (3:=Ti); auto.
-      assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
-        m sgn i (pc2,r2) rt (ppu',regs') ut').
-           elim well_types_imply_exec_intra with (1:=H4) (3:=Ti'); auto.
-      apply DEX_BigStepWithTypes.exec_intra_normal in H1;
-      apply DEX_BigStepWithTypes.exec_intra_normal in H2.
-      apply soap2_intra with (4:=H2) (3:=H1) (6:= H); auto.
-    Qed.
+    Section well_formed_lookupswitch.
+
+      Variable hyp : forall m sgn, P (SM _ _ m sgn) -> well_formed_lookupswitch m.
+
+      Lemma soap2_basic_intra : forall m sgn se rt ut ut' s s' u u',
+        forall H0:P (SM _ _ m sgn),
+          indist sgn rt rt s s' -> 
+          pc s = pc s' ->
+          exec m s (inl _ u) ->
+          exec m s' (inl _ u') -> 
+          texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
+          texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
+          pc u <> pc u' -> 
+          forall j:PC, region (cdr m (PM_P _ H0)) (pc s) j -> ~ L.leql (se j) kobs.
+      Proof.
+        intros m sgn se0 rt ut ut' s s' u u' H0 Hindist Hpcs Hexec Hexec' Htexec Htexec' Hpcu.
+        intros j Hreg.
+        destruct Htexec as [i' [Ti Ui]].
+        destruct Htexec' as [i [Ti' Ui']]. DiscrimateEq.
+        inversion_mine Hindist.
+        destruct u as [ppu regs].
+        destruct u' as [ppu' regs'].
+        inversion_mine Hexec'; inversion_mine Hexec; simpl in *; subst.
+  (**)
+        assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
+          m sgn i (pc2,r1) rt (ppu,regs) ut).
+             elim well_types_imply_exec_intra with (1:=H5) (3:=Ti); auto.
+        assert (DEX_BigStepWithTypes.NormalStep se0 (region (cdr m (PM_P {| unSign := m; sign := sgn |} H0))) 
+          m sgn i (pc2,r2) rt (ppu',regs') ut').
+             elim well_types_imply_exec_intra with (1:=H4) (3:=Ti'); auto.
+        apply DEX_BigStepWithTypes.exec_intra_normal in H1;
+        apply DEX_BigStepWithTypes.exec_intra_normal in H2.
+        apply soap2_intra with (5:=H2) (4:=H1) (7:= H); auto.
+        specialize hyp with (m:=m) (sgn:=sgn) (1:=H0); auto.
+      Qed.
+    End well_formed_lookupswitch.
 
     Lemma Regs_in_sub_simple : forall rt rt0 s s0,
       Regs_in kobs s0 s rt0 rt -> forall rt',
@@ -1542,6 +1624,7 @@ End CheckTypable.
 Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram),
   forall cdr : forall m, PM p m -> CDR (step p m),
     (exists se, exists RT, TypableProg p cdr se RT) ->
+    (forall m sgn, P p (SM _ _ m sgn) -> well_formed_lookupswitch m) ->
     forall m sgn i r1 r2 res1 res2,
       P p (SM _ _ m sgn) ->
       init_pc m i -> 
@@ -1550,14 +1633,14 @@ Theorem ni_safe : forall (kobs:L.t) (p:DEX_ExtendedProgram),
       evalsto p m (i,r2) (res2) -> 
         indist_return_value kobs sgn res1 res2.
 Proof.
-  intros kobs p cdr [se [RT HT]] m sgn i r1 r2 res1 res2 H Hinit Hindist Hevalsto1 Hevalsto2.
+  intros kobs p cdr [se [RT HT]] Hwfl m sgn i r1 r2 res1 res2 H Hinit Hindist Hevalsto1 Hevalsto2.
   assert (Hni:=safe_ni kobs PC Method (step p) (PM p) cdr Reg Sign istate rstate (exec p) pc 
     (tcc0 p) (tcc1 p) registertypes (texec p cdr) (high_reg kobs)
     (indist_reg_val) (indist_reg_val_trans) (indist_reg_val_sym)
     (indist kobs) (indist_from_reg kobs) (indist_reg_from_indist kobs)
     (rindist kobs) (tcc3 kobs) (high_result kobs) (rt0) (init_pc)
     (P p) (PM_P p) (indist2_intra kobs p cdr) (indist2_return kobs p cdr)
-    (soap2_basic_intra kobs p cdr) (sub) (sub_simple kobs)
+    (soap2_basic_intra kobs p cdr Hwfl) (sub) (sub_simple kobs)
     (tevalsto_high_result kobs p cdr ) (tevalsto_diff_high_result' kobs p cdr ) (high_result_indist kobs)
     (eq_rt) (indist_morphism_proof kobs) se RT HT (changed p) (changed_high kobs p cdr se RT HT)
     (not_changed_same kobs p cdr se RT HT) (high_reg_dec kobs) (changed_dec p) (branch_indist kobs p cdr se RT HT)
@@ -1605,9 +1688,102 @@ Proof.
   apply IntraStep_evalsto_aux with (1:=H).
 Qed.
 
+Section well_formed_lookupswitch.
+
+  Fixpoint check_not_in_snd (i:Z) (o:DEX_OFFSET.t) (l:list (Z*DEX_OFFSET.t)) {struct l} : bool :=
+    match l with
+      | nil => true
+      | (j,o')::l => 
+        if Zeq_bool i j 
+          then (Zeq_bool o o') && check_not_in_snd i o l
+          else check_not_in_snd i o l
+    end.
+  
+  Lemma check_not_in_snd_correct : forall i o l,
+    check_not_in_snd i o l = true ->
+    forall o', In (i,o') l -> o=o'.
+  Proof.
+    induction l; simpl; intuition.
+    subst.
+    generalize (Zeq_spec i i); destruct (Zeq_bool i i).
+    elim andb_prop with (1:=H); intros.
+    generalize (Zeq_spec o o'); rewrite H0; auto.
+    intuition.
+    apply IHl; auto.
+    destruct a.
+    destruct (Zeq_bool i z); auto.
+    elim andb_prop with (1:=H); auto.
+  Qed.
+
+  Fixpoint check_functionnal_list (l:list (Z*DEX_OFFSET.t)) : bool :=
+    match l with
+      | nil => true
+      | (i,o)::l => (check_not_in_snd i o l) && check_functionnal_list l
+    end.
+
+  Lemma check_functionnal_list_correct : forall l,
+    check_functionnal_list l = true ->
+    forall i o1 o2,
+      In (i, o1) l -> In (i, o2) l -> o1=o2.
+  Proof.
+    induction l; simpl; intuition.
+    congruence.
+    subst.
+    elim andb_prop with (1:=H); clear H; intros.
+    eapply check_not_in_snd_correct; eauto.
+    subst.
+    elim andb_prop with (1:=H); clear H; intros.
+    apply sym_eq; eapply check_not_in_snd_correct; eauto.
+    destruct a.
+    elim andb_prop with (1:=H); clear H; intros.
+    eauto.
+  Qed.
+
+  Definition check_well_formed_lookupswitch_m m := 
+    for_all_instrs_m m 
+    (fun i ins => match ins with 
+                    | DEX_SparseSwitch reg size l => check_functionnal_list l
+                    | _ => true
+                  end).
+
+  Definition check_well_formed_lookupswitch_m_correct : forall m,
+    check_well_formed_lookupswitch_m m = true ->
+    forall pc reg size l i o1 o2,
+      instructionAt m pc = Some (DEX_SparseSwitch reg size l) ->
+      In (i, o1) l -> In (i, o2) l -> o1=o2.
+  Proof.
+    unfold check_well_formed_lookupswitch_m; intros.
+    generalize (for_all_instrs_m_true _ _ H).
+    intros.
+    generalize (H3 pc0 (DEX_SparseSwitch reg size l)); rewrite H0.
+    intros T.
+    assert (TT:=T (refl_equal _)).
+    clear T H3 H.
+    eapply check_functionnal_list_correct; eauto.
+  Qed.
+
+  Definition check_well_formed_lookupswitch p :=
+    for_all_methods p check_well_formed_lookupswitch_m.
+
+  Lemma check_well_formed_lookupswitch_correct : forall (p:DEX_ExtendedProgram),
+    check_well_formed_lookupswitch p = true ->
+    forall m sgn,
+      P p (SM _ _ m sgn) -> well_formed_lookupswitch m.
+  Proof.
+    unfold check_well_formed_lookupswitch; intros.
+    unfold well_formed_lookupswitch.
+    intros.
+    eapply (check_well_formed_lookupswitch_m_correct m); try eauto.
+    apply (for_all_methods_true _ _ H).
+    inversion_mine H0; auto.
+  Qed.
+
+End  well_formed_lookupswitch.
+
 Theorem correctness : forall
-  (p:DEX_ExtendedProgram)
-    (kobs:L.t)
+  (p:DEX_ExtendedProgram),
+  check_well_formed_lookupswitch p = true ->
+  forall (kobs:L.t)
     (reg : Method -> MapN.t (MapN.t bool))
     (jun : Method -> MapN.t (CheckCdr.PC)),
     check_all_cdr p reg jun = true ->
@@ -1624,12 +1800,13 @@ Theorem correctness : forall
 
           indist_return_value kobs sgn res1 res2.
 Proof.
-  intros p kobs reg jun Hcheck se RT.
+  intros p Hwfl kobs reg jun Hcheck se RT.
   intros Hc.
   intros m sgn i res1 res2 r1 r2 H H0 H1 H2.
   assert (T:=check_all_cdr_correct p (reg) (jun) Hcheck).
   assert (TT:=check_correct _ _ _ _ jun T Hc).
   eapply ni_safe; eauto.
+  apply check_well_formed_lookupswitch_correct; auto.
 Qed.
 
 Definition m_reg_empty := DEX_MapShortMethSign.empty (MapN.t (MapN.t bool)).
@@ -1703,6 +1880,7 @@ Definition check_m (p:DEX_ExtendedProgram) m sgn reg se RT i : bool :=
   end.
 
 Definition check_ni (p:DEX_ExtendedProgram) reg jun se RT : bool :=
+      check_well_formed_lookupswitch p &&
       check_all_cdr p reg jun &&
       check p se RT reg.
 
@@ -1721,11 +1899,12 @@ Theorem check_ni_correct : forall p reg jun se RT,
 Proof.
   unfold check_ni, NI. intros p reg jun se RT HcheckTypable kobs m sgn i r1 r2 res1 res2
     HPM Hinit Hindist Hstep1 Hstep2.
-  destruct (andb_prop _ _ HcheckTypable) as [Hcheck_all_cdr Hcheck].
+  destruct (andb_prop _ _ HcheckTypable) as [HcheckTypable' Hcheck].
+  destruct (andb_prop _ _ HcheckTypable') as [Hwfl Hcheck_all_cdr].
   generalize (BigStep_evalsto _ _ _ _ Hstep1). 
   generalize (BigStep_evalsto _ _ _ _ Hstep2). 
   intros Hevalsto2 Hevalsto1.
   assert (T:=for_all_P_true _ _ Hcheck _ _ HPM).
   destruct (andb_prop _ _ T).
-  eapply correctness with (7:=Hevalsto2) (6:=Hevalsto1); eauto.
+  eapply correctness with (8:=Hevalsto2) (7:=Hevalsto1); eauto.
 Qed.

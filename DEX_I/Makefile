@@ -1,7 +1,7 @@
 COQLIB= #where is coq8.2pl1 ?
 COQC =$(COQLIB)coqc
 COQDEP =$(COQLIB)coqdep
-INCLUDECOQ =-I .
+#INCLUDECOQ =-I .
 COQSRC =EqBoolAux.v ListAux.v PosAux.v \
 	MapSignatures.v BinArrayBot.v BinArray.v \
 	Tactics.v Lib.v \
@@ -20,12 +20,12 @@ COQSRC =EqBoolAux.v ListAux.v PosAux.v \
 all : $(COQSRC:.v=.vo) depend
 
 depend: 
-	$(COQDEP) $(INCLUDECOQ) $(COQSRC) > .depend
+	$(COQDEP) $(COQSRC) > .depend
 
 .SUFFIXES: .v .vo
 
 .v.vo:
-	$(COQC) $(OPTION) $(INCLUDECOQ) $<
+	$(COQC) $(OPTION) $<
 
 clean::
 	rm -fr *~ $(COQSRC:.v=.vo) $(COQSRC:.v=.glob) 

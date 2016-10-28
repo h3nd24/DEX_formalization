@@ -36,23 +36,11 @@ Proof.
   DiscrimateEq; 
   unfold NormalStep;
   inversion_mine Ht;
-    try (constructor;auto). 
-  (* Move *) constructor 1 with (val := v) (k:=k_rs); auto. rewrite join_sym; auto.
-  (* Ifcmp *) 
-  constructor 1 with (i1:=va) (i2:=vb) (k1:=ka) (k2:=kb); auto. 
-  constructor 2 with (i1:=va) (i2:=vb) (k1:=ka) (k2:=kb); auto.
-  (* Ifz *)
-  constructor 1 with (i:=v) (k:=k); auto. 
-  constructor 2 with (i:=v) (k:=k); auto.
-  (* Ineg *) constructor 1 with (v:=v) (k:=ks); auto. rewrite join_sym; auto.
-  (* Inot *) constructor 1 with (v:=v) (k:=ks); auto. rewrite join_sym; auto.
-  (* I2b *) constructor 1 with (v:=v) (k:=ks); auto. rewrite join_sym; auto.
-  (* I2s *) constructor 1 with (v:=v) (k:=ks); auto. rewrite join_sym; auto.
-  (* Ibinop *) constructor 1 with (i1:=va) (i2:=vb) (k1:=ka) (k2:=kb); auto. 
+    try (econstructor;eauto); try (rewrite join_sym; auto). 
+  (* Ibinop *) 
     assert (forall a b c, L.join (L.join a b) (c) = L.join a (L.join b c)).
       intros; destruct a,b,c; auto.
-    rewrite H; auto.
-  (* IbinopConst *) constructor 1 with (i:=va) (k:=ks); auto.
+    rewrite join_sym. rewrite H; auto.
 Qed.
 
 Lemma well_types_imply_exec_intra : forall se region m sgn i s1 rt1 s2 rt2,

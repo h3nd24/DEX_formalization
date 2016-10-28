@@ -33,15 +33,6 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
 
     | DEX_goto : forall i (o:DEX_OFFSET.t),
       DEX_step i (DEX_Goto o) (Some (DEX_OFFSET.jump i o))
-(* still experimental for PackedSwitch in that the next instruction is
-   defined as the difference between i and j *)
-(*    | packedSwitch : forall i j (rt:DEX_Reg) (firstKey:Z) (size:Z) (l:list OFFSET.t),
-      (* next m i = Some j \/ In o ((j - i)::l) -> *)
-      next m i = Some j \/ In j (@map _ _ (OFFSET.jump i) l) ->
-      step i (PackedSwitch rt firstKey size l) None (Some j)
-    | sparseSwitch : forall i j (rt:DEX_Reg) (size:Z) (l:list (Z * OFFSET.t)),
-      next m i = Some j \/ In j (@map _ _ (OFFSET.jump i) (@map _ _ (@snd _ _) l)) ->
-      step i (SparseSwitch rt size l) None (Some j) *)
 
     | DEX_ifcmp : forall i j (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
       next m i = Some j \/ j = DEX_OFFSET.jump i o ->
@@ -73,32 +64,30 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
     | DEX_ibinopConst : forall i j (op:DEX_BinopInt) (rt:DEX_Reg) (r:DEX_Reg) (v:Z),
        next m i = Some j -> 
       DEX_step i (DEX_IbinopConst op rt r v) (Some j)
-(* Hendra 11082016 focus on DEX I
-    | DEX_packedSwitch : forall i j (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
-      (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ In j l ->*)
-      (*(nextAddress i = Some d /\ d = jump_label i j) \/ In j l -> *)
-      (exists d, nextAddress i = Some d /\ d = jump_label i j) \/ In j l ->
-      (*DEX_step i (DEX_PackedSwitch rt firstKey size l) None (Some (DEX_OFFSET.jump i j))*)
-      DEX_step i (DEX_PackedSwitch rt firstKey size l) None (Some (jump_label i j))
-    | DEX_sparseSwitch : forall i j (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
-      (*(next m i = Some d /\ d = DEX_OFFSET.jump i j) \/ *)
-      (exists d, nextAddress i = Some d /\ d = jump_label i j) \/ 
-        In j (@map _ _ (@snd _ _) l) ->
-      (*DEX_step i (DEX_SparseSwitch rt size l) None (Some (DEX_OFFSET.jump i j))*)
-      DEX_step i (DEX_SparseSwitch rt size l) None (Some (jump_label i j))
-*)
+
+    | DEX_packedSwitch : forall i j (reg:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
+      next m i = Some j ->
+      DEX_step i (DEX_PackedSwitch reg firstKey size l) (Some j)
+
+    | DEX_packedSwitch_jump : forall i j (reg:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
+      In j l ->
+      DEX_step i (DEX_PackedSwitch reg firstKey size l) (Some (DEX_OFFSET.jump i j))
+
+    | DEX_sparseSwitch_default : forall i j (reg:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
+      next m i = Some j ->
+      DEX_step i (DEX_SparseSwitch reg size l) (Some j)
+
+    | DEX_sparseSwitch_jump : forall i (j:DEX_OFFSET.t) (reg:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
+      In j (@map _ _ (@snd _ _) l) ->
+      DEX_step i (DEX_SparseSwitch reg size l) (Some (DEX_OFFSET.jump i j))
 .
 
     Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list (option DEX_PC) := 
       match ins with
-(* Hendra 11082016 focus on DEX I
         | DEX_SparseSwitch r size l =>
-          (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (@map _ _ (@snd _ _) l)*)
-          (None,next) :: map (fun o => ((None:DEX_tag),Some (jump_label i o))) (@map _ _ (@snd _ _) l)
+            next :: map (fun o => (Some (DEX_OFFSET.jump i o))) (@map _ _ (@snd _ _) l)
         | DEX_PackedSwitch r firstKey size l =>
-          (*(None,next) :: map (fun o => (None,Some (DEX_OFFSET.jump i o))) (l)*)
-          (None,next) :: map (fun o => ((None:DEX_tag),(Some (jump_label i o):option address))) (l)
-*)
+            next :: map (fun o => (Some (DEX_OFFSET.jump i o))) (l)
         | DEX_Return => None::nil
         | DEX_VReturn k rt => None::nil
         | DEX_Goto o => (Some (DEX_OFFSET.jump i o))::nil
@@ -118,24 +107,10 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
       (* ifcmp and ifz cases *)
         try (destruct H0 as [H0|H0]; rewrite <- H0; auto with datatypes;
         right; subst; left; reflexivity).
-      (* Hendra 11082016 focus on DEX I
       (* PackedSwitch case *)
-        (* default case : next instruction *)
-        destruct H0. left. inversion H. inversion H0. rewrite H1. rewrite <- H2. reflexivity.
-        (* other successors case *)
-        right. try match goal with
-          [ |- In (_,_) (map ?F _) ] => 
-          apply in_map with (f:=F); try assumption
-        end. 
+      right; apply in_map with (f:=(fun o : DEX_OFFSET.t => Some (DEX_OFFSET.jump i o))); auto.
       (* SparseSwitch case *)
-        (* default case : next instruction *)
-        destruct H0. left. inversion H. inversion H0. rewrite H1. rewrite <- H2. reflexivity.
-        (* other successors case *)
-        right. try match goal with
-          [ |- In (_,_) (map ?F _) ] => 
-          apply in_map with (f:=F); try assumption
-        end.
-*)
+      right; apply in_map with (f:=(fun o : DEX_OFFSET.t => Some (DEX_OFFSET.jump i o))); auto.
     Qed.
 
   Section for_all_steps.

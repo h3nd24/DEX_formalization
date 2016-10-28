@@ -53,17 +53,16 @@ Open Scope type_scope.
     
     | DEX_goto : forall i (rt:TypeRegisters) (o:DEX_OFFSET.t),
       texec i (DEX_Goto o) rt (Some rt)
-(* Hendra 11082016 focus on DEX I
+
     | DEX_packedSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
       VarMap.get _ rt r = Some k ->
-      (forall j, region i None j -> k <= se j) -> 
-      texec i (DEX_PackedSwitch r firstKey size l) None rt (Some (lift_rt k rt))
+      (forall j, region i j -> k <= se j) -> 
+      texec i (DEX_PackedSwitch r firstKey size l) rt (Some rt)
 
-    | DEX_sparseSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
-      VarMap.get _ rt r = Some k ->
-      (forall j, region i None j -> k <= se j) -> 
-      texec i (DEX_SparseSwitch r size l) None rt (Some (lift_rt k rt))
-*)
+    | DEX_sparseSwitch : forall i k (rt:TypeRegisters) (reg:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
+      VarMap.get _ rt reg = Some k ->
+      (forall j, region i j -> k <= se j) -> 
+      texec i (DEX_SparseSwitch reg size l) rt (Some rt)
 
     | DEX_ifcmp : forall i ka kb (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
       In ra (VarMap.dom _ rt) ->
@@ -249,24 +248,23 @@ Open Scope type_scope.
 
         | DEX_Goto o, rt1 => tsub_rt rt1 (RT (DEX_OFFSET.jump i o))
 
-      (* Hendra 11082016 focus on DEX I - 
         | DEX_PackedSwitch r _ _ l, rt1 =>
           match VarMap.get _ rt1 r with
             | None => false
-            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1)) &&
+            | Some k => (selift i k) && (tsub_next i rt1) &&
                (for_all _
-                 (fun o => tsub_rt (lift_rt k rt1) (RT ((*DEX_OFFSET.*)jumpAddress i o))) l)  
+                 (fun o => tsub_rt rt1 (RT (DEX_OFFSET.jump i o))) l)  
           end
    
         | DEX_SparseSwitch r _ l, rt1 =>
           match VarMap.get _ rt1 r with
             | None => false
-            | Some k => (selift i None k) && (tsub_next i (lift_rt k rt1)) &&
+            | Some k => (selift i k) && (tsub_next i rt1) &&
                (for_all _
-                 (fun o => tsub_rt (lift_rt k rt1) (RT ((*DEX_OFFSET.*)jumpAddress i o)))
+                 (fun o => tsub_rt rt1 (RT (DEX_OFFSET.jump i o)))
                  (@map _ _ (@snd _ _) l))
           end
-      *)    
+
         | DEX_Ifcmp _ ra rb o, rt1 =>
           in_test ra (VarMap.dom _ rt1) && in_test rb (VarMap.dom _ rt1) && 
           match VarMap.get _ rt1 ra, VarMap.get _ rt1 rb with
@@ -505,32 +503,32 @@ Open Scope type_scope.
      flatten.
      destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H2; fail);
      flatten2; apply DEX_ibinopConst; try (apply in_test_true_In; auto; fail); apply Hr.
-  (* Hendra 11082016 focus on DEX I - 
      (* PackedSwitch *)
-     destruct (VarMap.get t' (RT i) rt) eqn:Hr; try (inversion H; fail).
+     destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1. 
        (* default successor *)
-       exists (lift_rt t0 (RT i)); split. apply DEX_packedSwitch.
-       apply Hr. apply H. inversion H0. unfold tsub_next in H3.
+       exists (RT i); split. apply DEX_packedSwitch with (k:=t0).
+       apply Hr. apply H. unfold tsub_next in H3.
         inversion H4.
-       rewrite_nextAddress.
-       rewrite H5 in H3. rewrite <- H6. apply H3.
+       rewrite H5 in H3. auto.
        (* other successors *)
-       exists (lift_rt t0 (RT i)); split. apply DEX_packedSwitch.
+       destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
+       flatten_bool; replace_selift.
+       exists (RT i); split. apply DEX_packedSwitch with (k:=t0).
        apply Hr. apply H. replace_for_all. apply H2.
      (* SparseSwitch *)
-     destruct (VarMap.get t' (RT i) rt) eqn:Hr; try (inversion H; fail).
+     destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1. 
        (* default successor *)
-       exists (lift_rt t0 (RT i)); split. apply DEX_sparseSwitch.
-       apply Hr. apply H. inversion H0. unfold tsub_next in H3.
+       exists (RT i); split. apply DEX_sparseSwitch with (k:=t0).
+       apply Hr. apply H. unfold tsub_next in H3.
        inversion H4.
-       rewrite_nextAddress. 
-       rewrite H5 in H3. rewrite <- H6. apply H3.
+       rewrite H5 in H3; auto.
        (* other successors *)
-       exists (lift_rt t0 (RT i)); split. apply DEX_sparseSwitch.
+       destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
+       flatten_bool; replace_selift.
+       exists (RT i); split. apply DEX_sparseSwitch with (k:=t0).
        apply Hr. apply H. replace_for_all. apply H2.
-*)
    Qed.
  End DEX_RT.
 End DEX_typing_rules.

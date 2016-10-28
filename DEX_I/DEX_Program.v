@@ -360,10 +360,8 @@ Module Type DEX_PROGRAM.
    | DEX_VReturn (k:DEX_ValKind) (rt:DEX_Reg)
    | DEX_Const (k:DEX_ValKind) (rt:DEX_Reg) (v:Z)
    | DEX_Goto (o:DEX_OFFSET.t)
-(*   
    | DEX_PackedSwitch (rt:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t)
    | DEX_SparseSwitch (rt:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t))
-*)
    | DEX_Ifcmp (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t)
    | DEX_Ifz (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t)
    | DEX_Ineg (rt:DEX_Reg) (rs:DEX_Reg)

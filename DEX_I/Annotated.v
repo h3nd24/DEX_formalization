@@ -28,6 +28,10 @@ Record DEX_ExtendedProgram : Type := DEX_extP {
 
 Definition DEX_tag := option DEX_ClassName.
 
+Definition well_formed_lookupswitch m := forall pc reg l size i o1 o2,
+  instructionAt m pc = Some (DEX_SparseSwitch reg size l) ->
+  In (i, o1) l -> In (i, o2) l -> o1=o2.
+
 Module VarMap := BinNatMap.
 Definition TypeRegisters := VarMap.t L.t(* focus on DEX I'*).
 

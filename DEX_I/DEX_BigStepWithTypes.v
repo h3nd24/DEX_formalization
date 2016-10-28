@@ -157,6 +157,50 @@ Module DEX_BigStepWithTypes.
 
         NormalStep_ifz cmp reg o m sgn (pc,r) rt (pc',r) rt.
 
+      Inductive NormalStep_PackedSwitch (reg:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t) (m:DEX_Method) (sgn:DEX_sign) :
+        DEX_IntraNormalState -> TypeRegisters -> DEX_IntraNormalState -> TypeRegisters -> Prop :=
+      | packedSwitch : forall pc r i k rt o n,
+
+        Some (Num (I i)) = DEX_Registers.get r reg ->
+        Some k = VarMap.get L.t rt reg ->
+        (firstKey <= Int.toZ i < firstKey + (Z_of_nat size))%Z ->
+        Z_of_nat n = ((Int.toZ i) - firstKey)%Z ->
+        nth_error l n = Some o ->
+        (forall j, region pc j -> k <= (se j)) ->
+
+        NormalStep_PackedSwitch reg firstKey size l m sgn (pc, r) rt (DEX_OFFSET.jump pc o, r) rt
+
+      | packedSwitch_continue : forall pc pc' r i k rt,
+
+        next m pc = Some pc' ->
+        Some (Num (I i)) = DEX_Registers.get r reg ->
+        Some k = VarMap.get L.t rt reg ->
+        (Int.toZ i < firstKey)%Z \/ (firstKey + (Z_of_nat size) <= Int.toZ i)%Z ->
+        (forall j, region pc j -> k <= (se j)) ->
+
+        NormalStep_PackedSwitch reg firstKey size l m sgn (pc, r) rt (pc', r) rt.
+
+      Inductive NormalStep_SparseSwitch (reg:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)) (m:DEX_Method) (sgn:DEX_sign) :
+        DEX_IntraNormalState -> TypeRegisters -> DEX_IntraNormalState -> TypeRegisters -> Prop :=
+      | sparseSwitch : forall pc r i k rt o,
+
+        Some (Num (I i)) = DEX_Registers.get r reg ->
+        Some k = VarMap.get L.t rt reg ->
+        List.In (pair (Int.toZ i) o) l ->
+        (forall j, region pc j -> k <= (se j)) ->
+
+        NormalStep_SparseSwitch reg size l m sgn (pc, r) rt (DEX_OFFSET.jump pc o, r) rt
+
+      | sparseSwitch_continue : forall pc pc' r i k rt,
+
+        next m pc = Some pc' ->
+        Some (Num (I i)) = DEX_Registers.get r reg ->
+        Some k = VarMap.get L.t rt reg ->
+        (forall i' o', List.In (pair i' o') l ->  i' <> Int.toZ i) ->
+        (forall j, region pc j -> k <= (se j)) ->
+
+        NormalStep_SparseSwitch reg size l m sgn (pc, r) rt (pc', r) rt.
+
       Inductive NormalStep_ineg (reg rs:DEX_Reg) (m:DEX_Method) (sgn:DEX_sign)  :
         DEX_IntraNormalState -> TypeRegisters -> DEX_IntraNormalState -> TypeRegisters -> Prop :=
       | ineg : forall pc r r' pc' v k rt rt',
@@ -274,6 +318,8 @@ Module DEX_BigStepWithTypes.
           | DEX_IbinopConst op reg ra z => NormalStep_ibinopConst reg ra z m sgn op
           | DEX_Ifcmp cmp ra rb o  => NormalStep_ifcmp cmp ra rb o m sgn
           | DEX_Ifz cmp reg o => NormalStep_ifz cmp reg o m sgn
+          | DEX_PackedSwitch reg firstKey size l => NormalStep_PackedSwitch reg firstKey size l m sgn
+          | DEX_SparseSwitch reg size l => NormalStep_SparseSwitch reg size l m sgn
           | DEX_Ineg reg rs => NormalStep_ineg reg rs m sgn
           | DEX_Inot reg rs => NormalStep_inot reg rs m sgn
           (*| Lookupswitch def listkey  => NormalStep_lookupswitch def listkey m sgn*)
