@@ -8,6 +8,7 @@ Require Export EqBoolAux.
 Require Export PosAux.
 Require Export BinArray.
 Require Export MapSignatures.
+Require Export MapList.
 
 Lemma in_nth_error : forall (A:Set) (l:list A) n a,
   nth_error l n = Some a -> In a l.

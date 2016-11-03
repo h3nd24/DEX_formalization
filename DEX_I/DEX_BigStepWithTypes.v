@@ -24,10 +24,10 @@ Module DEX_BigStepWithTypes.
       | const : forall pc pc' r r' rt rt',
 
         In reg (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
         next m pc = Some pc' ->
         r' = DEX_Registers.update r reg (Num (I (Int.const v))) ->
-        rt' = VarMap.update _ rt reg (se pc) ->
+        rt' = MapList.update rt reg (se pc) ->
         NormalStep_const k reg v m sgn (pc,r) rt (pc',r') rt'.
 
       Inductive NormalStep_goto (o:DEX_OFFSET.t) (m:DEX_Method) (sgn:DEX_sign)  :
@@ -42,13 +42,13 @@ Module DEX_BigStepWithTypes.
 
         In reg (DEX_Registers.dom r) ->
         In rs (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In rs (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In rs (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
-        Some k = VarMap.get _ rt rs ->
+        Some k = MapList.get rt rs ->
         r' = DEX_Registers.update r reg (Num (I (b2i (i2b v)))) ->
-        rt' = VarMap.update _ rt reg (k U (se pc)) ->
+        rt' = MapList.update rt reg (k U (se pc)) ->
         NormalStep_i2b reg rs m sgn (pc,r) rt (pc',r') rt'.
 
       Inductive NormalStep_i2s (reg rs:DEX_Reg) (m:DEX_Method) (sgn:DEX_sign)  :
@@ -57,13 +57,13 @@ Module DEX_BigStepWithTypes.
   
         In reg (DEX_Registers.dom r) ->
         In rs (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In rs (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In rs (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
-        Some k = VarMap.get _ rt rs ->
+        Some k = MapList.get rt rs ->
         r' = DEX_Registers.update r reg (Num (I (s2i (i2s v)))) ->
-        rt' = VarMap.update _ rt reg (k U (se pc)) ->
+        rt' = MapList.update rt reg (k U (se pc)) ->
         NormalStep_i2s reg rs m sgn (pc,r) rt (pc',r') rt'.
 
       Inductive NormalStep_ibinop (reg ra rb:DEX_Reg) (m:DEX_Method) (sgn:DEX_sign)  : DEX_BinopInt ->
@@ -73,16 +73,16 @@ Module DEX_BigStepWithTypes.
         In reg (DEX_Registers.dom r) ->
         In ra (DEX_Registers.dom r) ->
         In rb (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In ra (VarMap.dom _ rt) ->
-        In rb (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In ra (MapList.dom rt) ->
+        In rb (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I i1)) = DEX_Registers.get r ra ->
         Some (Num (I i2)) = DEX_Registers.get r rb ->
-        Some k1 = VarMap.get _ rt ra ->
-        Some k2 = VarMap.get _ rt rb ->
+        Some k1 = MapList.get rt ra ->
+        Some k2 = MapList.get rt rb ->
         r' = DEX_Registers.update r reg (Num (I (SemBinopInt op i1 i2))) ->
-        rt' = VarMap.update _ rt reg (k1 U (k2 U (se pc))) ->
+        rt' = MapList.update rt reg (k1 U (k2 U (se pc))) ->
         NormalStep_ibinop reg ra rb m sgn op (pc,r) rt (pc',r') rt'.
 
       Inductive NormalStep_ibinopConst (reg ra:DEX_Reg) (v:Z) (m:DEX_Method) (sgn:DEX_sign)  : DEX_BinopInt ->
@@ -91,13 +91,13 @@ Module DEX_BigStepWithTypes.
 
         In reg (DEX_Registers.dom r) ->
         In ra (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In ra (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In ra (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I i)) = DEX_Registers.get r ra ->
-        Some k = VarMap.get _ rt ra ->
+        Some k = MapList.get rt ra ->
         r' = DEX_Registers.update r reg (Num (I (SemBinopInt op i (Int.const v)))) ->
-        rt' = VarMap.update _ rt reg (k U (se pc)) ->
+        rt' = MapList.update rt reg (k U (se pc)) ->
         NormalStep_ibinopConst reg ra v m sgn op (pc,r) rt (pc',r') rt'.
 
       Inductive NormalStep_ifcmp (cmp:DEX_CompInt) (ra rb:DEX_Reg) (o:DEX_OFFSET.t) (m:DEX_Method) (sgn:DEX_sign)  :
@@ -106,12 +106,12 @@ Module DEX_BigStepWithTypes.
 
         In ra (DEX_Registers.dom r) ->
         In rb (DEX_Registers.dom r) ->
-        In ra (VarMap.dom _ rt) ->
-        In rb (VarMap.dom _ rt) ->
+        In ra (MapList.dom rt) ->
+        In rb (MapList.dom rt) ->
         Some (Num (I i1)) = DEX_Registers.get r ra ->
         Some (Num (I i2)) = DEX_Registers.get r rb ->
-        Some k1 = VarMap.get _ rt ra ->
-        Some k2 = VarMap.get _ rt rb ->
+        Some k1 = MapList.get rt ra ->
+        Some k2 = MapList.get rt rb ->
         SemCompInt cmp (Int.toZ i1) (Int.toZ i2) ->
         (forall j, region pc j -> (L.join k1 k2) <= (se j)) -> 
 
@@ -122,12 +122,12 @@ Module DEX_BigStepWithTypes.
         next m pc = Some pc' ->
         In ra (DEX_Registers.dom r) ->
         In rb (DEX_Registers.dom r) ->
-        In ra (VarMap.dom _ rt) ->
-        In rb (VarMap.dom _ rt) ->
+        In ra (MapList.dom rt) ->
+        In rb (MapList.dom rt) ->
         Some (Num (I i1)) = DEX_Registers.get r ra ->
         Some (Num (I i2)) = DEX_Registers.get r rb ->
-        Some k1 = VarMap.get _ rt ra ->
-        Some k2 = VarMap.get _ rt rb ->
+        Some k1 = MapList.get rt ra ->
+        Some k2 = MapList.get rt rb ->
         ~ SemCompInt cmp (Int.toZ i1) (Int.toZ i2) ->
         (forall j, region pc j -> (L.join k1 k2) <= (se j)) -> 
 
@@ -138,9 +138,9 @@ Module DEX_BigStepWithTypes.
       | ifz_jump : forall pc r i k rt,
 
         In reg (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
         Some (Num (I i)) = DEX_Registers.get r reg ->
-        Some k = VarMap.get _ rt reg ->
+        Some k = MapList.get rt reg ->
         SemCompInt cmp (Int.toZ i) 0 ->
         (forall j, region pc j -> k <= (se j)) -> 
 
@@ -148,10 +148,10 @@ Module DEX_BigStepWithTypes.
 
       | ifz_continue : forall pc pc' r i k rt,
         In reg (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I i)) = DEX_Registers.get r reg ->
-        Some k = VarMap.get _ rt reg ->
+        Some k = MapList.get rt reg ->
         ~ SemCompInt cmp (Int.toZ i) 0 ->
         (forall j, region pc j -> k <= (se j)) -> 
 
@@ -162,7 +162,7 @@ Module DEX_BigStepWithTypes.
       | packedSwitch : forall pc r i k rt o n,
 
         Some (Num (I i)) = DEX_Registers.get r reg ->
-        Some k = VarMap.get L.t rt reg ->
+        Some k = MapList.get rt reg ->
         (firstKey <= Int.toZ i < firstKey + (Z_of_nat size))%Z ->
         Z_of_nat n = ((Int.toZ i) - firstKey)%Z ->
         nth_error l n = Some o ->
@@ -174,7 +174,7 @@ Module DEX_BigStepWithTypes.
 
         next m pc = Some pc' ->
         Some (Num (I i)) = DEX_Registers.get r reg ->
-        Some k = VarMap.get L.t rt reg ->
+        Some k = MapList.get rt reg ->
         (Int.toZ i < firstKey)%Z \/ (firstKey + (Z_of_nat size) <= Int.toZ i)%Z ->
         (forall j, region pc j -> k <= (se j)) ->
 
@@ -185,7 +185,7 @@ Module DEX_BigStepWithTypes.
       | sparseSwitch : forall pc r i k rt o,
 
         Some (Num (I i)) = DEX_Registers.get r reg ->
-        Some k = VarMap.get L.t rt reg ->
+        Some k = MapList.get rt reg ->
         List.In (pair (Int.toZ i) o) l ->
         (forall j, region pc j -> k <= (se j)) ->
 
@@ -195,7 +195,7 @@ Module DEX_BigStepWithTypes.
 
         next m pc = Some pc' ->
         Some (Num (I i)) = DEX_Registers.get r reg ->
-        Some k = VarMap.get L.t rt reg ->
+        Some k = MapList.get rt reg ->
         (forall i' o', List.In (pair i' o') l ->  i' <> Int.toZ i) ->
         (forall j, region pc j -> k <= (se j)) ->
 
@@ -207,13 +207,13 @@ Module DEX_BigStepWithTypes.
 
         In reg (DEX_Registers.dom r) ->
         In rs (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In rs (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In rs (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
-        Some k = VarMap.get _ rt rs ->
+        Some k = MapList.get rt rs ->
         r' = DEX_Registers.update r reg (Num (I (Int.neg v))) ->
-        rt' = VarMap.update _ rt reg (k U (se pc)) ->
+        rt' = MapList.update rt reg (k U (se pc)) ->
 
         NormalStep_ineg reg rs m sgn (pc,r) rt (pc',r') rt'.
 
@@ -223,13 +223,13 @@ Module DEX_BigStepWithTypes.
 
         In reg (DEX_Registers.dom r) ->
         In rs (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In rs (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In rs (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some (Num (I v)) = DEX_Registers.get r rs ->
-        Some k = VarMap.get _ rt rs ->
+        Some k = MapList.get rt rs ->
         r' = DEX_Registers.update r reg (Num (I (Int.not v))) ->
-        rt' = VarMap.update _ rt reg (k U (se pc)) ->
+        rt' = MapList.update rt reg (k U (se pc)) ->
 
         NormalStep_inot reg rs m sgn (pc,r) rt (pc',r') rt'.
 
@@ -296,13 +296,13 @@ Module DEX_BigStepWithTypes.
         instructionAt m pc = Some (DEX_Move vk reg rs) ->
         In reg (DEX_Registers.dom r) ->
         In rs (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
-        In rs (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
+        In rs (MapList.dom rt) ->
         next m pc = Some pc' ->
         Some val = DEX_Registers.get r rs ->
         DEX_Registers.update r reg val = r' ->
-        VarMap.get _ rt rs = Some k ->
-        VarMap.update _ rt reg (k U (se pc)) = rt' ->
+        MapList.get rt rs = Some k ->
+        MapList.update rt reg (k U (se pc)) = rt' ->
 
         NormalStep_move vk reg rs m sgn (pc,r) rt (pc',r') rt'.
       
@@ -340,10 +340,10 @@ Module DEX_BigStepWithTypes.
       | vreturn : forall pc r reg val t k k1 rt kr,
         instructionAt m pc = Some (DEX_VReturn k reg) ->
         In reg (DEX_Registers.dom r) ->
-        In reg (VarMap.dom _ rt) ->
+        In reg (MapList.dom rt) ->
         DEX_METHODSIGNATURE.result (DEX_METHOD.signature m) = Some t ->
         Some val = DEX_Registers.get r reg ->
-        Some k1 = VarMap.get _ rt reg ->
+        Some k1 = MapList.get rt reg ->
         assign_compatible p.(DEX_prog) val t ->
         compat_ValKind_value k val ->
         sgn.(DEX_resType) = Some kr ->

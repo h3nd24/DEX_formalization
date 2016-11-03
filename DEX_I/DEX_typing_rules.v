@@ -30,93 +30,93 @@ Open Scope type_scope.
       texec i DEX_Nop rt (Some rt)
 
     | DEX_move : forall i (rt:TypeRegisters) k_rs (k:DEX_ValKind) (r:DEX_Reg) (rs:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      In rs (VarMap.dom _ rt) ->
-      VarMap.get _ rt rs = Some k_rs ->
+      In r (MapList.dom rt) ->
+      In rs (MapList.dom rt) ->
+      MapList.get rt rs = Some k_rs ->
       texec i (DEX_Move k r rs) rt
-        (Some (VarMap.update _ rt r ((se i) U k_rs)))
+        (Some (MapList.update rt r ((se i) U k_rs)))
 
     | DEX_return_ : forall i (rt:TypeRegisters),
       sgn.(DEX_resType) = None ->
       texec i (DEX_Return) rt None
 
     | DEX_vReturn : forall i (rt:TypeRegisters) k_r kv (k:DEX_ValKind) (r:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      VarMap.get _ rt r = Some k_r ->
+      In r (MapList.dom rt) ->
+      MapList.get rt r = Some k_r ->
       sgn.(DEX_resType) = Some kv ->
       ((se i) U k_r) <= kv -> 
       texec i (DEX_VReturn k r) rt None
 
     | DEX_const : forall i (rt:TypeRegisters) (k:DEX_ValKind) (r:DEX_Reg) (v:Z),
-      In r (VarMap.dom _ rt) ->
-      texec i (DEX_Const k r v) rt (Some (VarMap.update _ rt r (L.Simple (se i))))
+      In r (MapList.dom rt) ->
+      texec i (DEX_Const k r v) rt (Some (MapList.update rt r (L.Simple (se i))))
     
     | DEX_goto : forall i (rt:TypeRegisters) (o:DEX_OFFSET.t),
       texec i (DEX_Goto o) rt (Some rt)
 
     | DEX_packedSwitch : forall i k (rt:TypeRegisters) (r:DEX_Reg) (firstKey:Z) (size:nat) (l:list DEX_OFFSET.t),
-      VarMap.get _ rt r = Some k ->
+      MapList.get rt r = Some k ->
       (forall j, region i j -> k <= se j) -> 
       texec i (DEX_PackedSwitch r firstKey size l) rt (Some rt)
 
     | DEX_sparseSwitch : forall i k (rt:TypeRegisters) (reg:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
-      VarMap.get _ rt reg = Some k ->
+      MapList.get rt reg = Some k ->
       (forall j, region i j -> k <= se j) -> 
       texec i (DEX_SparseSwitch reg size l) rt (Some rt)
 
     | DEX_ifcmp : forall i ka kb (rt:TypeRegisters) (cmp:DEX_CompInt) (ra:DEX_Reg) (rb:DEX_Reg) (o:DEX_OFFSET.t),
-      In ra (VarMap.dom _ rt) ->
-      In rb (VarMap.dom _ rt) ->
-      VarMap.get _ rt ra = Some ka ->
-      VarMap.get _ rt rb = Some kb ->
+      In ra (MapList.dom rt) ->
+      In rb (MapList.dom rt) ->
+      MapList.get rt ra = Some ka ->
+      MapList.get rt rb = Some kb ->
       (forall j, region i j -> (ka U kb) <= se j) -> 
       texec i (DEX_Ifcmp cmp ra rb o) rt (Some rt)
      
     | DEX_ifz : forall i k (rt:TypeRegisters) (cmp:DEX_CompInt) (r:DEX_Reg) (o:DEX_OFFSET.t),
-      In r (VarMap.dom _ rt) ->
-      VarMap.get _ rt r = Some k ->
+      In r (MapList.dom rt) ->
+      MapList.get rt r = Some k ->
       (forall j, region i j -> k <= se j) -> 
       texec i (DEX_Ifz cmp r o) rt (Some rt)
 
     | DEX_ineg : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      In rs (VarMap.dom _ rt) ->
-      VarMap.get _ rt rs = Some ks ->
-      texec i (DEX_Ineg r rs) rt (Some (VarMap.update _ rt r (L.Simple ((se i) U ks))))
+      In r (MapList.dom rt) ->
+      In rs (MapList.dom rt) ->
+      MapList.get rt rs = Some ks ->
+      texec i (DEX_Ineg r rs) rt (Some (MapList.update rt r (L.Simple ((se i) U ks))))
 
     | DEX_inot : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      In rs (VarMap.dom _ rt) ->
-      VarMap.get _ rt rs = Some ks ->
-      texec i (DEX_Inot r rs) rt (Some (VarMap.update _ rt r (L.Simple ((se i) U ks))))
+      In r (MapList.dom rt) ->
+      In rs (MapList.dom rt) ->
+      MapList.get rt rs = Some ks ->
+      texec i (DEX_Inot r rs) rt (Some (MapList.update rt r (L.Simple ((se i) U ks))))
 
     | DEX_i2b : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      In rs (VarMap.dom _ rt) ->
-      VarMap.get _ rt rs = Some ks ->
-      texec i (DEX_I2b r rs) rt (Some (VarMap.update _ rt r (L.Simple ((se i) U ks))))
+      In r (MapList.dom rt) ->
+      In rs (MapList.dom rt) ->
+      MapList.get rt rs = Some ks ->
+      texec i (DEX_I2b r rs) rt (Some (MapList.update rt r (L.Simple ((se i) U ks))))
 
     | DEX_i2s : forall i ks (rt:TypeRegisters) (r:DEX_Reg) (rs:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      In rs (VarMap.dom _ rt) ->
-      VarMap.get _ rt rs = Some ks ->
-      texec i (DEX_I2s r rs) rt (Some (VarMap.update _ rt r (L.Simple ((se i) U ks))))
+      In r (MapList.dom rt) ->
+      In rs (MapList.dom rt) ->
+      MapList.get rt rs = Some ks ->
+      texec i (DEX_I2s r rs) rt (Some (MapList.update rt r (L.Simple ((se i) U ks))))
 
     | DEX_ibinop : forall i ka kb (rt:TypeRegisters) (op:DEX_BinopInt) (r:DEX_Reg) (ra:DEX_Reg) (rb:DEX_Reg),
-      In r (VarMap.dom _ rt) ->
-      In ra (VarMap.dom _ rt) ->
-      In rb (VarMap.dom _ rt) ->
-      VarMap.get _ rt ra = Some ka ->
-      VarMap.get _ rt rb = Some kb ->
+      In r (MapList.dom rt) ->
+      In ra (MapList.dom rt) ->
+      In rb (MapList.dom rt) ->
+      MapList.get rt ra = Some ka ->
+      MapList.get rt rb = Some kb ->
       texec i (DEX_Ibinop op r ra rb) rt 
-       (Some (VarMap.update _ rt r (L.Simple ((ka U kb) U (se i)))))
+       (Some (MapList.update rt r (L.Simple ((ka U kb) U (se i)))))
     
     | DEX_ibinopConst : forall i ks (rt:TypeRegisters) (op:DEX_BinopInt) (r:DEX_Reg) (rs:DEX_Reg) (v:Z),
-      In r (VarMap.dom _ rt) ->
-      In rs (VarMap.dom _ rt) ->
-      VarMap.get _ rt rs = Some ks ->
+      In r (MapList.dom rt) ->
+      In rs (MapList.dom rt) ->
+      MapList.get rt rs = Some ks ->
       texec i (DEX_IbinopConst op r rs v) rt 
-       (Some (VarMap.update _ rt r (L.Simple (ks U (se i)))))   
+       (Some (MapList.update rt r (L.Simple (ks U (se i)))))   
     .
 
     Section DEX_RT.
@@ -218,10 +218,10 @@ Open Scope type_scope.
           tsub_next i rt1
 
         | DEX_Move _ r rs, rt1 =>
-          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 rs with
+          in_test rs (MapList.dom rt1) && in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 rs with
             | Some k_rs =>
-                tsub_next i (VarMap.update _ rt1 r (L.join (se i) (k_rs)))
+                tsub_next i (MapList.update rt1 r (L.join (se i) (k_rs)))
             | None => false
           end
 
@@ -232,24 +232,24 @@ Open Scope type_scope.
           end
 
         | DEX_VReturn _ r, rt1 =>          
-          in_test r (VarMap.dom _ rt1) && 
+          in_test r (MapList.dom rt1) && 
           match sgn.(DEX_resType) with
             | None => false
             | Some kv => 
-              match VarMap.get _ rt1 r with
+              match MapList.get rt1 r with
                 | None => false
                 | Some k => leql_t (se i U k) kv 
               end
           end
 
         | DEX_Const _ r _, rt1 =>
-          in_test r (VarMap.dom _ rt1) && 
-          tsub_next i (VarMap.update _ rt1 r (L.Simple (se i)))
+          in_test r (MapList.dom rt1) && 
+          tsub_next i (MapList.update rt1 r (L.Simple (se i)))
 
         | DEX_Goto o, rt1 => tsub_rt rt1 (RT (DEX_OFFSET.jump i o))
 
         | DEX_PackedSwitch r _ _ l, rt1 =>
-          match VarMap.get _ rt1 r with
+          match MapList.get rt1 r with
             | None => false
             | Some k => (selift i k) && (tsub_next i rt1) &&
                (for_all _
@@ -257,7 +257,7 @@ Open Scope type_scope.
           end
    
         | DEX_SparseSwitch r _ l, rt1 =>
-          match VarMap.get _ rt1 r with
+          match MapList.get rt1 r with
             | None => false
             | Some k => (selift i k) && (tsub_next i rt1) &&
                (for_all _
@@ -266,8 +266,8 @@ Open Scope type_scope.
           end
 
         | DEX_Ifcmp _ ra rb o, rt1 =>
-          in_test ra (VarMap.dom _ rt1) && in_test rb (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 ra, VarMap.get _ rt1 rb with
+          in_test ra (MapList.dom rt1) && in_test rb (MapList.dom rt1) && 
+          match MapList.get rt1 ra, MapList.get rt1 rb with
             | Some ka, Some kb =>
                 (selift i (ka U kb)) && 
                 (tsub_next i rt1) &&
@@ -276,8 +276,8 @@ Open Scope type_scope.
           end
 
         | DEX_Ifz _ r o, rt1 =>
-          in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 r with
+          in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 r with
             | Some k => 
                 (selift i k) && 
                 (tsub_next i rt1) &&
@@ -286,45 +286,45 @@ Open Scope type_scope.
           end        
 
         | DEX_Ineg r rs, rt1 =>
-          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 rs with
-            | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+          in_test rs (MapList.dom rt1) && in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 rs with
+            | Some ks => (tsub_next i (MapList.update rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end   
 
         | DEX_Inot r rs, rt1 =>
-          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 rs with
-            | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+          in_test rs (MapList.dom rt1) && in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 rs with
+            | Some ks => (tsub_next i (MapList.update rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end   
 
         | DEX_I2b r rs, rt1 =>
-          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 rs with
-            | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+          in_test rs (MapList.dom rt1) && in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 rs with
+            | Some ks => (tsub_next i (MapList.update rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end
 
         | DEX_I2s r rs, rt1 =>
-          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 rs with
-            | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple ((se i) U ks))) )
+          in_test rs (MapList.dom rt1) && in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 rs with
+            | Some ks => (tsub_next i (MapList.update rt1 r (L.Simple ((se i) U ks))) )
             | None => false
           end   
 
         | DEX_Ibinop _ r ra rb, rt1 =>
-          in_test r (VarMap.dom _ rt1) && in_test ra (VarMap.dom _ rt1) && in_test rb (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 ra, VarMap.get _ rt1 rb with
+          in_test r (MapList.dom rt1) && in_test ra (MapList.dom rt1) && in_test rb (MapList.dom rt1) && 
+          match MapList.get rt1 ra, MapList.get rt1 rb with
             | Some ka, Some kb => 
-               (tsub_next i (VarMap.update _ rt1 r (L.Simple ((ka U kb) U (se i)))) )
+               (tsub_next i (MapList.update rt1 r (L.Simple ((ka U kb) U (se i)))) )
             | _, _ => false
           end   
 
         | DEX_IbinopConst _ r rs _, rt1 =>
-          in_test rs (VarMap.dom _ rt1) && in_test r (VarMap.dom _ rt1) && 
-          match VarMap.get _ rt1 rs with
-            | Some ks => (tsub_next i (VarMap.update _ rt1 r (L.Simple (ks U (se i)))) )
+          in_test rs (MapList.dom rt1) && in_test r (MapList.dom rt1) && 
+          match MapList.get rt1 rs with
+            | Some ks => (tsub_next i (MapList.update rt1 r (L.Simple (ks U (se i)))) )
             | None => false
           end   
       end.
@@ -426,9 +426,9 @@ Open Scope type_scope.
      (* VReturn *)
      apply andb_prop in H; inversion H as [H3 H4].
      destruct (DEX_resType sgn) eqn:H1.
-     destruct (VarMap.get t (RT i) rt) eqn:H2. 
+     destruct (MapList.get (RT i) rt) eqn:H2. 
      apply DEX_vReturn with (k_r:=t1) (kv:=t0); auto.
-      apply VarMap.get_some_in_dom.
+      apply MapList.get_some_in_dom.
       unfold not; intros. rewrite H0 in H2. inversion H2.
 
     generalize (leql_t_spec (se i U t1) t0); intros.
@@ -465,7 +465,7 @@ Open Scope type_scope.
        unfold DEX_tcheck in *;
         try (split_match; intuition; subst; try discriminate; 
          flatten2; eauto with texec; fail); 
-    try (flatten; destruct (VarMap.get _ (RT i) rs) eqn:Hrs; try (inversion H2; fail);
+    try (flatten; destruct (MapList.get (RT i) rs) eqn:Hrs; try (inversion H2; fail);
     flatten2; constructor; try (apply in_test_true_In); auto; fail).
     
     (* const *)
@@ -473,8 +473,8 @@ Open Scope type_scope.
 
      (* Ifcmp *)
      flatten.
-     destruct (VarMap.get t (RT i) ra) eqn:Hra; try (inversion H2; fail). 
-     destruct (VarMap.get t (RT i) rb) eqn:Hrb; try (inversion H2; fail).
+     destruct (MapList.get (RT i) ra) eqn:Hra; try (inversion H2; fail). 
+     destruct (MapList.get (RT i) rb) eqn:Hrb; try (inversion H2; fail).
      flatten_bool; replace_selift. inversion H1.
        (* next successor *)
        replace_tsub_next; search_tsub.
@@ -485,7 +485,7 @@ Open Scope type_scope.
        auto.
      (* Ifz *)
      flatten.
-     destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H2; fail).
+     destruct (MapList.get (RT i) r) eqn:Hr; try (inversion H2; fail).
      flatten_bool; replace_selift. inversion H1.
        (* next successor *)
        replace_tsub_next; search_tsub.
@@ -496,15 +496,15 @@ Open Scope type_scope.
 
      (* Ibinop *)
      flatten.
-     destruct (VarMap.get t (RT i) ra) eqn:Hra. try (inversion H2; fail).
-     destruct (VarMap.get t (RT i) rb) eqn:Hrb; try (inversion H2; fail).
+     destruct (MapList.get (RT i) ra) eqn:Hra. try (inversion H2; fail).
+     destruct (MapList.get (RT i) rb) eqn:Hrb; try (inversion H2; fail).
      flatten2; apply DEX_ibinop; auto; try (apply in_test_true_In; auto; fail). inversion H2.
      (* IbinopConst *)
      flatten.
-     destruct (VarMap.get t (RT i) r) eqn:Hr; try (inversion H2; fail);
+     destruct (MapList.get (RT i) r) eqn:Hr; try (inversion H2; fail);
      flatten2; apply DEX_ibinopConst; try (apply in_test_true_In; auto; fail); apply Hr.
      (* PackedSwitch *)
-     destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
+     destruct (MapList.get (RT i) reg) eqn:Hr; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1. 
        (* default successor *)
        exists (RT i); split. apply DEX_packedSwitch with (k:=t0).
@@ -512,12 +512,12 @@ Open Scope type_scope.
         inversion H4.
        rewrite H5 in H3. auto.
        (* other successors *)
-       destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
+       destruct (MapList.get (RT i) reg) eqn:Hr; try (inversion H; fail).
        flatten_bool; replace_selift.
        exists (RT i); split. apply DEX_packedSwitch with (k:=t0).
        apply Hr. apply H. replace_for_all. apply H2.
      (* SparseSwitch *)
-     destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
+     destruct (MapList.get (RT i) reg) eqn:Hr; try (inversion H; fail).
      flatten_bool; replace_selift. inversion H1. 
        (* default successor *)
        exists (RT i); split. apply DEX_sparseSwitch with (k:=t0).
@@ -525,7 +525,7 @@ Open Scope type_scope.
        inversion H4.
        rewrite H5 in H3; auto.
        (* other successors *)
-       destruct (VarMap.get t (RT i) reg) eqn:Hr; try (inversion H; fail).
+       destruct (MapList.get (RT i) reg) eqn:Hr; try (inversion H; fail).
        flatten_bool; replace_selift.
        exists (RT i); split. apply DEX_sparseSwitch with (k:=t0).
        apply Hr. apply H. replace_for_all. apply H2.

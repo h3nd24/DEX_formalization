@@ -31,6 +31,16 @@ Proof.
  injection H0;trivial.
 Qed.
 
+Lemma Neq_refl : forall x, Neq x x = true.
+Proof. intro x. generalize (Neq_spec x x); destruct (Neq x x); auto. Qed.
+
+Lemma Neq_not_false : forall x1 x2, x1 <> x2 -> Neq x1 x2 = false.
+Proof. intros x1 x2. generalize (Neq_spec x1 x2); destruct (Neq x1 x2); intros; auto. apply False_ind; auto. Qed.
+
+Lemma Neq_sym : forall x y, Neq x y = Neq y x.
+Proof. intros x y. generalize (Neq_spec x y); destruct (Neq x y) eqn:Heq; intros; subst; auto.
+  symmetry; apply Neq_not_false; auto. Qed.
+
 Lemma Zeq_spec : forall (x y:Z), if Zeq_bool x y then x = y else x<>y.
 Proof.
  unfold Zeq_bool; destruct x; destruct y; simpl; trivial;

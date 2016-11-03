@@ -6,14 +6,16 @@ PosAux.vo PosAux.glob PosAux.v.beautified: PosAux.v
 PosAux.vio: PosAux.v
 MapSignatures.vo MapSignatures.glob MapSignatures.v.beautified: MapSignatures.v EqBoolAux.vo ListAux.vo
 MapSignatures.vio: MapSignatures.v EqBoolAux.vio ListAux.vio
+MapList.vo MapList.glob MapList.v.beautified: MapList.v PosAux.vo
+MapList.vio: MapList.v PosAux.vio
 BinArrayBot.vo BinArrayBot.glob BinArrayBot.v.beautified: BinArrayBot.v MapSignatures.vo
 BinArrayBot.vio: BinArrayBot.v MapSignatures.vio
 BinArray.vo BinArray.glob BinArray.v.beautified: BinArray.v PosAux.vo EqBoolAux.vo BinArrayBot.vo
 BinArray.vio: BinArray.v PosAux.vio EqBoolAux.vio BinArrayBot.vio
 Tactics.vo Tactics.glob Tactics.v.beautified: Tactics.v
 Tactics.vio: Tactics.v
-Lib.vo Lib.glob Lib.v.beautified: Lib.v Tactics.vo EqBoolAux.vo PosAux.vo BinArray.vo MapSignatures.vo
-Lib.vio: Lib.v Tactics.vio EqBoolAux.vio PosAux.vio BinArray.vio MapSignatures.vio
+Lib.vo Lib.glob Lib.v.beautified: Lib.v Tactics.vo EqBoolAux.vo PosAux.vo BinArray.vo MapSignatures.vo MapList.vo
+Lib.vio: Lib.v Tactics.vio EqBoolAux.vio PosAux.vio BinArray.vio MapSignatures.vio MapList.vio
 DEX_Domain.vo DEX_Domain.glob DEX_Domain.v.beautified: DEX_Domain.v DEX_Program.vo Numeric.vo
 DEX_Domain.vio: DEX_Domain.v DEX_Program.vio Numeric.vio
 DEX_BigStepType.vo DEX_BigStepType.glob DEX_BigStepType.v.beautified: DEX_BigStepType.v DEX_Domain.vo ./DEX_BigStepLoad.v

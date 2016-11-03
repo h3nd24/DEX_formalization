@@ -20,12 +20,12 @@ Inductive Value_in_opt :
 | Value_in_opt_none: Value_in_opt None None.
 
 Inductive Reg_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) (rn:DEX_Reg) : Prop :=
-| Reg_high_in : forall k k', VarMap.get L.t rt rn = Some k -> VarMap.get L.t rt' rn = Some k' ->
+| Reg_high_in : forall k k', MapList.get rt rn = Some k -> MapList.get rt' rn = Some k' ->
     ~(L.leql k observable) -> ~(L.leql k' observable) -> Reg_in observable r r' rt rt' rn
 | Reg_nhigh_in : Value_in_opt (DEX_Registers.get r rn) (DEX_Registers.get r' rn) -> Reg_in observable r r' rt rt' rn.
 
 Inductive Regs_in (observable:L.t) (r r': DEX_Registers.t) (rt rt': TypeRegisters) : Prop :=
-| Build_Regs_in : eq_set (VarMap.dom _ rt) (VarMap.dom _ rt') ->
+| Build_Regs_in : eq_set (MapList.dom rt) (MapList.dom rt') ->
   (forall (rn:DEX_Reg), Reg_in observable r r' rt rt' rn) -> Regs_in observable r r' rt rt'.
 
 Inductive st_in (observable:L.t) (rt rt':TypeRegisters) :   

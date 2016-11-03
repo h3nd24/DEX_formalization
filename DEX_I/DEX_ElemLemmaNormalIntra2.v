@@ -16,7 +16,7 @@ Ltac indist2_intra_normal_aux Hindistreg rn:=
   specialize Hindistreg with rn;
   inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist];
   try (constructor 1 with (k:=lvl) (k':=lvl'); 
-  try (rewrite VarMap.get_update2; auto); auto);
+  try (rewrite MapList.get_update2; auto); auto);
   try (constructor 2; rewrite ?DEX_Registers.get_update_old; auto).
 
 Lemma indist2_intra_normal : 
@@ -41,7 +41,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto. 
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn.
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -49,7 +49,7 @@ Proof.
     specialize Hindistreg with (rn:=rs).  
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k0 (se pc)) (k':=L.join k1 (se pc)); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H7; inversion H7; subst; apply not_leql_join1; auto.
     rewrite Hget' in H17; inversion H17; subst; apply not_leql_join1; auto.
     constructor 2. rewrite <- H5 in Hvalueindist; rewrite <- H15 in Hvalueindist.
@@ -61,7 +61,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -76,7 +76,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -84,7 +84,7 @@ Proof.
     specialize Hindistreg with (rn:=rs).  
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k (se pc)) (k':=L.join k0 (se pc)); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H5; inversion H5; subst; apply not_leql_join1; auto.
     rewrite Hget' in H14; inversion H14; subst; apply not_leql_join1; auto.
     constructor 2. rewrite <- H4 in Hvalueindist; rewrite <- H13 in Hvalueindist.
@@ -97,7 +97,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -105,7 +105,7 @@ Proof.
     specialize Hindistreg with (rn:=rs).  
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k (se pc)) (k':=L.join k0 (se pc)); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H5; inversion H5; subst; apply not_leql_join1; auto.
     rewrite Hget' in H14; inversion H14; subst; apply not_leql_join1; auto.
     constructor 2. rewrite <- H4 in Hvalueindist; rewrite <- H13 in Hvalueindist.
@@ -118,7 +118,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -126,7 +126,7 @@ Proof.
     specialize Hindistreg with (rn:=rs).  
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k (se pc)) (k':=L.join k0 (se pc)); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H5; inversion H5; subst; apply not_leql_join1; auto.
     rewrite Hget' in H14; inversion H14; subst; apply not_leql_join1; auto.
     constructor 2. rewrite <- H4 in Hvalueindist; rewrite <- H13 in Hvalueindist.
@@ -139,7 +139,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -147,7 +147,7 @@ Proof.
     specialize Hindistreg with (rn:=rs).  
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k (se pc)) (k':=L.join k0 (se pc)); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H5; inversion H5; subst; apply not_leql_join1; auto.
     rewrite Hget' in H14; inversion H14; subst; apply not_leql_join1; auto.
     constructor 2. rewrite <- H4 in Hvalueindist; rewrite <- H13 in Hvalueindist.
@@ -160,7 +160,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -170,13 +170,13 @@ Proof.
     specialize Hindistreg' with (rn:=rb).  
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k1 (L.join k2 (se pc))) (k':=L.join k0 (L.join k3 (se pc))); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H8; inversion H8; subst; apply not_leql_join1; auto.
     rewrite Hget' in H21; inversion H21; subst; apply not_leql_join1; auto.
     (* case of register b *)
     inversion Hindistreg' as [lvl2 lvl2' Hget2 Hget2' Hleq2 Hleq2' | Hvalueindist'].
     constructor 1 with (k:=L.join k1 (L.join k2 (se pc))) (k':=L.join k0 (L.join k3 (se pc))); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget2 in H9; inversion H9; subst.
     apply not_leql_join2; apply not_leql_join1; auto.
     rewrite Hget2' in H22; inversion H22; subst.
@@ -194,7 +194,7 @@ Proof.
   inversion Hindist as [Heqset Hindistreg].
   constructor; auto.
   (* proving eq_set *)
-  rewrite VarMap.domain_inv; auto. rewrite VarMap.domain_inv; auto.
+  rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.
   intros rn. 
   destruct Reg_eq_dec with (x:=rn) (y:=rt) as [Hreg | Hreg].
     (* rn = rt *)
@@ -202,7 +202,7 @@ Proof.
     specialize Hindistreg with (rn:=r).
     inversion Hindistreg as [lvl lvl' Hget Hget' Hleq Hleq' | Hvalueindist]. 
     constructor 1 with (k:=L.join k (se pc)) (k':=L.join k0 (se pc)); 
-      try (rewrite VarMap.get_update1; auto); auto.
+      try (rewrite MapList.get_update1; auto); auto.
     rewrite Hget in H5; inversion H5; subst; apply not_leql_join1; auto.
     rewrite Hget' in H14; inversion H14; subst; apply not_leql_join1; auto.
     constructor 2. 

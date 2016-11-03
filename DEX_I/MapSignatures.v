@@ -201,7 +201,6 @@ Module Map_Of_MapBase (M:MAP_BASE) <: MAP
 
   Definition empty := M.empty.
   Definition get_empty := M.get_empty.
-
   Definition elements := M.elements.
   Definition in_elements_get_some := M.in_elements_get_some.
   Definition get_some_in_elements := M.get_some_in_elements.
@@ -261,9 +260,8 @@ Module Map_Of_MapBase (M:MAP_BASE) <: MAP
     elim H; auto.
   Qed.
 
-  Lemma domain_inv : forall A m v p, 
+  Variable domain_inv : forall A m v p, 
     In p (dom A m) -> dom A (update A m p v) = dom A m.
-  Proof. admit. Admitted.
 
   Section for_all.
 

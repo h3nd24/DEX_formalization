@@ -3,7 +3,7 @@ COQC =$(COQLIB)coqc
 COQDEP =$(COQLIB)coqdep
 #INCLUDECOQ =-I .
 COQSRC =EqBoolAux.v ListAux.v PosAux.v \
-	MapSignatures.v BinArrayBot.v BinArray.v \
+	MapSignatures.v MapList.v BinArrayBot.v BinArray.v \
 	Tactics.v Lib.v \
         DEX_Domain.v DEX_BigStepType.v \
         DEX_BigStep.v LoadBicolano.v \

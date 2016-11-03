@@ -279,15 +279,15 @@ Fixpoint tsub_st (l1 l2:list L.t') {struct l1} : bool :=
     | _,_ => false
   end.
 
-Definition tsub_element (rt1 rt2 : BinNatMap.t L.t) (reg : N) : bool :=
-  match BinNatMap.get _ rt1 reg, BinNatMap.get _ rt2 reg with
+Definition tsub_element (rt1 rt2 : MapList.t L.t) (reg : N) : bool :=
+  match MapList.get rt1 reg, MapList.get rt2 reg with
     | None, None => true
     | Some k1, Some k2 => (L.leql_t k1 k2)
     | None, Some k2 => false
     | Some k1, None => true
   end.
 
-Fixpoint tsub_rec (rt1 rt2 : BinNatMap.t L.t) (regs : list N) {struct regs} : bool :=
+Fixpoint tsub_rec (rt1 rt2 : MapList.t L.t) (regs : list N) {struct regs} : bool :=
   match regs with
     | nil => true
     | reg :: t => (tsub_element (rt1) (rt2) (reg)) && (tsub_rec (rt1) (rt2) (t))
