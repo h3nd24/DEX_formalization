@@ -19,10 +19,10 @@ Definition DEX_default_signature : DEX_sign :=
 
 Record DEX_ExtendedProgram : Type := DEX_extP {
   DEX_prog :> DEX_Program;
-  DEX_newArT : DEX_Method * DEX_PC -> L.t';
+(*   DEX_newArT : DEX_Method * DEX_PC -> L.t'; *)
   DEX_static_signature : DEX_ShortMethodSignature -> DEX_sign;
   DEX_virtual_signature : DEX_ShortMethodSignature -> L.t -> DEX_sign;
-  DEX_ft : DEX_FieldSignature -> L.t';
+  DEX_ft : DEX_FieldSignature -> L.t;
   locR : DEX_ShortMethodSignature -> list DEX_Reg
 }.
 

@@ -4,7 +4,7 @@ COQDEP =$(COQLIB)coqdep
 #INCLUDECOQ =-I .
 COQSRC =EqBoolAux.v ListAux.v PosAux.v \
 	MapSignatures.v MapList.v BinArrayBot.v BinArray.v \
-	Tactics.v MapList.v Ffun.v Lib.v \
+	Tactics.v MapList.v FFun.v Lib.v \
         DEX_Domain.v DEX_BigStepType.v \
         DEX_BigStep.v LoadBicolano.v \
 	DEX_Program.v Numeric.v Axioms.v \

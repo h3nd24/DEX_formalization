@@ -80,6 +80,18 @@ Import DEX_BigStep.DEX_Dom DEX_Prog.
     | DEX_sparseSwitch_jump : forall i (j:DEX_OFFSET.t) (reg:DEX_Reg) (size:nat) (l:list (Z * DEX_OFFSET.t)),
       In j (@map _ _ (@snd _ _) l) ->
       DEX_step i (DEX_SparseSwitch reg size l) (Some (DEX_OFFSET.jump i j))
+
+    | DEX_iput : forall i j k rs ro f,
+      next m i = Some j ->
+      DEX_step i (DEX_Iput k rs ro f) (Some j)
+
+    | DEX_iget : forall i j k r ro f,
+      next m i = Some j ->
+      DEX_step i (DEX_Iget k r ro f) (Some j)
+
+    | DEX_new : forall i j r c,
+      next m i = Some j ->
+      DEX_step i (DEX_New r c) (Some j)
 .
 
     Definition get_steps (i:DEX_PC) (ins:DEX_Instruction) (next:option DEX_PC): list (option DEX_PC) := 

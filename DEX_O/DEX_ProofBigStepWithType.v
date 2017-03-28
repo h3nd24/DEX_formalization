@@ -12,7 +12,7 @@ Lemma join_sym : forall a b, L.join a b = L.join b a. intros. destruct a, b; aut
 Lemma well_types_imply_exec_return : forall se region m sgn i s1 rt1 rv2 ,
      DEX_BigStepAnnot.DEX_exec_return p m s1 rv2 -> 
      instructionAt m (fst s1) = Some i ->
-     DEX_typing_rules.texec sgn region se (fst s1) i rt1 None ->
+     DEX_typing_rules.texec p sgn region se (fst s1) i rt1 None ->
       exec_return p se m sgn i s1 rt1 rv2.
 Proof.
   intros se region m sgn i s1 rt1 rv2 He.

@@ -74,8 +74,8 @@ Module Type DEX_PROGRAM.
     Package | Protected | Private | Public.
 
   Inductive DEX_type : Set :=
-      | DEX_PrimitiveType (pt: DEX_primitiveType)
       | DEX_ReferenceType (rt : DEX_refType)
+      | DEX_PrimitiveType (pt: DEX_primitiveType)
   with DEX_refType :Set := 
 (*      | ArrayType (typ:type)  *)
       | DEX_ClassType  (ct:DEX_ClassName)

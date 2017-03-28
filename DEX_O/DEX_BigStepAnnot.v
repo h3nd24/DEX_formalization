@@ -26,9 +26,9 @@ Import DEX_BigStep.DEX_BigStep DEX_Dom DEX_Prog.
     DEX_exec_intra p m (* None *) s1 s2.
 
   Inductive DEX_exec_return (p:DEX_Program) (m:DEX_Method) : DEX_IntraNormalState -> DEX_ReturnState -> Prop :=
-  | exec_return_normal : forall s ov,
-     DEX_ReturnStep p m s (Normal ov) ->
-     DEX_exec_return p m s (Normal ov).
+  | exec_return_normal : forall h s ov,
+     DEX_ReturnStep p m s (h, Normal ov) ->
+     DEX_exec_return p m s (h, Normal ov).
 
  Inductive DEX_IntraStep (p:DEX_Program) : 
     DEX_Method -> DEX_IntraNormalState -> DEX_IntraNormalState + DEX_ReturnState -> Prop :=

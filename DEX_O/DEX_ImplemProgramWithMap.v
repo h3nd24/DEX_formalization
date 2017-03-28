@@ -250,8 +250,8 @@ Module DEX_Make <: DEX_PROGRAM.
   End DEX_METHODSIGNATURE_TYPE.
 
   Inductive DEX_ValKind : Set :=
-    (*| DEX_Aval*)
-    | DEX_Ival.
+    | DEX_Ival
+    | DEX_Aval.
 
   Inductive DEX_Instruction : Set :=
    | DEX_Nop
@@ -848,6 +848,22 @@ Module DEX_Make <: DEX_PROGRAM.
            In (DEX_INTERFACE.name i) (DEX_CLASS.superInterfaces cl) ->
            subinterface_name p (DEX_INTERFACE.name i) i' ->
            implements p (DEX_CLASS.name cl) i'.
+
+   Inductive compat_refType (p:DEX_Program) : DEX_refType -> DEX_refType -> Prop :=
+   | compat_refType_class_class : forall clS clT,
+       subclass_name p clS clT ->
+       compat_refType p (DEX_ClassType clS) (DEX_ClassType clT)
+   | compat_refType_class_interface : forall clS clT,
+       implements p clS clT ->
+       compat_refType p (DEX_ClassType clS) (DEX_ClassType clT)
+   | compat_refType_interface_class : forall clS,
+       DEX_PROG.defined_Interface p clS ->
+       compat_refType p (DEX_ClassType (DEX_INTERFACE.name clS)) (DEX_ClassType javaLangObject)
+   | compat_refType_interface_interface : forall clS clT,
+       DEX_PROG.defined_Interface p clS ->
+       subinterface p clS clT ->
+       compat_refType p (DEX_ClassType (DEX_INTERFACE.name clS)) (DEX_ClassType (DEX_INTERFACE.name clT))
+   .
 
   (* subclass_test TO BE PROVED CORRECT ! *)  
   Module Map2P' := MapPair_Base BinMap_Base BinMap_Base.

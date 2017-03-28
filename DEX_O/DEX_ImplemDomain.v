@@ -32,18 +32,32 @@ Open Scope Z_scope.
  Definition i2s (i:Int.t) : Short.t := Short.const (Int.toZ i).
  Definition i2bool (i:Int.t) : Byte.t := Byte.const (Int.toZ i mod 2).
 
+ Definition DEX_Location : Set := N.
+ Definition DEX_Location_dec : forall loc1 loc2:DEX_Location,{loc1=loc2}+{~loc1=loc2} :=
+   (Aeq_Dec _ _ Neq_spec).
+
  Inductive DEX_num : Set :=
    | I : Int.t -> DEX_num
    | B : Byte.t -> DEX_num
    | Sh : Short.t -> DEX_num.
 
  Inductive DEX_value : Set :=
-   | Num : DEX_num -> DEX_value.
+   | Num : DEX_num -> DEX_value
+   | Ref: DEX_Location -> DEX_value
+   | Null : DEX_value.
 
  Definition init_value (t:DEX_type) : DEX_value :=
     match t with
      | DEX_PrimitiveType _ => Num (I (Int.const 0))
+     | DEX_ReferenceType _ => Null
     end.
+
+ Definition init_field_value (f:DEX_Field) : DEX_value :=
+   match DEX_FIELD.initValue f with
+    | DEX_FIELD.Int z => Num (I (Int.const z))
+    | DEX_FIELD.NULL => Null
+    | DEX_FIELD.UNDEF => init_value (DEX_FIELDSIGNATURE.type (DEX_FIELD.signature f))
+  end.
 
  (** Domain of local variables *)
  Module Type DEX_REGISTERS.
@@ -341,6 +355,516 @@ Proof.
 
 Set Implicit Arguments.
 
+ Module Type DEX_HEAP.
+   Parameter t : Type.
+
+   Inductive DEX_AdressingMode : Set :=
+     (*| StaticField : FieldSignature -> AdressingMode*)
+     | DEX_DynamicField : DEX_Location -> DEX_FieldSignature -> DEX_AdressingMode
+     (*| ArrayElement : Location -> Z -> AdressingMode*).
+
+   Inductive DEX_LocationType : Type :=
+     | DEX_LocationObject : DEX_ClassName -> DEX_LocationType  
+     (*| LocationArray : Int.t -> type -> Method*PC -> LocationType*).
+   (** (LocationArray length element_type) *)
+
+   Parameter get : t -> DEX_AdressingMode -> option DEX_value.
+   Parameter update : t -> DEX_AdressingMode -> DEX_value -> t.
+   Parameter typeof : t -> DEX_Location -> option DEX_LocationType.   
+     (** typeof h loc = None -> no object, no array allocated at location loc *)
+   Parameter new : t -> DEX_Program -> DEX_LocationType -> option (DEX_Location * t).
+     (** program is required to compute the size of the allocated element, i.e. to know
+        the Class associated with a ClassName  *)
+
+   (** Compatibility between a heap and an adress *)
+   Inductive Compat (h:t) : DEX_AdressingMode -> Prop :=
+     (*| CompatStatic : forall f,
+         Compat h (StaticField f)*)
+     | CompatObject : forall cn loc f,
+         typeof h loc = Some (DEX_LocationObject cn) ->
+         Compat h (DEX_DynamicField loc f)
+     (*| CompatArray : forall length tp loc i a,
+         0 <= i < Int.toZ length ->
+         typeof h loc = Some (LocationArray length tp a) ->
+         Compat h (ArrayElement loc i)*).
+
+   Parameter get_update_same : forall h am v, Compat h am ->  get (update h am v) am = Some v.
+   Parameter get_update_old : forall h am1 am2 v, am1<>am2 -> get (update h am1 v) am2 = get h am2.
+   Parameter get_uncompat : forall h am, ~ Compat h am -> get h am = None.
+
+   Parameter typeof_update_same : forall h loc am v,
+     typeof (update h am v) loc = typeof h loc.
+
+   Parameter new_fresh_location : forall (h:t) (p:DEX_Program) 
+      (lt:DEX_LocationType) (loc:DEX_Location) (h':t),
+     new h p lt = Some (loc,h') ->
+     typeof h loc = None.
+
+   Parameter new_typeof : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) 
+      (loc:DEX_Location) (h':t),
+     new h p lt = Some (loc,h') ->
+     typeof h' loc = Some lt.
+
+   Parameter new_typeof_old : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) 
+      (loc loc':DEX_Location) (h':t),
+     new h p lt = Some (loc,h') ->
+     loc <> loc' ->
+     typeof h' loc' = typeof h loc'.
+
+   Parameter new_defined_object_field : forall (h:t) (p:DEX_Program) 
+      (cn:DEX_ClassName) (fs:DEX_FieldSignature) (f:DEX_Field) (loc:DEX_Location) (h':t), 
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     is_defined_field p cn fs f ->
+     get h' (DEX_DynamicField loc fs) = Some (init_field_value f).
+
+   Parameter new_undefined_object_field : forall (h:t) (p:DEX_Program) 
+      (cn:DEX_ClassName) (fs:DEX_FieldSignature) (loc:DEX_Location) (h':t),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     ~ defined_field p cn fs ->
+     get h' (DEX_DynamicField loc fs) = None.
+ 
+  Parameter new_object_no_change : 
+     forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (loc:DEX_Location) (h':t) 
+      (am:DEX_AdressingMode),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     (forall (fs:DEX_FieldSignature), am <> (DEX_DynamicField loc fs)) ->
+     get h' am = get h am.
+
+ End DEX_HEAP.
+
+Module DEX_Heap <: DEX_HEAP.
+  Module DEX_Object.
+    Record t : Type := Obj { class : DEX_ClassName; 
+      fieldsval : DEX_MapFieldSignature.t DEX_value }.
+    Definition get (o:t) := DEX_MapFieldSignature.get DEX_value o.(fieldsval).
+    Definition op_get (o:option t) :=
+      match o with
+        | Some o => get o
+        | None => fun f => None
+      end.
+    Definition op_update (f:DEX_FieldSignature) (v:DEX_value) (o:option t) : option t :=
+      match o with
+        | None => None
+        | Some o => Some (Obj o.(class) (DEX_MapFieldSignature.update _ o.(fieldsval) f v))
+      end.
+
+    Definition init_fields :  list (DEX_ClassName*DEX_Field) -> DEX_MapFieldSignature.t DEX_value :=
+      @fold_right (DEX_MapFieldSignature.t DEX_value) _
+        (fun f m => DEX_MapFieldSignature.update _ m (fst f,DEX_FIELD.signature (snd f)) (init_field_value (snd f)))
+        (DEX_MapFieldSignature.empty _).
+
+    Definition default (c:DEX_Class) : t :=
+      Obj
+      (DEX_CLASS.name c) 
+      (init_fields (List.map (fun f => (DEX_CLASS.name c,f)) 
+        (DEX_CLASS.definedFields c))).
+
+  End DEX_Object.
+
+  Module LocMap := BinNatMap.
+
+  Record t_ : Type := hp {
+(*     statics : DEX_MapFieldSignature.t DEX_value; *)
+    objects : LocMap.t DEX_Object.t;
+    next_loc : DEX_Location
+  }.
+  Definition t : Type := t_.
+  
+  Inductive DEX_AdressingMode : Set :=
+(*   | StaticField : FieldSignature -> AdressingMode *)
+  | DEX_DynamicField : DEX_Location -> DEX_FieldSignature -> DEX_AdressingMode
+  (* | ArrayElement : Location -> Z -> AdressingMode *).
+
+  Inductive DEX_LocationType : Type :=
+  | DEX_LocationObject : DEX_ClassName -> DEX_LocationType 
+  (* | LocationArray : Int.t -> type -> Method*PC -> LocationType *).
+
+   Definition typeof (h:t) (l:DEX_Location) : option (DEX_LocationType) :=
+     match LocMap.get _ h.(objects) l with
+       | Some o => Some (DEX_LocationObject o.(DEX_Object.class))
+       | None => None
+     end.
+
+   (** Compatibility between a heap and an adress *)
+   Inductive Compat (h:t) : DEX_AdressingMode -> Prop :=
+     (* | CompatStatic : forall f,
+         Compat h (StaticField f) *)
+     | CompatObject : forall cn loc f,
+         typeof h loc = Some (DEX_LocationObject cn) ->
+         Compat h (DEX_DynamicField loc f)
+     (* | CompatArray : forall length tp loc i a,
+         0 <= i < Int.toZ length ->
+         typeof h loc = Some (LocationArray length tp a) ->
+         Compat h (ArrayElement loc i) *).
+
+   Definition check_compat (h:t) (am:DEX_AdressingMode) : bool :=
+     match am with
+       (* | StaticField f => true *)
+       | DEX_DynamicField loc f =>
+         match typeof h loc with
+           | Some (DEX_LocationObject _) => true
+           | _ => false
+         end
+       (* | ArrayElement loc i =>
+         match typeof h loc with
+           | Some (LocationArray length _ _ ) => 
+             match i ?= 0 with
+               | Lt => false
+               | _ =>
+                 match i ?= Int.toZ length with
+                   | Lt => true
+                   | _ => false
+                 end
+             end
+           | _ => false
+         end *)
+     end.
+
+   Lemma bounded_compare : forall i t:Z,
+     i < t -> i ?= t = Lt.
+   Proof.
+     intros.
+     generalize (Zlt_compare _ _ H); rewrite H; auto.
+   Qed.
+
+   Lemma case_compare : forall i t:Z,
+     (i ?= t = Lt /\ i<t) \/ (i ?=t = Gt) \/ (i ?=t = Eq).
+   Proof.
+     intros.
+     generalize (Zge_compare i t0).
+     destruct (i ?= t0); simpl; auto.
+     left; split; auto; omega.
+   Qed.
+
+   Lemma check_compat_correct : forall h am,
+     if check_compat h am then Compat h am else ~ Compat h am.
+   Proof.
+     unfold check_compat; intros.
+     destruct am.
+(*      constructor. *)
+     case_eq (typeof h d); intros.
+     destruct d1.
+     econstructor; eauto.
+     intro T; inversion T; subst.
+     rewrite H1 in H; discriminate.   
+  Qed.
+
+  Definition get (h:t) (am:DEX_AdressingMode) : option DEX_value :=
+    if check_compat h am then
+      match am with
+(*         | StaticField f =>  MapFieldSignature.get _ h.(statics) f *)
+        | DEX_DynamicField l f => DEX_Object.op_get (LocMap.get _ h.(objects) l) f
+(*         | ArrayElement l i => Array.op_get (LocMap.get _ h.(arrays) l) i  *)
+      end
+      else None.
+
+  Definition update (h:t) (am:DEX_AdressingMode) (v:DEX_value) : t :=
+    if check_compat h am then
+      match am with
+(*         | StaticField f => 
+          hp
+          (MapFieldSignature.update _ h.(statics) f v)
+          h.(objects)
+          h.(arrays)
+          h.(next_loc) *)
+        | DEX_DynamicField l f => 
+          hp
+(*           h.(statics) *)
+          (LocMap.modify _ h.(objects) l (DEX_Object.op_update f v))
+(*           h.(arrays)               *)
+          h.(next_loc)
+(*         | ArrayElement l i => 
+          hp
+          h.(statics)
+          h.(objects)
+          (LocMap.modify _ h.(arrays) l (Array.op_update i v))
+          h.(next_loc)
+ *)      end else h.     
+
+   Definition Int_to_nat (i:Int.t) : option nat :=
+     match Int.toZ i with
+       | Zpos p => Some (nat_of_P p)
+       | Z0 => Some O
+       | Zneg _ => None
+     end.
+
+   Definition check_fresh (h:t) (l:DEX_Location) : bool :=
+     match LocMap.get _ h.(objects) l with
+       | Some _ => false
+       | _ => true     
+     end.
+
+   Lemma check_fresh_correct : forall h l,
+     check_fresh h l = true ->
+       (LocMap.get _ h.(objects) l = None).
+   Proof.
+     unfold check_fresh; intros.
+     destruct (LocMap.get _ (objects h) l); try discriminate.
+     auto.
+   Qed.
+
+   Definition new (h:t) (p:DEX_Program) (ltp:DEX_LocationType) 
+      : option (DEX_Location * t) :=
+     if check_fresh h h.(next_loc) then
+       match ltp with
+         | DEX_LocationObject cn => 
+           match DEX_PROG.class p cn with
+             | None => None
+             | Some c => 
+                 Some
+                 (h.(next_loc),
+                   hp
+(*                    h.(statics) *)
+                   (LocMap.update _ h.(objects) h.(next_loc) (DEX_Object.default c))
+(*                    h.(arrays)               *)
+                   (Nsucc h.(next_loc)))
+           end
+       (* | LocationArray lgth tp a => 
+             match Int_to_nat lgth with
+               | None => None
+               | Some n =>
+                 Some
+                 (h.(next_loc),
+                   hp
+                   h.(statics)
+                   h.(objects)              
+                   (LocMap.update _ h.(arrays) h.(next_loc) (Array.default lgth n tp a))
+                   (Nsucc h.(next_loc)))
+             end *)
+       end
+       else None.
+
+   Lemma typeof_update_same : forall h loc am v,
+     typeof (update h am v) loc = typeof h loc.
+   Proof.
+     unfold typeof, update; intros.
+     generalize (check_compat_correct h am); destruct (check_compat h am); simpl; intros.
+     destruct H; simpl.
+     auto.
+     destruct (DEX_PC_eq_dec loc0 loc); subst.
+     unfold typeof in H.
+     rewrite LocMap.get_modify1; auto.
+     unfold LocMap.get in H.
+     unfold LocMap.get in *.
+     case_eq (BinNatMap_Base.get DEX_Object.t (objects h) loc); intros.
+     rewrite H0 in H.
+     reflexivity.
+     rewrite H0 in H.
+     reflexivity.
+     
+     rewrite LocMap.get_modify2; auto.
+     reflexivity.
+   Qed.
+
+   Lemma Compat_update1 : forall h am am0 v0,
+     Compat h am -> Compat (update h am0 v0) am.
+   Proof.
+     destruct 1; econstructor; eauto.
+     rewrite typeof_update_same; eauto.
+   Qed.
+
+   Lemma Compat_update2 : forall h am am0 v0,
+     Compat (update h am0 v0) am -> Compat h am.
+   Proof.
+     destruct 1; econstructor; eauto.
+     rewrite typeof_update_same in H; eauto.
+   Qed.
+
+   Lemma check_compat_update : forall h am v am',
+     check_compat (update h am v) am' = check_compat h am'.
+   Proof.
+     intros.
+     generalize (check_compat_correct (update h am v) am').
+     generalize (check_compat_correct h am').
+     destruct (check_compat (update h am v) am');
+     destruct (check_compat h am'); auto.
+     intros.
+     elim H; eapply Compat_update2; eauto.
+     intros.
+     elim H0; eapply Compat_update1; eauto.   
+   Qed.
+
+   Lemma get_update_same : forall h am v, Compat h am ->  get (update h am v) am = Some v.
+   Proof.
+     unfold get; intros.
+     rewrite check_compat_update.
+     unfold update.
+     generalize (check_compat_correct h am); destruct (check_compat h am).
+     clear H.     
+     destruct 1; simpl.
+(*      rewrite DEX_MapFieldSignature.get_update1; auto. *)
+     rewrite LocMap.get_modify1; auto.
+     caseeq (BinNatMap_Base.get DEX_Object.t (objects h) loc); intros; simpl.
+     unfold DEX_Object.get; simpl.
+     rewrite DEX_MapFieldSignature.get_update1; auto.
+     unfold typeof in H.
+     replace LocMap.get with BinNatMap_Base.get in H; auto.
+     rewrite H0 in H. discriminate.
+     intuition.
+   Qed.
+
+   Lemma get_update_old : forall h am1 am2 v, am1<>am2 -> get (update h am1 v) am2 = get h am2.
+   Proof.
+     unfold get; intros.
+     rewrite check_compat_update.
+     unfold update; intros.
+     generalize (check_compat_correct h am1); destruct (check_compat h am1); auto.
+     (* destruct 1; *) intro H1; destruct H1; destruct am2; simpl; intros; auto.
+(*      rewrite DEX_MapFieldSignature.get_update2; auto; congruence. *)
+
+     destruct (DEX_PC_eq_dec loc d); subst.
+     rewrite LocMap.get_modify1; auto.
+     unfold typeof,LocMap.get in *.
+     destruct (BinNatMap_Base.get DEX_Object.t (objects h) d); simpl in *.
+     unfold DEX_Object.get; simpl.
+     rewrite DEX_MapFieldSignature.get_update2; auto; congruence.
+     auto.
+     rewrite LocMap.get_modify2; auto.
+   Qed.
+     
+   Lemma get_uncompat : forall h am, ~ Compat h am -> get h am = None.
+   Proof.
+     unfold get; intros.
+     generalize (check_compat_correct h am);
+       destruct (check_compat h am); intuition.
+   Qed.
+
+   Lemma new_fresh_location : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) 
+      (loc:DEX_Location) (h':t),
+     new h p lt = Some (loc,h') ->
+     typeof h loc = None.
+   Proof.
+     unfold new; intros.
+     generalize (check_fresh_correct h (next_loc h)).
+     destruct (check_fresh h (next_loc h)); try discriminate.
+     intros T. (* destruct (T (refl_equal _)). *)
+(*      intros T; destruct (T (refl_equal _)); clear T. *)
+     unfold typeof; destruct lt.
+     destruct (DEX_PROG.class p d); try discriminate.
+     inversion H. clear H; subst.
+     rewrite T with (1:=(refl_equal _)). auto.
+   Qed.
+     
+   Lemma new_typeof : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) 
+      (loc:DEX_Location) (h':t),
+     new h p lt = Some (loc,h') ->
+     typeof h' loc = Some lt.
+   Proof.
+     unfold new, typeof; intros.
+     assert (T:=check_fresh_correct h (next_loc h)).
+     destruct (check_fresh h (next_loc h)); try discriminate.
+     destruct lt.
+     case_eq (DEX_PROG.class p d); intros.
+     rewrite H0 in H.
+     inversion H; clear H; subst.
+     simpl.
+     rewrite LocMap.get_update1.
+     generalize (DEX_PROG.name_class_invariant1 _ _ _ H0).
+     unfold DEX_Object.default; simpl.
+     intros; congruence.
+     rewrite H0 in H; discriminate.
+   Qed.
+
+   Lemma new_typeof_old : forall (h:t) (p:DEX_Program) (lt:DEX_LocationType) 
+      (loc loc':DEX_Location) (h':t),
+     new h p lt = Some (loc,h') ->
+     loc <> loc' ->
+     typeof h' loc' = typeof h loc'.
+   Proof.
+     unfold new, typeof; intros.
+     assert (T:=check_fresh_correct h (next_loc h)).
+     destruct (check_fresh h (next_loc h)); try discriminate.
+     destruct (T (refl_equal _)) as [T1 T2]; clear T.
+     destruct lt.
+     destruct (DEX_PROG.class p d); try discriminate.
+     inversion H; clear H; subst.
+     simpl.
+     rewrite LocMap.get_update2; auto.
+   Qed.
+
+   Lemma Compat_new_obj1 :
+     forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (loc:DEX_Location) (h':t) 
+      (am:DEX_AdressingMode),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     Compat h am -> Compat h' am.
+   Proof.
+     intros.
+     destruct H0; econstructor; eauto.
+     rewrite (@new_typeof_old _ _ _ _ loc0 _ H); eauto.
+     intro; subst.
+     rewrite (@new_fresh_location _ _ _ _ _ H) in H0.
+     discriminate.     
+   Qed.
+
+   Lemma Compat_new_obj2 :
+     forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (loc:DEX_Location) (h':t) 
+      (am:DEX_AdressingMode),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     (forall (fs:DEX_FieldSignature), am <> (DEX_DynamicField loc fs)) ->
+     Compat h' am -> Compat h am.
+   Proof.
+     intros.
+     destruct H1; econstructor; eauto.
+     rewrite (@new_typeof_old _ _ _ _ loc0 _ H) in H1; eauto.
+     intro; subst.
+     elim (H0 f); auto.
+   Qed.
+
+   Lemma check_compat_new_obj :
+     forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (loc:DEX_Location) (h':t) 
+      (am:DEX_AdressingMode),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     (forall (fs:DEX_FieldSignature), am <> (DEX_DynamicField loc fs)) ->
+     check_compat h' am = check_compat h am.
+   Proof.
+     intros.
+     generalize (check_compat_correct h' am).
+     generalize (check_compat_correct h am).
+     destruct (check_compat h' am);
+     destruct (check_compat h am); auto.
+     intros.
+     elim H1; eapply Compat_new_obj2; eauto.
+     intros.
+     elim H2; eapply Compat_new_obj1; eauto.   
+   Qed.
+
+   Parameter new_defined_object_field : forall (h:t) (p:DEX_Program) 
+      (cn:DEX_ClassName) (fs:DEX_FieldSignature) (f:DEX_Field) (loc:DEX_Location) (h':t),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     is_defined_field p cn fs f ->
+     get h' (DEX_DynamicField loc fs) = Some (init_field_value f).
+
+   Axiom new_undefined_object_field : forall (h:t) (p:DEX_Program) 
+      (cn:DEX_ClassName) (fs:DEX_FieldSignature) (loc:DEX_Location) (h':t),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     ~ defined_field p cn fs ->
+     get h' (DEX_DynamicField loc fs) = None.
+ 
+  Lemma new_object_no_change : 
+     forall (h:t) (p:DEX_Program) (cn:DEX_ClassName) (loc:DEX_Location) (h':t) 
+      (am:DEX_AdressingMode),
+     new h p (DEX_LocationObject cn) = Some (loc,h') ->
+     (forall (fs:DEX_FieldSignature), am <> (DEX_DynamicField loc fs)) ->
+     get h' am = get h am.
+   Proof.
+     unfold get; intros.
+     rewrite (@check_compat_new_obj _ _ _ _ _ _ H H0).
+     assert (T:=check_compat_correct h am).
+     destruct (check_compat h am); try reflexivity.
+     unfold new in *.
+     destruct (check_fresh h (next_loc h)); try discriminate.
+     destruct (DEX_PROG.class p cn); try discriminate.
+     inversion H; clear H; subst.
+     destruct T; simpl.
+(*      reflexivity. *)
+     rewrite LocMap.get_update2; auto.
+     intro; subst; elim (H0 f); auto.
+   Qed.
+
+ End DEX_Heap.
+
+Opaque DEX_Heap.update.
+
   Inductive DEX_ReturnVal : Set :=
    | Normal : option DEX_value -> DEX_ReturnVal.
 
@@ -367,35 +891,41 @@ Set Implicit Arguments.
  (** Domain of states *)
  Module Type DEX_STATE.
    Inductive t : Type := 
-      normal : DEX_Frame.t -> DEX_CallStack.t -> t.
+      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t.
    Definition get_sf  (s:t) : DEX_CallStack.t :=
      match s with
-       normal _ sf => sf
+       normal _ _ sf => sf
      end.
    Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal (DEX_Frame.make m _ _)_ => m
+       normal _ (DEX_Frame.make m _ _)_ => m
      end.
  End DEX_STATE.
 
  Module DEX_State.
   Inductive t : Type := 
-      normal : DEX_Frame.t -> DEX_CallStack.t -> t.
+      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t.
    Definition get_sf (s:t) : DEX_CallStack.t :=
      match s with
-       normal _ sf => sf
+       normal _ _ sf => sf
      end.
    Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal (DEX_Frame.make m _ _)_ => m
+       normal _ (DEX_Frame.make m _ _)_ => m
      end.
  End DEX_State.
  (** Some notations *)
  Notation St := DEX_State.normal.
  Notation Fr := DEX_Frame.make.
 
+  Inductive isReference : DEX_value -> Prop :=
+  | isReference_null : isReference Null
+  | isReference_ref : forall loc, isReference (Ref loc).
+
   (** compatibility between ValKind and value *) 
   Inductive compat_ValKind_value : DEX_ValKind -> DEX_value -> Prop :=
+    | compat_ValKind_value_ref : forall v,
+        isReference v -> compat_ValKind_value DEX_Aval v
     | compat_ValKind_value_int : forall n,
         compat_ValKind_value DEX_Ival (Num (I n)).
 
@@ -411,9 +941,14 @@ Set Implicit Arguments.
 
   (** [assign_compatible h source target] holds if a value [source] can be 
     assigned to a variable of type [target] *)
-  Inductive assign_compatible (p:DEX_Program) : DEX_value -> DEX_type -> Prop :=
-   | assign_compatible_num_val : forall (n:DEX_num) (t:DEX_primitiveType),
-       assign_compatible_num n t -> assign_compatible p (*h*) (Num n) (DEX_PrimitiveType t).
+  Inductive assign_compatible (p:DEX_Program) (h:DEX_Heap.t) : DEX_value -> DEX_type -> Prop :=
+    | assign_compatible_null : forall t, assign_compatible p h Null (DEX_ReferenceType t)
+    | assign_compatible_ref_object_val : forall (loc:DEX_Location) (t:DEX_refType) (cn:DEX_ClassName), 
+       DEX_Heap.typeof h loc = Some (DEX_Heap.DEX_LocationObject cn) ->
+       compat_refType p (DEX_ClassType cn) t ->
+       assign_compatible p h (Ref loc) (DEX_ReferenceType t)   
+    | assign_compatible_num_val : forall (n:DEX_num) (t:DEX_primitiveType),
+       assign_compatible_num n t -> assign_compatible p h (Num n) (DEX_PrimitiveType t).
 
   Definition SemCompInt (cmp:DEX_CompInt) (z1 z2: Z) : Prop :=
     match cmp with

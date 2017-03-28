@@ -198,14 +198,14 @@ Module Type DEX_SEMANTIC_DOMAIN.
  (** Domain of states *)
  Module Type DEX_STATE.
    Inductive t : Type := 
-      normal : DEX_Frame.t -> DEX_CallStack.t -> t.
+      normal : DEX_Heap.t -> DEX_Frame.t -> DEX_CallStack.t -> t.
    Definition get_sf (s:t) : DEX_CallStack.t :=
      match s with
-       normal _ sf => sf
+       normal _ _ sf => sf
      end.
    Definition get_m (s:t) : DEX_Method :=
      match s with
-       normal (DEX_Frame.make m _ _)_ => m
+       normal _ (DEX_Frame.make m _ _)_ => m
      end.
  End DEX_STATE.
  Declare Module DEX_State : DEX_STATE.
@@ -214,8 +214,14 @@ Module Type DEX_SEMANTIC_DOMAIN.
  Notation St := DEX_State.normal.
  Notation Fr := DEX_Frame.make.
 
+  Inductive isReference : DEX_value -> Prop :=
+  | isReference_null : isReference Null
+  | isReference_ref : forall loc, isReference (Ref loc).
+
   (** compatibility between ValKind and value *) 
   Inductive compat_ValKind_value : DEX_ValKind -> DEX_value -> Prop :=
+    | compat_ValKind_value_ref : forall v,
+        isReference v -> compat_ValKind_value DEX_Aval v
     | compat_ValKind_value_int : forall n,
         compat_ValKind_value DEX_Ival (Num (I n)).
 

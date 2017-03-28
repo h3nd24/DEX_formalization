@@ -13,6 +13,7 @@ Import DEX_Dom.
 Open Scope type_scope.
 
   Section DEX_typing_rules.   (** Typing rules **)
+    Variable p : DEX_ExtendedProgram.
     Variable m : DEX_Method.
     Variable sgn : DEX_sign.
     Variable region : DEX_PC -> DEX_PC -> Prop.
@@ -116,7 +117,28 @@ Open Scope type_scope.
       In rs (MapList.dom rt) ->
       MapList.get rt rs = Some ks ->
       texec i (DEX_IbinopConst op r rs v) rt 
-       (Some (MapList.update rt r (L.Simple (ks U (se i)))))   
+       (Some (MapList.update rt r (L.Simple (ks U (se i)))))
+
+    | DEX_iget : forall i f k ko r ro rt,
+      In r (MapList.dom rt) ->
+      In ro (MapList.dom rt) ->
+      MapList.get rt ro = Some ko ->
+      texec i (DEX_Iget k r ro f) rt 
+        (Some (MapList.update rt r (L.Simple ((se i) U (ko U (DEX_ft p f))))))
+
+    | DEX_iput : forall i f k ko ks ro rs rt,
+      In rs (MapList.dom rt) ->
+      In ro (MapList.dom rt) ->
+      MapList.get rt ro = Some ko ->
+      MapList.get rt rs = Some ks ->
+      ks <= DEX_ft p f ->
+      ko <= DEX_ft p f ->
+      se i <= DEX_ft p f ->
+      texec i (DEX_Iput k rs ro f) rt (Some rt)
+
+    | DEX_new : forall i r rt c,
+      In r (MapList.dom rt) ->
+      texec i (DEX_New r c) rt (Some (MapList.update rt r (L.Simple (se i))))
     .
 
     Section DEX_RT.
@@ -326,7 +348,32 @@ Open Scope type_scope.
           match MapList.get rt1 rs with
             | Some ks => (tsub_next i (MapList.update rt1 r (L.Simple (ks U (se i)))) )
             | None => false
-          end   
+          end  
+ 
+        | DEX_Iget _ r ro f, rt1 =>
+          in_test r (MapList.dom rt1) && in_test ro (MapList.dom rt1) &&
+          match MapList.get rt1 ro with
+            | Some k_ro =>
+                tsub_next i (MapList.update rt1 r 
+                  (L.join (se i) (L.join (k_ro) (DEX_ft p f))))
+            | None => false
+          end
+
+        | DEX_Iput _ rs ro f, rt1 =>
+          in_test rs (MapList.dom rt1) && in_test ro (MapList.dom rt1) &&
+          match MapList.get rt1 rs with
+            | Some ks => match MapList.get rt1 ro with
+                | Some ko =>
+                    leql_t ks (DEX_ft p f) && leql_t ko (DEX_ft p f) && 
+                    leql_t (se i) (DEX_ft p f) && tsub_next i rt1
+                | None => false
+              end
+            | None => false
+          end
+
+        | DEX_New r _, rt1=>
+          in_test r (MapList.dom rt1) &&
+          tsub_next i (MapList.update rt1 r (L.Simple (se i)))
       end.
 
    Ltac flatten_bool :=
@@ -529,6 +576,18 @@ Open Scope type_scope.
        flatten_bool; replace_selift.
        exists (RT i); split. apply DEX_sparseSwitch with (k:=t0).
        apply Hr. apply H. replace_for_all. apply H2.
+      (* Iput *)
+      exists (RT i). flatten_bool. 
+      destruct (MapList.get (RT i) rs) eqn:Hks; destruct (MapList.get (RT i) ro) eqn:Hko; flatten; try (inversion H2; fail).
+      unfold tsub_next in H4. rewrite H1 in H4.
+      split; auto. econstructor; try (apply in_test_true_In); eauto.
+      (* Iget *)
+      flatten. destruct (MapList.get (RT i) ro) eqn:Hko.
+      unfold tsub_next in H2. rewrite H1 in H2.
+      flatten2. econstructor; try (apply in_test_true_In); eauto.
+      inversion H2.
+      (* New *)
+      flatten2. constructor; try (apply in_test_true_In); auto.
    Qed.
  End DEX_RT.
 End DEX_typing_rules.
