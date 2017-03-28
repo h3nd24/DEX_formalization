@@ -229,6 +229,7 @@
   | new : forall h m pc pc' regs regs' c rt loc h',
 
     instructionAt m pc = Some (DEX_New rt c) ->
+    In rt (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     DEX_Heap.new h p (DEX_Heap.DEX_LocationObject c) = Some (pair loc h') ->
     regs' = DEX_Registers.update regs rt (Ref loc) -> 
@@ -238,6 +239,8 @@
   | iput : forall h m pc pc' regs f rs ro loc cn k v,
 
     instructionAt m pc = Some (DEX_Iput k rs ro f) ->
+    In rs (DEX_Registers.dom regs) ->
+    In ro (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get regs ro ->
     Some v = DEX_Registers.get regs rs ->
@@ -251,6 +254,8 @@
   | getfield : forall h m pc pc' regs regs' rt ro loc f k v cn,
 
     instructionAt m pc = Some (DEX_Iget k rt ro f) ->
+    In rt (DEX_Registers.dom regs) ->
+    In ro (DEX_Registers.dom regs) ->
     next m pc = Some pc' ->
     Some (Ref loc) = DEX_Registers.get regs ro ->
     DEX_Heap.typeof h loc = Some (DEX_Heap.DEX_LocationObject cn) -> 

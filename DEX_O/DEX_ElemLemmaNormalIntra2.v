@@ -20,25 +20,27 @@ Ltac indist2_intra_normal_aux Hindistreg rn:=
   try (constructor 2; rewrite ?DEX_Registers.get_update_old; auto).
 
 Lemma indist2_intra_normal : 
- forall se reg m sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2',
+ forall se reg m sgn pc pc2 pc2' i r1 rt1 h1 b1 
+      r1' rt1' h1' b1' r2 rt2 h2 b2 r2' rt2' h2' b2',
    instructionAt m pc = Some i ->
 
-   NormalStep se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
-   NormalStep se reg m sgn i (pc,r1') rt1' (pc2',r2') rt2' ->
-   st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
+   NormalStep kobs p se reg m sgn i (pc,(h1,r1)) rt1 b1 (pc2,(h2,r2)) rt2 b2 ->
+   NormalStep kobs p se reg m sgn i (pc,(h1',r1')) rt1' b1' (pc2',(h2',r2')) rt2' b2'->
+   st_in kobs (DEX_ft p) b1 b1' rt1 rt1' (pc,h1,r1) (pc,h1',r1') ->
 
-   st_in kobs rt2 rt2' (pc2,r2) (pc2',r2').
+   st_in kobs (DEX_ft p) b2 b2' rt2 rt2' (pc2,h2,r2) (pc2',h2',r2').
 Proof.
-  intros se reg m sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2'
+  intros se reg m sgn pc pc2 pc2' i r1 rt1 h1 b1 
+      r1' rt1' h1' b1' r2 rt2 h2 b2 r2' rt2' h2' b2'
     Hins Hstep Hstep' Hindist.
+  inversion_clear Hindist.
   destruct i; simpl in Hstep, Hstep';
-  inversion_clear Hstep in Hins Hstep' Hindist;
-  inversion_clear Hstep' in Hindist;
-  apply inv_st_in in Hindist;  
-  constructor; auto.
+  inversion_clear Hstep in Hins Hstep' H H0;
+  inversion_clear Hstep' in H H0;
+  constructor; auto. 
   (* DEX_Move *)
   subst.
-  inversion Hindist as [Heqset Hindistreg].
+  inversion H as [Heqset Hindistreg].
   constructor; auto. 
   (* proving eq_set *)
   rewrite MapList.domain_inv; auto. rewrite MapList.domain_inv; auto.

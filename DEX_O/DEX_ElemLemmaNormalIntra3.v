@@ -21,16 +21,16 @@ Ltac soap2_intra_normal_aux Hreg_in H Hreg r lvl Hget_ori Hvalue_opt_in k k':=
 
 (* High Branching *)
 Lemma soap2_intra_normal : 
- forall sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2' ,
+ forall sgn pc pc2 pc2' i r1 rt1 h1 b1 r1' rt1' h1' b1' r2 rt2 h2 b2 r2' rt2' h2' b2',
    instructionAt m pc = Some i ->
-   NormalStep se reg m sgn i (pc,r1) rt1 (pc2,r2) rt2 ->
-   NormalStep se reg m sgn i (pc,r1') rt1' (pc2',r2') rt2' ->
+   NormalStep kobs p se reg m sgn i (pc,(h1,r1)) rt1 b1 (pc2,(h2,r2)) rt2 b2 ->
+   NormalStep kobs p se reg m sgn i (pc,(h1',r1')) rt1' b1' (pc2',(h2',r2')) rt2' b2' ->
    pc2 <> pc2' ->
-   st_in kobs rt1 rt1' (pc,r1) (pc,r1') ->
+   st_in kobs (DEX_ft p) b1 b1' rt1 rt1' (pc,h1,r1) (pc,h1',r1') ->
 
     forall j, reg pc j -> ~ L.leql (se j) kobs.
 Proof.
-  intros sgn pc pc2 pc2' i r1 rt1 r1' rt1' r2 r2' rt2 rt2' Hins Hstep Hstep' Hpc Hst_in j Hreg.
+  intros sgn pc pc2 pc2' i r1 rt1 h1 b1 r1' rt1' h1' b1' r2 rt2 h2 b2 r2' rt2' h2' b2' Hins Hstep Hstep' Hpc Hst_in j Hreg.
   destruct i; simpl in Hins, Hstep, Hstep', Hst_in; 
   inversion_clear Hstep in Hins Hstep' Hpc Hst_in;
   inversion_clear Hstep' in Hpc Hst_in; subst;

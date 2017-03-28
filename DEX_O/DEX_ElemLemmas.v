@@ -62,9 +62,9 @@ Ltac reduce_leql_dec_strong :=
              rewrite Heq; clear h Heq)]))
   end.
 
-Lemma inv_st_in : forall kobs pc0 pc1 r0 r1 rt0 rt1,
- st_in kobs rt1 rt0 (pc1, r1) (pc0, r0) ->
-   Regs_in kobs r1 r0 rt1 rt0.
+Lemma inv_st_in : forall kobs ft pc0 pc1 r0 r1 b0 b1 rt0 rt1 h0 h1,
+ st_in kobs ft b1 b0 rt1 rt0 (pc1, h1, r1) (pc0, h0, r0) ->
+   Regs_in kobs b1 b0 r1 r0 rt1 rt0.
 Proof.
   intros.
   inversion_clear H; intuition.

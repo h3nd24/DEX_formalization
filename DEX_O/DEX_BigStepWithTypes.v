@@ -373,7 +373,7 @@ Module DEX_BigStepWithTypes.
         ko <= (ft f) -> 
         (se pc) <= (ft f) -> 
 
-        NormalStep_iput vk rs ro f m sgn (pc,(h,r)) rt b (pc',(h,r)) rt' b.
+        NormalStep_iput vk rs ro f m sgn (pc,(h,r)) rt b (pc',(h',r)) rt' b.
 
       Inductive NormalStep_new (reg:DEX_Reg) (c:DEX_ClassName) (m:DEX_Method) (sgn:DEX_sign)  :
         DEX_IntraNormalState -> TypeRegisters -> FFun.t DEX_Location -> 
@@ -386,7 +386,7 @@ Module DEX_BigStepWithTypes.
         DEX_Heap.new h p (DEX_Heap.DEX_LocationObject c) = Some (pair loc h') ->
         r' = DEX_Registers.update r reg (Ref loc) -> 
         rt' = MapList.update rt reg (se pc) ->
-        NormalStep_new reg c m sgn (pc,(h,r)) rt b (pc',(h,r')) rt' (newb (se pc) b loc).
+        NormalStep_new reg c m sgn (pc,(h,r)) rt b (pc',(h',r')) rt' (newb (se pc) b loc).
 
       Definition NormalStep 
         (m:DEX_Method) (sgn:DEX_sign) (i:DEX_Instruction) :
