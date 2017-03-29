@@ -70,7 +70,7 @@ Proof.
     rewrite H; econstructor; eauto.
   (* New *)
   exists (newb kobs (se pc) b1 loc). split; auto.
-  econstructor; eauto.
+  econstructor; eauto. 
   unfold newb. destruct (L.leql_dec (se pc) kobs); auto.
   (* Iput *)
   exists b1; split; auto.

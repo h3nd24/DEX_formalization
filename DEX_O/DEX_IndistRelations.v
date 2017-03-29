@@ -291,6 +291,33 @@ Section p.
     intros;  subst; constructor; auto.
   Qed.
 
+  Lemma Reg_in_upd_low: 
+    forall k (v v' : DEX_value) (r r' : DEX_Registers.t) (rt rt' : TypeRegisters)
+      (reg : DEX_Reg) (b b': FFun.t DEX_Location), 
+      Reg_in kobs b b' r r' rt rt' reg -> 
+      Value_in b b' v v' -> 
+      L.leql k kobs ->
+      Reg_in kobs b b' (DEX_Registers.update r reg v) (DEX_Registers.update r' reg v')
+      (MapList.update rt reg k) (MapList.update rt' reg k) reg.
+  Proof.
+    intros k v v' r r' rt rt' reg b b' HRegIn HValIn Hleq.
+    constructor 2. rewrite ?DEX_Registers.get_update_new.
+    constructor; auto.
+  Qed.
+
+  Lemma Reg_in_upd_high:
+    forall k k' (v v' : DEX_value) (r r' : DEX_Registers.t) (rt rt' : TypeRegisters)
+      (reg : DEX_Reg) (b b': FFun.t DEX_Location), 
+      Reg_in kobs b b' r r' rt rt' reg ->  
+      ~L.leql k kobs ->
+      ~L.leql k' kobs ->
+      Reg_in kobs b b' (DEX_Registers.update r reg v) (DEX_Registers.update r' reg v')
+      (MapList.update rt reg k) (MapList.update rt' reg k') reg.
+  Proof.
+    intros k k' v v' r r' rt rt' reg b b' HRegIn Hnleq1 Hnleq2.
+    constructor 1 with (k:=k) (k':=k'); try (rewrite MapList.get_update1); auto.
+  Qed.
+
   Lemma ffun_extends_val_in: forall b b' v v' loc loc',
     Value_in b b' v v' ->
     Value_in (FFun.extends b loc) (FFun.extends b' loc') 

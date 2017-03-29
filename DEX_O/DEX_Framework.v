@@ -41,36 +41,38 @@ Variable exec_step_none : forall m s s',
   PM m -> exec m (* kd *) s (inr _ s')-> m |- (pc s) =>.
 
 Variable registertypes : Type.
+Variable pbij : Type.
 
 Variable texec : forall m, PM m ->
       Sign -> (PC->L.t) -> PC ->
       registertypes -> option registertypes -> Prop.
 Variable high_reg : registertypes -> Reg -> Prop.
-Variable indist_reg_val : istate -> istate -> Reg -> Prop.
-Variable indist_reg_val_trans : forall s1 s2 s3 r, 
-  indist_reg_val s1 s2 r -> indist_reg_val s2 s3 r -> indist_reg_val s1 s3 r.
-Variable indist_reg_val_sym : forall s1 s2 r, 
-  indist_reg_val s1 s2 r -> indist_reg_val s2 s1 r.
-Inductive indist_reg : registertypes -> registertypes -> istate -> istate -> Reg -> Prop :=
-  | high_indist_reg : forall rt1 rt2 s1 s2 r,
-      high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 r
-  | low_indist_reg : forall rt1 rt2 s1 s2 r, indist_reg_val s1 s2 r -> indist_reg rt1 rt2 s1 s2 r.
-Variable indist : Sign -> registertypes -> registertypes -> istate -> istate -> Prop.
-Variable indist_from_reg : forall sgn rt1 rt2 s1 s2, 
-  (forall r, indist_reg rt1 rt2 s1 s2 r) -> indist sgn rt1 rt2 s1 s2.
-Variable indist_reg_from_indist : forall sgn rt1 rt2 s1 s2,
-  indist sgn rt1 rt2 s1 s2 -> 
+Variable indist_reg_val : istate -> istate -> pbij -> pbij -> Reg -> Prop.
+Variable indist_reg_val_trans : forall s1 s2 s3 b1 b2 b3 r, 
+  indist_reg_val s1 s2 b1 b2 r -> indist_reg_val s2 s3 b2 b3 r -> indist_reg_val s1 s3 b1 b3 r.
+Variable indist_reg_val_sym : forall s1 s2 b1 b2 r, 
+  indist_reg_val s1 s2 b1 b2 r -> indist_reg_val s2 s1 b2 b1 r.
+Inductive indist_reg : registertypes -> registertypes -> istate -> istate -> pbjij -> pbjij -> Reg -> Prop :=
+  | high_indist_reg : forall rt1 rt2 s1 s2 b1 b2 r,
+      high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 b1 b2 r
+  | low_indist_reg : forall rt1 rt2 s1 s2 b1 b2 r, indist_reg_val s1 s2 b1 b2 r -> 
+      indist_reg rt1 rt2 s1 s2 b1 b2 r.
+Variable indist : Sign -> registertypes -> registertypes -> pbij -> pbij -> istate -> istate -> Prop.
+Variable indist_from_reg : forall sgn rt1 rt2 s1 s2 b1 b2 , 
+  (forall r, indist_reg rt1 rt2 s1 s2 b1 b2 r) -> indist sgn rt1 rt2 b1 b2 s1 s2.
+Variable indist_reg_from_indist : forall sgn rt1 rt2 s1 s2 b1 b2 ,
+  indist sgn rt1 rt2 b1 b2 s1 s2 -> 
   forall r, 
-    (high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 r) /\ 
+    (high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 b1 b2 r) /\ 
     ((~high_reg rt1 r /\ ~high_reg rt2 r) \/
       (high_reg rt1 r /\ ~high_reg rt2 r) \/
       (~high_reg rt1 r /\ high_reg rt2 r) ->
-    indist_reg_val s1 s2 r).
-Variable rindist : Sign -> rstate -> rstate -> Prop.
-Variable indist_sym : forall m rt1 rt2 s1 s2,
- indist m rt1 rt2 s1 s2 -> indist m rt2 rt1 s2 s1.
-Variable rindist_sym : forall m s1 s2,
- rindist m s1 s2 -> rindist m s2 s1.
+    indist_reg_val s1 s2 b1 b2 r).
+Variable rindist : Sign -> pbij -> pbij -> rstate -> rstate -> Prop.
+Variable indist_sym : forall m rt1 rt2 s1 s2 b1 b2,
+ indist m rt1 rt2 s1 s2 b1 b2 -> indist m rt2 rt1 s2 s1 b2 b1.
+Variable rindist_sym : forall m s1 s2 b1 b2,
+ rindist m b1 b2 s1 s2 -> rindist m b2 b1 s2 s1.
 
 Variable high_result : Sign -> rstate -> Prop.
 
@@ -84,6 +86,13 @@ Inductive evalsto (m:Method) : nat -> istate -> rstate -> Prop :=
      exec m (* k *) s1 (inl _ s2) -> 
      evalsto m n s2 res ->
      evalsto m (S n) s1 res.
+
+Variable border : pbij -> pbij -> Prop.
+Variable border_refl : forall b, border b b.
+Variable border_trans : forall b1 b2 b3, 
+  border b1 b2 ->
+  border b2 b3 ->
+  border b1 b3.
 
 Variable P : SignedMethod -> Prop.
 
@@ -99,7 +108,10 @@ Definition ni :=
   init_pc m (pc s') ->
   evalsto m p s r ->
   evalsto m p' s' r' ->
-  rindist sgn r r'.
+  exists br, exists br',
+  border b br /\
+  border b' br' /\
+  rindist sgn br br' r r'.
   
   
 (* seems weird to have same rt *)
@@ -111,7 +123,10 @@ Variable indist2_intra : forall m sgn se rt ut ut' s s' u u',
   exec m s' (inl _ u') ->
   texec m (PM_P _ H0) sgn se (pc s) rt (Some ut) ->
   texec m (PM_P _ H0) sgn se (pc s) rt (Some ut') ->
-    indist sgn ut ut' u u'.
+    exists bu, exists bu',
+    border b bu /\
+    border b' bu' /\
+    indist sgn ut ut' bu bu' u u'.
 
 Variable indist2_return : forall m sgn se rt s s' u u',
   forall H0:P (SM m sgn),
@@ -121,7 +136,10 @@ Variable indist2_return : forall m sgn se rt s s' u u',
   exec m s' (inr _ u')-> 
   texec m (PM_P _ H0) sgn se (pc s) rt None ->
   texec m (PM_P _ H0) sgn se (pc s) rt None ->
-    rindist sgn u u'.
+    exists bu, exists bu',
+    border b bu /\
+    border b' bu' /\
+    rindist sgn bu bu' u u'.
 
 (* high branching *)
 Variable soap2_basic_intra : forall m sgn se rt ut ut' s s' u u',
@@ -172,8 +190,8 @@ Variable tevalsto_diff_high_result : forall se RT m sgn s s' p res res' (H:PM m)
   tevalsto m H sgn (se m sgn) (RT m sgn) 1 s res -> tevalsto m H sgn (se m sgn) (RT m sgn) p s' res' -> 
   high_result sgn res /\ high_result sgn res'.
 
-Variable high_result_indist : forall sgn res res0,
-  high_result sgn res -> high_result sgn res0 -> rindist sgn res res0.
+Variable high_result_indist : forall sgn res res0 b b0,
+  high_result sgn res -> high_result sgn res0 -> rindist sgn b b0 res res0.
 
 Variable eq_map : registertypes -> registertypes -> Prop.
 Variable eq_map_refl : reflexive registertypes eq_map.
@@ -189,8 +207,9 @@ Add Setoid registertypes eq_map map_setoid as eq_map_rel.
 
 Variable indist_morphism_proof : forall (y : Sign) (x y0 : registertypes),
 eq_map x y0 ->
-forall x0 y1 : registertypes,
-eq_map x0 y1 -> forall y2 y3 : istate, indist y x x0 y2 y3 <-> indist y y0 y1 y2 y3.
+forall (x0 y1 : registertypes),
+eq_map x0 y1 -> forall (b2 b3 : pbij) (y2 y3 : istate), 
+  indist y x x0 b2 b3 y2 y3 <-> indist y y0 y1 b2 b3 y2 y3.
 Add Morphism indist : indist_morphism. Proof. exact indist_morphism_proof. Qed.
 
 Definition Typable (m:Method) (H:PM m) (sgn:Sign) (se:Method->Sign->PC->L.t) (RT:Method->Sign->PC->registertypes) : Prop :=
@@ -285,15 +304,15 @@ Proof.
     intros. unfold not in H2. apply H2 in H10. contradiction.
 Qed.
 
-Lemma final_bighighstep : forall m sgn p i s0 s res res0
+Lemma final_bighighstep : forall m sgn p i s0 s res res0 b b0 
   (H:P (SM m sgn)),
   pc s = pc s0 ->
   evalsto m p s res-> 
   evalsto m 1 s0 res0 ->
   region (cdr m (PM_P _ H)) i (pc s)-> 
-  indist sgn (RT m sgn (pc s)) (RT m sgn (pc s0)) s s0 ->
+  indist sgn (RT m sgn (pc s)) (RT m sgn (pc s0)) b b0 s s0 ->
   high_region m (PM_P _ H) sgn i ->
-    rindist sgn res res0.
+    rindist sgn b b0 res res0.
 Proof.
   intros.
   inversion H2; try (inversion H8).
