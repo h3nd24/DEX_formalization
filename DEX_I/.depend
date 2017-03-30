@@ -1,0 +1,70 @@
+EqBoolAux.vo EqBoolAux.glob EqBoolAux.v.beautified: EqBoolAux.v
+EqBoolAux.vio: EqBoolAux.v
+ListAux.vo ListAux.glob ListAux.v.beautified: ListAux.v
+ListAux.vio: ListAux.v
+PosAux.vo PosAux.glob PosAux.v.beautified: PosAux.v
+PosAux.vio: PosAux.v
+MapSignatures.vo MapSignatures.glob MapSignatures.v.beautified: MapSignatures.v EqBoolAux.vo ListAux.vo
+MapSignatures.vio: MapSignatures.v EqBoolAux.vio ListAux.vio
+MapList.vo MapList.glob MapList.v.beautified: MapList.v PosAux.vo
+MapList.vio: MapList.v PosAux.vio
+BinArrayBot.vo BinArrayBot.glob BinArrayBot.v.beautified: BinArrayBot.v MapSignatures.vo
+BinArrayBot.vio: BinArrayBot.v MapSignatures.vio
+BinArray.vo BinArray.glob BinArray.v.beautified: BinArray.v PosAux.vo EqBoolAux.vo BinArrayBot.vo
+BinArray.vio: BinArray.v PosAux.vio EqBoolAux.vio BinArrayBot.vio
+Tactics.vo Tactics.glob Tactics.v.beautified: Tactics.v
+Tactics.vio: Tactics.v
+Lib.vo Lib.glob Lib.v.beautified: Lib.v Tactics.vo EqBoolAux.vo PosAux.vo BinArray.vo MapSignatures.vo MapList.vo
+Lib.vio: Lib.v Tactics.vio EqBoolAux.vio PosAux.vio BinArray.vio MapSignatures.vio MapList.vio
+DEX_Program.vo DEX_Program.glob DEX_Program.v.beautified: DEX_Program.v
+DEX_Program.vio: DEX_Program.v
+DEX_Domain.vo DEX_Domain.glob DEX_Domain.v.beautified: DEX_Domain.v DEX_Program.vo Numeric.vo
+DEX_Domain.vio: DEX_Domain.v DEX_Program.vio Numeric.vio
+DEX_BigStepType.vo DEX_BigStepType.glob DEX_BigStepType.v.beautified: DEX_BigStepType.v DEX_Domain.vo ./DEX_BigStepLoad.v
+DEX_BigStepType.vio: DEX_BigStepType.v DEX_Domain.vio ./DEX_BigStepLoad.v
+DEX_BigStep.vo DEX_BigStep.glob DEX_BigStep.v.beautified: DEX_BigStep.v DEX_BigStepType.vo DEX_ImplemDomain.vo ./DEX_BigStepLoad.v
+DEX_BigStep.vio: DEX_BigStep.v DEX_BigStepType.vio DEX_ImplemDomain.vio ./DEX_BigStepLoad.v
+LoadBicolano.vo LoadBicolano.glob LoadBicolano.v.beautified: LoadBicolano.v Tactics.vo DEX_BigStep.vo DEX_ImplemDomain.vo
+LoadBicolano.vio: LoadBicolano.v Tactics.vio DEX_BigStep.vio DEX_ImplemDomain.vio
+Numeric.vo Numeric.glob Numeric.v.beautified: Numeric.v
+Numeric.vio: Numeric.v
+Axioms.vo Axioms.glob Axioms.v.beautified: Axioms.v
+Axioms.vio: Axioms.v
+Level.vo Level.glob Level.v.beautified: Level.v Lib.vo
+Level.vio: Level.v Lib.vio
+DEX_ImplemProgramWithMap.vo DEX_ImplemProgramWithMap.glob DEX_ImplemProgramWithMap.v.beautified: DEX_ImplemProgramWithMap.v DEX_Program.vo Lib.vo
+DEX_ImplemProgramWithMap.vio: DEX_ImplemProgramWithMap.v DEX_Program.vio Lib.vio
+DEX_ImplemDomain.vo DEX_ImplemDomain.glob DEX_ImplemDomain.v.beautified: DEX_ImplemDomain.v DEX_ImplemProgramWithMap.vo DEX_Domain.vo
+DEX_ImplemDomain.vio: DEX_ImplemDomain.v DEX_ImplemProgramWithMap.vio DEX_Domain.vio
+DEX_BigStepAnnot.vo DEX_BigStepAnnot.glob DEX_BigStepAnnot.v.beautified: DEX_BigStepAnnot.v LoadBicolano.vo
+DEX_BigStepAnnot.vio: DEX_BigStepAnnot.v LoadBicolano.vio
+Annotated.vo Annotated.glob Annotated.v.beautified: Annotated.v LoadBicolano.vo Level.vo Axioms.vo
+Annotated.vio: Annotated.v LoadBicolano.vio Level.vio Axioms.vio
+cdr.vo cdr.glob cdr.v.beautified: cdr.v
+cdr.vio: cdr.v
+check_cdr.vo check_cdr.glob check_cdr.v.beautified: check_cdr.v Lib.vo cdr.vo
+check_cdr.vio: check_cdr.v Lib.vio cdr.vio
+DEX_Framework.vo DEX_Framework.glob DEX_Framework.v.beautified: DEX_Framework.v Level.vo cdr.vo Axioms.vo Tactics.vo
+DEX_Framework.vio: DEX_Framework.v Level.vio cdr.vio Axioms.vio Tactics.vio
+DEX_step.vo DEX_step.glob DEX_step.v.beautified: DEX_step.v Annotated.vo
+DEX_step.vio: DEX_step.v Annotated.vio
+DEX_typing_rules.vo DEX_typing_rules.glob DEX_typing_rules.v.beautified: DEX_typing_rules.v DEX_BigStepAnnot.vo DEX_step.vo
+DEX_typing_rules.vio: DEX_typing_rules.v DEX_BigStepAnnot.vio DEX_step.vio
+DEX_BigStepWithTypes.vo DEX_BigStepWithTypes.glob DEX_BigStepWithTypes.v.beautified: DEX_BigStepWithTypes.v DEX_IndistRelations.vo
+DEX_BigStepWithTypes.vio: DEX_BigStepWithTypes.v DEX_IndistRelations.vio
+DEX_IndistRelations.vo DEX_IndistRelations.glob DEX_IndistRelations.v.beautified: DEX_IndistRelations.v DEX_BigStepAnnot.vo Annotated.vo
+DEX_IndistRelations.vio: DEX_IndistRelations.v DEX_BigStepAnnot.vio Annotated.vio
+DEX_ProofBigStepWithType.vo DEX_ProofBigStepWithType.glob DEX_ProofBigStepWithType.v.beautified: DEX_ProofBigStepWithType.v DEX_typing_rules.vo DEX_BigStepWithTypes.vo
+DEX_ProofBigStepWithType.vio: DEX_ProofBigStepWithType.v DEX_typing_rules.vio DEX_BigStepWithTypes.vio
+DEX_ElemLemmas.vo DEX_ElemLemmas.glob DEX_ElemLemmas.v.beautified: DEX_ElemLemmas.v DEX_BigStepWithTypes.vo
+DEX_ElemLemmas.vio: DEX_ElemLemmas.v DEX_BigStepWithTypes.vio
+DEX_ElemLemmaNormalIntra2.vo DEX_ElemLemmaNormalIntra2.glob DEX_ElemLemmaNormalIntra2.v.beautified: DEX_ElemLemmaNormalIntra2.v DEX_ElemLemmas.vo
+DEX_ElemLemmaNormalIntra2.vio: DEX_ElemLemmaNormalIntra2.v DEX_ElemLemmas.vio
+DEX_ElemLemmaNormalIntra3.vo DEX_ElemLemmaNormalIntra3.glob DEX_ElemLemmaNormalIntra3.v.beautified: DEX_ElemLemmaNormalIntra3.v DEX_ElemLemmas.vo
+DEX_ElemLemmaNormalIntra3.vio: DEX_ElemLemmaNormalIntra3.v DEX_ElemLemmas.vio
+DEX_ElemLemmaIntra.vo DEX_ElemLemmaIntra.glob DEX_ElemLemmaIntra.v.beautified: DEX_ElemLemmaIntra.v DEX_ElemLemmas.vo DEX_ElemLemmaNormalIntra2.vo DEX_ElemLemmaNormalIntra3.vo
+DEX_ElemLemmaIntra.vio: DEX_ElemLemmaIntra.v DEX_ElemLemmas.vio DEX_ElemLemmaNormalIntra2.vio DEX_ElemLemmaNormalIntra3.vio
+DEX_ElemLemmaReturn.vo DEX_ElemLemmaReturn.glob DEX_ElemLemmaReturn.v.beautified: DEX_ElemLemmaReturn.v DEX_ElemLemmas.vo
+DEX_ElemLemmaReturn.vio: DEX_ElemLemmaReturn.v DEX_ElemLemmas.vio
+DEX_Final.vo DEX_Final.glob DEX_Final.v.beautified: DEX_Final.v DEX_Framework.vo DEX_ProofBigStepWithType.vo DEX_ElemLemmas.vo DEX_ElemLemmaIntra.vo DEX_ElemLemmaReturn.vo DEX_step.vo DEX_typing_rules.vo check_cdr.vo
+DEX_Final.vio: DEX_Final.v DEX_Framework.vio DEX_ProofBigStepWithType.vio DEX_ElemLemmas.vio DEX_ElemLemmaIntra.vio DEX_ElemLemmaReturn.vio DEX_step.vio DEX_typing_rules.vio check_cdr.vio

@@ -5,9 +5,9 @@ COQDEP =$(COQLIB)coqdep
 COQSRC =EqBoolAux.v ListAux.v PosAux.v \
 	MapSignatures.v MapList.v BinArrayBot.v BinArray.v \
 	Tactics.v Lib.v \
-        DEX_Domain.v DEX_BigStepType.v \
+        DEX_Program.v DEX_Domain.v DEX_BigStepType.v \
         DEX_BigStep.v LoadBicolano.v \
-	DEX_Program.v Numeric.v Axioms.v \
+	Numeric.v Axioms.v \
 	Level.v \
 	DEX_ImplemProgramWithMap.v DEX_ImplemDomain.v DEX_BigStepAnnot.v Annotated.v \
         cdr.v check_cdr.v DEX_Framework.v \
