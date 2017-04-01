@@ -105,25 +105,28 @@ Section hyps.
     evalsto m s2 r ->
     evalsto m s1 r. 
 
-  Definition pc : istate -> PC := @fst _ _.
-
   Definition registertypes : Type := TypeRegisters.
+  Definition pbij : Set := FFun.t DEX_Location.
+
+  Definition pc : istate -> PC := @fst _ _.
 
   Definition texec : forall m, PM p m -> Sign -> (PC -> L.t) ->
     PC -> registertypes -> option registertypes -> Prop :=
     fun m H sgn se pc rt ort =>
-      exists i, texec sgn (region (cdr m H)) se pc i rt ort
+      exists i, texec p sgn (region (cdr m H)) se pc i rt ort
         /\ instructionAt m pc = Some i.
 
-  Inductive indist : Sign -> registertypes ->
-    registertypes -> istate -> istate -> Prop :=
-    indist_def :forall sgn rt1 rt2 r1 r2 pc1 pc2,
-      st_in kobs rt1 rt2 (pc1,r1) (pc2,r2) ->
-      indist sgn rt1 rt2 (pc1,r1) (pc2,r2).
+  Inductive indist : Sign -> registertypes -> registertypes -> 
+      pbij -> pbij -> istate -> istate -> Prop :=
+    indist_def :forall sgn rt1 rt2 b1 b2 r1 r2 h1 h2 pc1 pc2,
+      st_in kobs (DEX_ft p) b1 b2 rt1 rt2 (pc1,h1,r1) (pc2,h2,r2) ->
+      indist sgn rt1 rt2 b1 b2 (pc1,(h1,r1)) (pc2,(h2,r2)).
 
-  Inductive rindist : Sign -> rstate -> rstate -> Prop :=
-  | rindist_def : forall sgn r1 r2,
-    indist_return_value kobs sgn r1 r2 -> rindist sgn r1 r2.
+  Inductive rindist : Sign -> pbij -> pbij -> rstate -> rstate -> Prop :=
+  | rindist_def : forall sgn r1 r2 b1 b2 h1 h2,
+    hp_in kobs (DEX_ft p) b1 b2 h1 h2 ->
+    indist_return_value kobs h1 h2 sgn r1 r2 b1 b2 -> 
+    rindist sgn b1 b2 (h1,r1) (h2,r2).
 
   Definition default_level := L.High.
 
@@ -138,7 +141,8 @@ Section hyps.
   | None => MapList.empty L.t
   end.
 
-  Definition ni := ni _ _ _ _ _ exec pc registertypes indist rindist rt0 init_pc P.
+  Definition ni := ni _ _ _ _ _ exec pc registertypes pbij indist rindist 
+    rt0 init_pc border P.
 
   Open Scope nat_scope.
 
@@ -221,15 +225,16 @@ Section hyps.
   Lemma indist_morphism_proof : forall (y : Sign) (x y0 : registertypes),
     eq_rt x y0 ->
     forall x0 y1 : registertypes,
-    eq_rt x0 y1 -> forall y2 y3 : istate, indist y x x0 y2 y3 <-> indist y y0 y1 y2 y3.
+    eq_rt x0 y1 -> forall (s2 s3 : istate) (b2 b3 : pbij), 
+    indist y x x0 b2 b3 s2 s3 <-> indist y y0 y1 b2 b3 s2 s3.
   Proof.
     split; intros.
     (* -> *)
     inversion_mine H1.
     constructor.
     inversion_mine H2.
-    inversion_mine H3.
-    constructor; constructor; intros.
+    inversion_mine H4.
+    constructor; auto; constructor; intros.
       (* same domain *)
       inversion H; inversion H0.
       rewrite <- H3; rewrite <- H5; auto.
@@ -240,20 +245,20 @@ Section hyps.
       inversion H2. 
       assert_some_not_none x rn H0.
       assert_some_not_none x0 rn H6.
-      apply MapList.get_some_in_dom in H9.
-      apply MapList.get_some_in_dom in H10.      
+      apply MapList.get_some_in_dom in H10.
+      apply MapList.get_some_in_dom in H11.      
       constructor 1 with (k:=k) (k':=k'); auto.
       rewrite eq_rt_get with (rt1:=y0) (rt2:=x); auto. apply eq_rt_sym; auto.
       rewrite <- H3; auto.
       rewrite eq_rt_get with (rt1:=y1) (rt2:=x0); auto. apply eq_rt_sym; auto.
-      rewrite H in H10; auto.
+      rewrite H in H11; auto.
       constructor 2. auto.
     (* <- *)
     inversion_mine H1.
     constructor.
     inversion_mine H2.
-    inversion_mine H3.
-    constructor; constructor; intros.
+    inversion_mine H4.
+    constructor; auto; constructor; intros.
       (* same domain *)
       inversion H; inversion H0.
       rewrite H3; rewrite H5; auto.
@@ -264,8 +269,8 @@ Section hyps.
       inversion H2. 
       assert_some_not_none y0 rn H0.
       assert_some_not_none y1 rn H6.
-      apply MapList.get_some_in_dom in H9.
-      apply MapList.get_some_in_dom in H10.      
+      apply MapList.get_some_in_dom in H10.
+      apply MapList.get_some_in_dom in H11.      
       constructor 1 with (k:=k) (k':=k'); auto.
       rewrite eq_rt_get with (rt1:=x) (rt2:=y0); auto. rewrite H3; auto.
       rewrite eq_rt_get with (rt1:=x0) (rt2:=y1); auto. rewrite H; auto. 
@@ -289,109 +294,124 @@ Section hyps.
 
     Variable not_high_reg : forall rt r, ~high_reg rt r -> (exists k, MapList.get rt r = Some k /\ L.leql k kobs).
 
-    Definition indist_reg_val (s1 s2: istate) (r: Reg) : Prop :=
-      let rho1 := snd s1 in
-      let rho2 := snd s2 in
+    Definition indist_reg_val (s1 s2: istate) (b1 b2: pbij) (r: Reg) : Prop :=
+      let rho1 := snd (snd s1) in
+      let rho2 := snd (snd s2) in
         match DEX_Registers.get rho1 r, DEX_Registers.get rho2 r with
-        | Some v1, Some v2 => v1 = v2
+        | Some v1, Some v2 => Value_in b1 b2 v1 v2
         | None, None => True
         | _, _ => False
         end.
 
-    Lemma indist_reg_val_trans : forall s1 s2 s3 r, 
-      indist_reg_val s1 s2 r -> indist_reg_val s2 s3 r -> indist_reg_val s1 s3 r.
+    Lemma indist_reg_val_trans : forall s1 s2 s3 b1 b2 b3 r, 
+      FFun.is_inj b2 ->
+      indist_reg_val s1 s2 b1 b2 r -> 
+      indist_reg_val s2 s3 b2 b3 r -> 
+      indist_reg_val s1 s3 b1 b3 r.
     Proof.
       intros.
       unfold indist_reg_val in *.
-      destruct (DEX_Registers.get (snd s1) r);
-      destruct (DEX_Registers.get (snd s2) r);
-      destruct (DEX_Registers.get (snd s3) r); auto.
-      rewrite H; auto. inversion H.
+      destruct (DEX_Registers.get (snd (snd s1)) r);
+      destruct (DEX_Registers.get (snd (snd s2)) r);
+      destruct (DEX_Registers.get (snd (snd s3)) r); auto.
+      apply Value_in_trans with (b2:=b2) (v2:=d0); auto.
+      inversion H0.
     Qed.
 
-    Lemma indist_reg_val_sym : forall s1 s2 r, 
-      indist_reg_val s1 s2 r -> indist_reg_val s2 s1 r.
+    Lemma indist_reg_val_sym : forall s1 s2 b1 b2 r, 
+      indist_reg_val s1 s2 b1 b2 r -> indist_reg_val s2 s1 b2 b1 r.
     Proof.
       unfold indist_reg_val in *.
       intros.
-      destruct (DEX_Registers.get (snd s1) r);
-      destruct (DEX_Registers.get (snd s2) r); auto.
+      destruct (DEX_Registers.get (snd (snd s1)) r);
+      destruct (DEX_Registers.get (snd (snd s2)) r); auto.
+      apply Value_in_sym; auto.
     Qed.
 
-    Definition indist_reg := DEX_Framework.indist_reg Reg istate registertypes high_reg indist_reg_val.
+    Definition indist_reg := DEX_Framework.indist_reg Reg 
+      istate registertypes pbij high_reg indist_reg_val.
 
-    Lemma indist_from_reg : forall sgn rt1 rt2 s1 s2, 
-      (forall r, indist_reg rt1 rt2 s1 s2 r) -> indist sgn rt1 rt2 s1 s2.
+    Lemma indist_from_reg : forall sgn rt1 rt2 b1 b2 pc1 h1 r1 pc2 h2 r2, 
+      hp_in kobs (DEX_ft p) b1 b2 h1 h2 ->
+      (forall r, indist_reg rt1 rt2 (pc1, (h1, r1)) (pc2, (h2, r2)) b1 b2 r) -> 
+      indist sgn rt1 rt2 b1 b2 (pc1, (h1, r1)) (pc2, (h2, r2)).
     Proof.
       intros.
-      destruct s1; destruct s2.
       constructor.
-      constructor.
+      constructor; auto.
       constructor.
       constructor.
         apply RT_domain_length_same.
         split; eapply RT_domain_same; eauto.
       intros.
-      specialize H with rn. 
-      inversion H.
+      specialize H0 with rn. 
+      inversion H0.
       unfold high_reg in *. 
       destruct (MapList.get rt1 rn) eqn:Hget1; destruct (MapList.get rt2 rn) eqn:Hget2; try (contradiction).
-      constructor 1 with (k:=t1) (k':=t2); auto. 
+      constructor 1 with (k:=t) (k':=t0); auto. 
       constructor 2. subst. unfold indist_reg_val in H0.
-      simpl in H0. destruct (DEX_Registers.get t rn); destruct (DEX_Registers.get t0 rn); subst; try contradiction.
-      destruct d2; repeat constructor.
-      constructor.
+      simpl in H0. unfold indist_reg_val in H1; simpl in H1.
+      destruct (DEX_Registers.get r1 rn); 
+        destruct (DEX_Registers.get r2 rn); subst; try contradiction.
+      constructor; auto. constructor.
     Qed.
 
-    Lemma indist_reg_from_indist : forall sgn rt1 rt2 s1 s2,
-      indist sgn rt1 rt2 s1 s2 -> 
+    Lemma indist_reg_from_indist : forall sgn rt1 rt2 b1 b2 s1 s2,
+      indist sgn rt1 rt2 b1 b2 s1 s2 -> 
       forall r, 
-        (high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 r) /\ 
+        (high_reg rt1 r -> high_reg rt2 r -> indist_reg rt1 rt2 s1 s2 b1 b2 r) /\ 
         ((~high_reg rt1 r /\ ~high_reg rt2 r) \/
           (high_reg rt1 r /\ ~high_reg rt2 r) \/
           (~high_reg rt1 r /\ high_reg rt2 r) ->
-        indist_reg_val s1 s2 r).
+        indist_reg_val s1 s2 b1 b2 r).
     Proof.
-      intros sgn rt1 rt2 s1 s2 Hindist r.
-      inversion Hindist. inversion H. inversion H6. subst. 
-      specialize H11 with (rn:=r).
-      inversion H11.
+      intros sgn rt1 rt2 b1 b2 s1 s2 Hindist r.
+      inversion Hindist as [sgn0 rt3 rt4 b0 b3 r1 r2 h1 h2 pc1 pc2 Hstin]; clear Hindist; subst.
+      inversion Hstin as [pc0 pc' h h' r0 r' HRegsIn HHpIn]; clear Hstin; subst.
+      inversion HRegsIn as [Heqset HRegIn].
+      specialize HRegIn with (rn:=r).
+      inversion HRegIn as [k k' Hget1 Hget2 Hnleq Hnleq' | HValInOpt].
       split; intros.
-      constructor; auto.
-      inversion H4. inversion H5.
-      unfold high_reg in H7, H8.
-      rewrite H0 in H7; rewrite H1 in H8. contradiction.
-      inversion H5. inversion H7. 
-      unfold high_reg in H8, H9.
-      rewrite H0 in H8; rewrite H1 in H9. contradiction.
-      inversion H7.
-      unfold high_reg in H8, H9.
-      rewrite H0 in H8; rewrite H1 in H9. contradiction.
+      constructor; auto. (* *)
+      inversion H as [HnHigh1 | HnHigh2_3]; clear H.
+      inversion HnHigh1 as [HnHigh_1 HnHigh_2]; clear HnHigh1.
+      unfold high_reg in HnHigh_1, HnHigh_2.
+      rewrite Hget1 in HnHigh_1; rewrite Hget2 in HnHigh_2. contradiction.
+      inversion HnHigh2_3 as [HnHigh2 | HnHigh3]; clear HnHigh2_3.
+      inversion HnHigh2 as [HHigh1 HnHigh_2]; clear HnHigh2.
+      unfold high_reg in HHigh1, HnHigh_2.
+      rewrite Hget1 in HHigh1; rewrite Hget2 in HnHigh_2. contradiction.
+      inversion HnHigh3 as [HnHigh_1 HHigh2]; clear HnHigh3.
+      unfold high_reg in HnHigh_1, HHigh2.
+      rewrite Hget1 in HnHigh_1; rewrite Hget2 in HHigh2. contradiction.
       split; intros. constructor; auto.
       unfold indist_reg_val. simpl.
       destruct (DEX_Registers.get r1 r); destruct (DEX_Registers.get r2 r); subst; auto.
-      inversion H0. inversion H4. auto.
-      inversion H0. inversion H0.
+      inversion HValInOpt as [v v' HValIn | ]; auto.
+      inversion HValInOpt. inversion HValInOpt.
     Qed.
 
     Definition high_result := high_result kobs.
 
-    Lemma tevalsto_high_result : forall m sgn (H:PM p m) se s RT res,
+    Lemma tevalsto_high_result : forall m sgn (H:PM p m) s res,
       ~L.leql (se m sgn (pc s)) kobs ->
       exec m s (inr res) ->
       texec m H sgn (se m sgn) (pc s) (RT m sgn (pc s)) None -> high_result sgn res.
     Proof.
-      intros.
-      inversion_mine H2. 
-      inversion_mine H1. Cleanexand.
-      inversion_mine H6. inversion_mine H3. 
-      inversion_mine H1. constructor 1. auto. 
-      simpl in H2. rewrite H2 in H5. inversion H5.
-      inversion_mine H1. simpl in H2. rewrite H2 in H5. inversion H5. 
+      intros m sgn H s res Hnleq Hexec Htexec.
+      inversion Htexec as [x Htexec']; clear Htexec.
+      inversion Hexec as [| m0 s0 ret Hexec']; clear Hexec; subst.
+      destruct Htexec' as [Htexec Hins].
+      inversion Hexec' as [h s0 ov HReturnStep]; subst.
+      inversion HReturnStep as [h0 m0 pc0 regs Hins' Hsig
+        | h0 m0 pc0 regs val t k rs Hins' Hinreg Hsig Hassign_compat Hcompat Hget]; subst.
+      inversion Htexec. constructor 1. auto.
+      subst. simpl in Hins. rewrite Hins in Hins'. inversion Hins'.
+      inversion Htexec. subst. simpl in Hins. rewrite Hins in Hins'. inversion Hins'.
       constructor 2 with (k:=kv); auto.
-      simpl in H0, H11.
-      apply leql_join_each in H11. Cleanexand.
-      apply not_leql_trans with (k1:=se0 m sgn pc0); auto.
+      simpl in H3, Hnleq.
+      apply leql_join_each in H3. Cleanexand.
+      apply not_leql_trans with (k1:=se m sgn pc0); auto.
     Qed.
 
     (* this is only applicable to exception instructions, so normal instructions 

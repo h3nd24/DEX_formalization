@@ -85,14 +85,14 @@ Inductive indist_return_value (observable:L.t) (h1 h2:DEX_Heap.t) (s:DEX_sign) :
   s.(DEX_resType) = None ->
   indist_return_value observable h1 h2 s (Normal None) (Normal None) b1 b2.
 
-Inductive high_result (observable:L.t) (s:DEX_sign) : DEX_ReturnVal -> Prop :=
-| high_result_void : 
+Inductive high_result (observable:L.t) (s:DEX_sign) : DEX_ReturnState -> Prop :=
+| high_result_void : forall h,
   s.(DEX_resType) = None ->
-  high_result observable s (Normal None)
-| high_result_value : forall v k,
+  high_result observable s (h, Normal None)
+| high_result_value : forall h v k,
   s.(DEX_resType) = Some k ->
   ~ L.leql k observable ->
-  high_result observable s (Normal (Some v)).
+  high_result observable s (h, Normal (Some v)).
 
 Inductive state : Type :=
   intra : DEX_IntraNormalState -> TypeRegisters -> FFun.t DEX_Location -> state
