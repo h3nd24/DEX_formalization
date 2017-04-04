@@ -57,8 +57,8 @@ Variable same_reg_val_indist1 : forall s1 s2 s1' b1 b2 r,
   indist_reg_val s1 s2 b1 b2 r ->
   same_reg_val s1 s1' r -> 
   indist_reg_val s1' s2 b1 b2 r.
-Variable indist_reg_val_trans : forall s1 s2 s3 b1 b2 b3 r, 
-  indist_reg_val s1 s2 b1 b2 r -> indist_reg_val s2 s3 b2 b3 r -> indist_reg_val s1 s3 b1 b3 r.
+(* Variable indist_reg_val_trans : forall s1 s2 s3 b1 b2 b3 r, 
+  indist_reg_val s1 s2 b1 b2 r -> indist_reg_val s2 s3 b2 b3 r -> indist_reg_val s1 s3 b1 b3 r. *)
 Variable indist_reg_val_sym : forall s1 s2 b1 b2 r, 
   indist_reg_val s1 s2 b1 b2 r -> indist_reg_val s2 s1 b2 b1 r.
 Inductive indist_reg : registertypes -> registertypes -> istate -> istate -> pbij -> pbij -> Reg -> Prop :=
@@ -89,7 +89,7 @@ Variable indist_heap_from_indist : forall sgn rt1 rt2 s1 s2 b1 b2,
 
 Variable rindist : Sign -> pbij -> pbij -> rstate -> rstate -> Prop.
 Variable indist_sym : forall m rt1 rt2 s1 s2 b1 b2,
- indist m rt1 rt2 s1 s2 b1 b2 -> indist m rt2 rt1 s2 s1 b2 b1.
+ indist m rt1 rt2 b1 b2 s1 s2 -> indist m rt2 rt1 b2 b1 s2 s1.
 Variable rindist_sym : forall m s1 s2 b1 b2,
  rindist m b1 b2 s1 s2 -> rindist m b2 b1 s2 s1.
 
@@ -723,7 +723,9 @@ Variable branch_indist : forall m sgn s s' u u' b b' (H:P (SM m sgn)),
   exec m s (inl u) ->
   exec m s' (inl u') ->
   pc u <> pc u' ->
-  indist sgn (RT m sgn (pc u)) (RT m sgn (pc u')) b b' u u'.
+  exists bu, exists bu',
+    border b bu /\ border b' bu' /\
+    indist sgn (RT m sgn (pc u)) (RT m sgn (pc u')) b b' u u'.
 
 Lemma ni_ind : tni.
 Proof.
@@ -804,7 +806,9 @@ Proof.
     unfold high_region. auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
-  apply branch_indist with (s:=s) (s':=s'); auto. rewrite <- Hpc; auto.
+  elim branch_indist with (s:=s) (s':=s') (m:=m) (sgn:=sgn) (u:=s2) (u':=s3) (b:=b) (b':=b'); auto.
+  intros b2 [b3 [Hborder1 [Hborder2 Hindist']]]; auto. rewrite <- Hpc; auto.
+(*   apply branch_indist with (s:=s) (s':=s'); auto. rewrite <- Hpc; auto. *)
   (* one region one junction *)
   elim junction_indist_2 with (m:=m) (sgn:=sgn) (ns:=n0) (ns':=n) (s:=s') (s':=s)
     (u:=s3) (u':=s2) (res:=r') (res':=r) (i:=pc s) (H:=H) (b:=b') (b':=b) (bu:=b') (bu':=b); auto. 
@@ -821,8 +825,10 @@ Proof.
     unfold high_region; auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
-  apply branch_indist with (s:=s') (s':=s); auto.
-  apply indist_sym. rewrite <- Hpc; auto.
+  elim branch_indist with (s:=s') (s':=s) (m:=m) (sgn:=sgn) (u:=s3) (u':=s2) (b:=b') (b':=b); auto.
+  intros b3 [b2 [Hborder1 [Hborder2 Hindist']]]; auto. rewrite <- Hpc; auto.
+  (* apply branch_indist with (s:=s') (s':=s); auto.
+  apply indist_sym. rewrite <- Hpc; auto. *)
   elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc s3) (pc s2); try (rewrite H0; auto; fail); auto; intros.
   (* one junction one region *)
   elim junction_indist_2 with (m:=m) (sgn:=sgn) (ns:=n) (ns':=n0) (s:=s) (s':=s')
@@ -840,8 +846,11 @@ Proof.
     unfold high_region; auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
-  apply branch_indist with (s:=s) (s':=s'); auto.
+  elim branch_indist with (s:=s) (s':=s') (m:=m) (sgn:=sgn) (u:=s2) (u':=s3) (b:=b) (b':=b'); auto.
+  intros bu [bu' [Hborder1 [Hborder2 Hindist']]]; auto.
   rewrite <- Hpc; auto.
+  (* apply branch_indist with (s:=s) (s':=s'); auto.
+  rewrite <- Hpc; auto. *)
   (* both are junctions *)
   apply junc_func with (step:=step m) (c:=cdr m (PM_P _ H)) (i:=pc s) (j1:=pc s2) in H3; auto.
   contradiction.
