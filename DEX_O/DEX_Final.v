@@ -458,23 +458,25 @@ Section hyps.
       constructor 2 with (s2:=s2); auto.
     Qed.
 
-    Lemma high_result_indist : forall sgn res res0,
-      high_result sgn res -> high_result sgn res0 -> rindist sgn res res0.
+    Lemma high_result_indist : forall sgn h res h0 res0 b b0,
+      hp_in kobs (DEX_ft p) b b0 h h0 ->
+      high_result sgn (h,res) -> high_result sgn (h0,res0) -> 
+        rindist sgn b b0 (h,res) (h0,res0).
     Proof.
       intros.
-      constructor.
+      constructor; auto.
       destruct sgn. destruct DEX_resType eqn:Hres.
       destruct res. destruct res0.
       destruct o. destruct o0.
       constructor 1 with (k:=t); auto.
-      intros. inversion H0. simpl in H3. inversion H3. subst. contradiction.
-      inversion H0. simpl in H1. inversion H1.
+      intros. inversion H1. simpl in H5. inversion H5. subst. contradiction.
+      inversion H1. simpl in H3. inversion H3.
       destruct o0.
-      inversion H. simpl in H1. inversion H1.
-      inversion H0. simpl in H1. inversion H1.
-      inversion H. inversion H0. subst. constructor 2; auto.
-      simpl in H3. inversion H3.
-      simpl in H1; inversion H1.
+      inversion H0. simpl in H3. inversion H3.
+      inversion H1. simpl in H3. inversion H3.
+      inversion H0. inversion H1. subst. constructor 2; auto.
+      simpl in H7; inversion H7.
+      simpl in H4; inversion H4.
     Qed.
 
     Lemma high_reg_dec : forall rt r, high_reg rt r \/ ~high_reg rt r.
@@ -495,7 +497,9 @@ Section hyps.
       | i2b_change : forall rs, instructionAt m (pc i) = Some (DEX_I2b r rs) -> changed_at m i r
       | i2s_change : forall rs, instructionAt m (pc i) = Some (DEX_I2s r rs) -> changed_at m i r
       | ibinop_change : forall op ra rb, instructionAt m (pc i) = Some (DEX_Ibinop op r ra rb) -> changed_at m i r
-      | ibinopConst_change : forall op rs v, instructionAt m (pc i) = Some (DEX_IbinopConst op r rs v) -> changed_at m i r.
+      | ibinopConst_change : forall op rs v, instructionAt m (pc i) = Some (DEX_IbinopConst op r rs v) -> changed_at m i r
+      | iget_change : forall t ro f, instructionAt m (pc i) = Some (DEX_Iget t r ro f) -> changed_at m i r
+      | new_change : forall c, instructionAt m (pc i) = Some (DEX_New r c) -> changed_at m i r.
 
     Definition changed_at_t (m:Method) (i:istate) (r:Reg) : bool :=
       match instructionAt m (pc i) with
@@ -507,6 +511,8 @@ Section hyps.
         | Some (DEX_I2s r' _) => Reg_eq r r'
         | Some (DEX_Ibinop _ r' _ _) => Reg_eq r r'
         | Some (DEX_IbinopConst _ r' _ _) => Reg_eq r r'
+        | Some (DEX_Iget _ r' _ _) => Reg_eq r r'
+        | Some (DEX_New r' _) => Reg_eq r r'
         | _ => false
       end.
 
@@ -533,6 +539,8 @@ Section hyps.
       constructor 6 with (rs:=rs); subst; auto.
       constructor 7 with (ra:=ra) (rb:=rb) (op:=op); subst; auto.
       constructor 8 with (rs:=r0) (v:=v) (op:=op); subst; auto.
+      constructor 9 with (t:=t) (ro:=ro) (f:=f); subst; auto.
+      constructor 10 with (c:=c); subst; auto. 
       (* the case where the instructionAt is none *)
       unfold not; intros H; inversion H;
       match goal with 
@@ -544,6 +552,13 @@ Section hyps.
       | changed_onestep : forall r (p:path m i j), changed_at m i r -> changed m i j p r
       | changed_path : forall k r (p:path m k j) (H:exec m i (inl k)), 
           changed m k j p r -> changed m i j (path_step Method istate rstate exec m i j k p H) r.
+
+    Definition same_val (i j: istate) (r:Reg) : Prop :=
+        match DEX_Registers.get (snd (snd i)) r, DEX_Registers.get (snd (snd j)) r with
+          | Some v, Some v' => v = v'
+          | None, None => True
+          | _, _ => False
+        end.
 
     Lemma changed_dec : forall m i j r (p:path m i j), 
       changed m i j (p) r \/ ~changed m i j (p) r. 
@@ -640,6 +655,22 @@ Section hyps.
       rewrite MapList.get_update1 in Hget. inversion_mine Hget.
       apply not_leql_trans with (k1:=se m sgn (pc i)); auto.
       apply leql_join_each in Hleql. Cleanexand; auto.
+      (* Iget *)
+      assert (exists k, MapList.get (MapList.update (RT m sgn (pc i)) r 
+        (L.join (se m sgn (pc i)) (L.join ko (DEX_ft p f)))) r = Some k) as Hget. 
+      exists (L.join (se m sgn (pc i)) (L.join ko (DEX_ft p f))). rewrite MapList.get_update1; auto.
+      destruct Hget as [lvl Hget]. specialize Hsub_forall with (k1:=lvl) (k2:=t0). rewrite Hget in Hsub_forall.
+      assert (L.leql lvl t0) as Hleql; auto.
+      rewrite MapList.get_update1 in Hget. inversion_mine Hget.
+      apply not_leql_trans with (k1:=(se m sgn (pc i))); auto.
+      apply leql_join_each in Hleql; destruct Hleql; auto.
+      (* New *)
+      assert (exists k, MapList.get (MapList.update (RT m sgn (pc i)) r (se m sgn (pc i))) r = Some k) as Hget. 
+      exists (se m sgn (pc i)). rewrite MapList.get_update1; auto.
+      destruct Hget as [lvl Hget]. specialize Hsub_forall with (k1:=lvl) (k2:=t). rewrite Hget in Hsub_forall.
+      assert (L.leql lvl t) as Hleql; auto.
+      rewrite MapList.get_update1 in Hget. inversion_mine Hget.
+      apply not_leql_trans with (k1:=(se m sgn (pc i))); auto.
     Defined.
 
     Ltac clear_other_ins ins :=
@@ -662,7 +693,8 @@ Section hyps.
     Lemma not_changed_same_onestep : forall m sgn i j r (HPM: P (SM _ _ m sgn)),
       ~changed_at m i r -> 
       exec m i (inl j) ->
-      (indist_reg_val i j r) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
+      (same_val i j r)
+      (*indist_reg_val i j r*) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
     Proof.
       intros m sgn i j r HPM Hnchanged_at Hexec.
       generalize (changed_at_spec m i r); intros Hchanged_at_dec.
@@ -674,7 +706,7 @@ Section hyps.
       (* const *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Nop).
       split.
-      unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
       destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
@@ -691,7 +723,7 @@ Section hyps.
       (* move *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Move k rt rs).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -715,7 +747,7 @@ Section hyps.
       (* Const *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Const k rt v).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -735,7 +767,7 @@ Section hyps.
       (* goto *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Goto o).
       split.
-      unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
       destruct (MapList.get (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
@@ -752,7 +784,7 @@ Section hyps.
       (* PackedSwitch *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_PackedSwitch rt firstKey size l).
       (* the case where the successor is the next instruction *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get l0 r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
       destruct (MapList.get (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
@@ -767,7 +799,7 @@ Section hyps.
       end). 
       contradiction.
       (* the case where the successor is the targets *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get l0 r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.  
       destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
@@ -784,7 +816,7 @@ Section hyps.
       (* SparseSwitch *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_SparseSwitch rt size l).
       (* the case where the successor is the next instruction *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get l0 r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
       destruct (MapList.get (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
@@ -799,7 +831,7 @@ Section hyps.
       end). 
       contradiction.
       (* the case where the successor is the targets *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get l0 r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get l0 r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.  
       destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
@@ -816,7 +848,7 @@ Section hyps.
       (* Ifeq *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Ifcmp cmp ra rb o).
       (* the case where the successor is the target *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
       destruct (MapList.get (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
@@ -831,7 +863,7 @@ Section hyps.
       end). 
       contradiction.
       (* the case where the successor is the next instruction *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.  
       destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
@@ -848,7 +880,7 @@ Section hyps.
       (* Ifz *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Ifz cmp r0 o).
       (* the case where the successor is the target *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 (DEX_OFFSET.jump pc0 o) H r.
       destruct (MapList.get (RT m sgn (DEX_OFFSET.jump pc0 o)) r) eqn:Hrt'.
@@ -863,7 +895,7 @@ Section hyps.
       end). 
       contradiction.
       (* the case where the successor is the next instruction *)
-      split. unfold indist_reg_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      split. unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
       destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
@@ -880,7 +912,7 @@ Section hyps.
       (* Ineg *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Ineg rt rs).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -900,7 +932,7 @@ Section hyps.
       (* Inot *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Inot rt rs).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -920,7 +952,7 @@ Section hyps.
       (* I2b *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_I2b rt rs).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -940,7 +972,7 @@ Section hyps.
       (* I2s *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_I2s rt rs).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -960,7 +992,7 @@ Section hyps.
       (* Ibinop *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Ibinop op rt ra rb).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -980,7 +1012,7 @@ Section hyps.
       (* IbinopConst *)
       inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_IbinopConst op rt r0 v).
       split.
-      unfold indist_reg_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
       unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
       (* the case where the registers is high *)
       not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
@@ -997,6 +1029,62 @@ Section hyps.
         apply MapList.in_dom_get_some in H; contradiction
       end). 
       contradiction. 
+      (* Iget *)
+      inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Iget t rt ro f).
+      split.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
+      destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t0) (k2:=t1) in Hsub; auto.
+      apply not_leql_trans with (k1:=t0); auto.
+      split; auto. rewrite MapList.get_update2; auto.
+      unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+      assert (MapList.get (RT m sgn pc0) r <> None) as Hget.
+      destruct (MapList.get (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply MapList.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn pc') in H; 
+        apply MapList.in_dom_get_some in H; contradiction
+      end). contradiction.
+      (* Iput *)
+      inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_Iput t rs ro f).
+      split.
+      unfold same_val. simpl. destruct (DEX_Registers.get regs r); auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
+      destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t0) (k2:=t1) in Hsub; auto.
+      apply not_leql_trans with (k1:=t0); auto.
+      assert (MapList.get (RT m sgn pc0) r <> None) as Hget.
+      destruct (MapList.get (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply MapList.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn pc') in H; 
+        apply MapList.in_dom_get_some in H; contradiction
+      end). 
+      contradiction.
+      (* New *)
+      inversion Hexec. inversion_mine H2. inversion_mine H3; clear_other_ins (DEX_New rt c).
+      split.
+      unfold same_val. simpl. rewrite DEX_Registers.get_update_old. destruct (DEX_Registers.get regs r); auto.
+      unfold Reg_eq in Hchanged_at; generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+      (* the case where the registers is high *)
+      not_changed_same_onestep_aux1 m sgn HPM Hexec pc0 pc' H r.
+      destruct (MapList.get (RT m sgn pc') r) eqn:Hrt'.
+      apply sub_forall with (r:=r) (k1:=t) (k2:=t0) in Hsub; auto.
+      apply not_leql_trans with (k1:=t); auto.
+      split; auto. rewrite MapList.get_update2; auto.
+      unfold Reg_eq in Hchanged_at. generalize (Neq_spec r rt); rewrite Hchanged_at; auto.
+      assert (MapList.get (RT m sgn pc0) r <> None) as Hget.
+      destruct (MapList.get (RT m sgn pc0) r). congruence.
+      inversion Hrt0. apply MapList.get_some_in_dom in Hget.
+      try (  match goal with
+      | [ H:In r ?dom |- False] => apply RT_domain_same with (rt2:=RT m sgn pc') in H; 
+        apply MapList.in_dom_get_some in H; contradiction
+      end). 
+      contradiction.
       (* the case where there is no instruction *)
       inversion Hexec. inversion_mine H2. apply False_ind. inversion_mine H3; 
       match goal with 
@@ -1019,7 +1107,8 @@ Section hyps.
 
     Lemma not_changed_same : forall m sgn i j (Hpath: path m i j) r (H: P (SM _ _ m sgn)) ,
       ~changed m i j Hpath r -> 
-      (indist_reg_val i j r) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
+      (same_val i j r)
+      (*indist_reg_val i j r*) /\ (high_reg (RT m sgn (pc i)) r -> high_reg (RT m sgn (pc j)) r). 
     Proof.
       intros m sgn i j Hpath r H H0.
       induction Hpath; intros.
@@ -1036,10 +1125,10 @@ Section hyps.
       elim not_changed_same_onestep with (m:=m) (sgn:=sgn) (i:=i) (j:=k) (1:=H) (2:=H0') (3:=e); intros.
       inversion H0.
       split; auto.
-      unfold indist_reg_val in *.
-      destruct (DEX_Registers.get (snd i) r);
-      destruct (DEX_Registers.get (snd k) r);
-      destruct (DEX_Registers.get (snd j) r); try (congruence); try (contradiction). 
+      unfold same_val in *.
+      destruct (DEX_Registers.get (snd (snd i)) r);
+      destruct (DEX_Registers.get (snd (snd k)) r);
+      destruct (DEX_Registers.get (snd (snd j)) r); try (congruence); try (contradiction). 
     Qed.
 
     Lemma changed_high : forall m sgn s i j r (H:P (SM _ _ m sgn)) (Hpath: path m (* sgn (PM_P _ H) *) i j), 
