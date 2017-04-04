@@ -199,17 +199,23 @@ Inductive tevalsto (m:Method) (H:PM m) (sgn:Sign) (se:PC->L.t) (RT:PC->registert
      tevalsto m H sgn se RT (S n) s1 res.
 
 (* Hendra additional *)
-Variable tevalsto_high_result' : forall m sgn (H:PM m) se s RT res,
+Variable tevalsto_high_result' : forall se RT m sgn (H:PM m) s res,
   ~L.leql (se m sgn (pc s)) observable ->
   exec m s (inr res) ->
   texec m H sgn (se m sgn) (pc s) (RT m sgn (pc s)) None -> high_result sgn res.
 
-Variable tevalsto_diff_high_result : forall se RT m sgn s s' p res res' (H:PM m),
+Variable indist_heap_result : rstate -> rstate -> pbij -> pbij -> Prop.
+
+Variable tevalsto_diff_high_result : forall se RT m sgn s s' p res res' b b0 (H:PM m),
   pc s = pc s' -> 1 < p ->
   tevalsto m H sgn (se m sgn) (RT m sgn) 1 s res -> tevalsto m H sgn (se m sgn) (RT m sgn) p s' res' -> 
-  high_result sgn res /\ high_result sgn res'.
+  indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) b b0 s s' ->
+  (exists br, exists br0, indist_heap_result res res' br br0 /\
+    border b br /\ border b0 br0) 
+  /\ high_result sgn res /\ high_result sgn res'.
 
 Variable high_result_indist : forall sgn res res0 b b0,
+  indist_heap_result res res0 b b0 ->
   high_result sgn res -> high_result sgn res0 -> rindist sgn b b0 res res0.
 
 Variable eq_map : registertypes -> registertypes -> Prop.
@@ -323,7 +329,7 @@ Proof.
     intros. unfold not in H2. apply H2 in H10. contradiction.
 Qed.
 
-Lemma final_bighighstep : forall m sgn p i s0 s res res0 b b0 
+(* Lemma final_bighighstep : forall m sgn p i s0 s res res0 b b0 
   (H:P (SM m sgn)),
   pc s = pc s0 ->
   evalsto m p s res-> 
@@ -336,7 +342,7 @@ Proof.
   intros.
   inversion H2; try (inversion H8).
   destruct (T m sgn H). inversion_mine H11.
-  apply high_result_indist.
+  apply high_result_indist. admit.
   (* high result res *)
     apply final_bighighstep_aux with (m:=m) (i:=i) (p:=p) (s:=s) (H:=H); auto.
     apply typable_evalsto; auto.
@@ -349,7 +355,7 @@ Proof.
     apply tevalsto_high_result with (m:=m) (H:=(PM_P _ H)) (se:=se) (RT:=RT) (s:=s0).
         rewrite <- H0; auto.
       apply typable_evalsto; auto.
-Qed.
+Admitted. *)
 
 Lemma my_double_ind:forall P:(nat->nat->Prop),
    (forall n m:nat, (forall p q:nat, lt p n -> lt q m -> P p q) -> P n m) -> 
@@ -743,15 +749,22 @@ Proof.
   
   (* *)
   subst.
-  apply tevalsto_diff_high_result with (s:=s) (res:=r) in Htevalsto'; auto.
-  inversion Htevalsto'. 
-  exists b. exists b'; split; auto.
+  apply tevalsto_diff_high_result with (s:=s) (res:=r) (b:=b) (b0:=b') in Htevalsto'; auto.
+  inversion Htevalsto'.
+  destruct H1 as [br [br0 [Hindistres [Hborder1 Hborder2]]]]. 
+  inversion H2.
+  exists br. exists br0. repeat (split); auto.
+(*   exists b. exists b'; split; auto. split; auto. *)
+(*   inversion H1. inversion H3. apply high_result_indist; auto.  *)
 (*   apply high_result_indist; auto.  *)
   destruct n; auto. inversion H5. omega. 
   (* *)
   subst.
-  apply tevalsto_diff_high_result with (s:=s') (res:=r') in Htevalsto; auto.
+  apply tevalsto_diff_high_result with (s:=s') (res:=r') (b:=b') (b0:=b) in Htevalsto; auto.
   inversion Htevalsto.
+  destruct H1 as [br [br0 [Hindistres [Hborder1 Hborder2]]]]. 
+  inversion H2.
+  exists br. exists br0. repeat (split); auto.
   exists b. exists b'; split; auto.
 (*   apply high_result_indist; auto. *)
   destruct n; auto. inversion H1. omega.

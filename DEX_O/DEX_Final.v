@@ -483,8 +483,9 @@ Section hyps.
       constructor 2 with (s2:=s2); auto.
     Qed.
 
-    Lemma high_result_indist : forall sgn h res h0 res0 b b0,
-      hp_in kobs (DEX_ft p) b b0 h h0 ->
+    Lemma high_result_indist : forall sgn pc h r res pc0 h0 r0 res0 b b0,
+      indist_heap (pc, (h,r)) (pc0, (h0,r0)) b b0 ->
+(*       hp_in kobs (DEX_ft p) b b0 h h0 -> *)
       high_result sgn (h,res) -> high_result sgn (h0,res0) -> 
         rindist sgn b b0 (h,res) (h0,res0).
     Proof.
@@ -1309,6 +1310,15 @@ Section hyps.
       constructor; auto.
     Qed.
 
+    Lemma rindist_sym : forall sgn r1 r2 b1 b2,
+      rindist sgn b1 b2 r1 r2 -> rindist sgn b2 b1 r2 r1.
+    Proof.
+      intros sgn r1 r2 b1 b2 Hindist.
+      destruct r1 as [h1 res1]; destruct r2 as [h2 res2].
+      constructor; inversion Hindist; auto. apply hp_in_sym; auto.
+      apply indist_return_value_sym; auto.
+    Qed.
+
     Definition border : pbij -> pbij -> Prop := beta_pre_order.
 
     Lemma tcc8 : forall b1 b2 b3 : pbij, border b1 b2 -> border b2 b3 -> border b1 b3.
@@ -1930,11 +1940,11 @@ Proof.
     (indist kobs p) (indist_heap kobs p) (indist_heap_sym kobs p) 
     (indist_from_regs_heap kobs p) (indist_reg_from_indist kobs p)
     (indist_heap_from_indist kobs p) (rindist kobs p) 
-    (tcc3 kobs p) (indist_return_value_sym) (high_result kobs) (rt0) 
-    (border) (border_refl) (border_trans)
+    (tcc3 kobs p) (rindist_sym kobs p) (high_result kobs) (rt0) (init_pc)
+    (border) (border_refl) (border_trans p)
     (P p) (PM_P p) (indist2_intra kobs p cdr) (indist2_return kobs p cdr)
-    (soap2_basic_intra kobs p cdr Hwfl) (sub) (sub_simple kobs)
-    (tevalsto_high_result kobs p cdr ) (tevalsto_diff_high_result' kobs p cdr ) (high_result_indist kobs)
+    (soap2_basic_intra kobs p cdr Hwfl) (sub) (sub_simple kobs p)
+    (tevalsto_high_result kobs p cdr) (tevalsto_diff_high_result' kobs p cdr ) (high_result_indist kobs p)
     (eq_rt) (indist_morphism_proof kobs) se RT HT (changed p) (changed_high kobs p cdr se RT HT)
     (not_changed_same kobs p cdr se RT HT) (high_reg_dec kobs) (changed_dec p) (branch_indist kobs p cdr se RT HT)
     m sgn
