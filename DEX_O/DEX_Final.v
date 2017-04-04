@@ -560,6 +560,21 @@ Section hyps.
           | _, _ => False
         end.
 
+    Lemma same_val_indist: forall s1 s2 s1' s2' b1 b2 r,
+      indist_reg_val s1 s2 b1 b2 r ->
+      same_val s1 s1' r -> same_val s2 s2' r ->
+      indist_reg_val s1' s2' b1 b2 r.
+    Proof.
+      intros s1 s2 s1' s2' b1 b2 r Hindist Hsame1 Hsame2.
+      unfold indist_reg_val in *. unfold same_val in *.
+      destruct (DEX_Registers.get (snd (snd s1))); destruct (DEX_Registers.get (snd (snd s2)));
+      destruct (DEX_Registers.get (snd (snd s1'))); destruct (DEX_Registers.get (snd (snd s2'))); auto.
+      rewrite <- Hsame1; rewrite <- Hsame2; auto.
+      contradiction.
+      contradiction.
+      contradiction.
+    Qed.
+
     Lemma changed_dec : forall m i j r (p:path m i j), 
       changed m i j (p) r \/ ~changed m i j (p) r. 
     Proof.
