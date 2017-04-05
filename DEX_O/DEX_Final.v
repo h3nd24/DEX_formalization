@@ -241,7 +241,7 @@ Section hyps.
   Lemma indist_morphism_proof : forall (y : Sign) (x y0 : registertypes),
     eq_rt x y0 ->
     forall x0 y1 : registertypes,
-    eq_rt x0 y1 -> forall (s2 s3 : istate) (b2 b3 : pbij), 
+    eq_rt x0 y1 -> forall (b2 b3 : pbij) (s2 s3 : istate), 
     indist y x x0 b2 b3 s2 s3 <-> indist y y0 y1 b2 b3 s2 s3.
   Proof.
     split; intros.
@@ -439,15 +439,22 @@ Section hyps.
       apply not_leql_trans with (k1:=se m sgn pc0); auto.
     Qed.
 
+    Inductive indist_heap_result : rstate -> rstate -> pbij -> pbij -> Prop :=
+      | indist_heap_result_cons : forall h1 res1 b1 h2 b2 res2,
+          hp_in kobs (DEX_ft p) b1 b2 h1 h2 -> indist_heap_result (h1, res1) (h2, res2) b1 b2.
+
     (* this is only applicable to exception instructions, so normal instructions 
       only need to be proved via contradiction *)
-    Lemma tevalsto_diff_high_result : forall m sgn se RT s s' s1' rt res res' (H:PM p m),
+    Lemma tevalsto_diff_high_result : forall m sgn se RT s s' s1' rt res res' b b0 (H:PM p m),
       pc s = pc s' ->
       exec m s (inr res) ->
       texec m H sgn (se m sgn) (pc s) (RT m sgn (pc s)) None ->
       exec m s' (inl s1') ->
       texec m H sgn (se m sgn) (pc s') (RT m sgn (pc s')) (Some rt) ->
       evalsto m s' res' -> 
+      indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) b b0 s s' ->
+      (exists br, exists br0, indist_heap_result res res' br br0 /\
+        border b br /\ border b0 br0) /\
       high_result sgn res /\ high_result sgn res'.
     Proof.
       intros.
@@ -461,38 +468,46 @@ Section hyps.
       end.
     Qed.
 
-    Lemma tevalsto_diff_high_result' : forall m sgn s s' p0 res res' (H:PM p m),
+    Lemma tevalsto_diff_high_result' : forall m sgn s s' p0 res res' b b0 (H:PM p m),
       pc s = pc s' -> 1 < p0 ->
       DEX_Framework.tevalsto PC Method (PM p) Sign istate rstate exec (pc) (registertypes) texec
         sub m H sgn (se m sgn) (RT m sgn) 1 s res -> 
       DEX_Framework.tevalsto PC Method (PM p) Sign istate rstate exec (pc) (registertypes) texec
         sub m H sgn (se m sgn) (RT m sgn) p0 s' res' -> 
-      high_result sgn res /\ high_result sgn res'. 
+      indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) b b0 s s' ->
+      (exists br, exists br0, indist_heap_result res res' br br0 /\
+        border b br /\ border b0 br0) /\
+        high_result sgn res /\ high_result sgn res'.
     Proof.
       intros.
       inversion_mine H3. omega.
-      inversion_mine H4.
-      apply tevalsto_diff_high_result with (m:=m) (se:=se) (RT:=RT) (s:=s) (s':=s') (s1':=s2) (rt:=rt') (H:=H); auto.
+      inversion_mine H5.
+      apply tevalsto_diff_high_result with (m:=m) (se:=se) (RT:=RT) (s:=s) 
+        (s':=s') (s1':=s2) (rt:=rt') (H:=H) (b:=b) (b0:=b0); auto.
       inversion_mine H2; auto.
       inversion H3; auto.
-      inversion H8.
+      inversion H9.
       inversion_mine H2; auto. inversion_mine H3; auto.
-      inversion H8.
-      apply DEX_Framework.tevalsto_evalsto in H5; auto.
+      inversion H9.
+      apply DEX_Framework.tevalsto_evalsto in H6; auto.
       apply evalsto_Tevalsto2 with (p:=S n).
       constructor 2 with (s2:=s2); auto.
     Qed.
 
-    Lemma high_result_indist : forall sgn pc h r res pc0 h0 r0 res0 b b0,
-      indist_heap (pc, (h,r)) (pc0, (h0,r0)) b b0 ->
+    Lemma high_result_indist : forall sgn res res0 b b0,
+      indist_heap_result res res0 b b0 ->
 (*       hp_in kobs (DEX_ft p) b b0 h h0 -> *)
-      high_result sgn (h,res) -> high_result sgn (h0,res0) -> 
-        rindist sgn b b0 (h,res) (h0,res0).
+      high_result sgn res -> high_result sgn res0 -> 
+        rindist sgn b b0 res res0.
     Proof.
       intros.
+      destruct res as [h v]; destruct res0 as [h0 v0].
       constructor; auto.
+      (* hp_in *)
+      inversion H; auto.
+      (* *)
       destruct sgn. destruct DEX_resType eqn:Hres.
-      destruct res. destruct res0.
+      destruct v. destruct v0.
       destruct o. destruct o0.
       constructor 1 with (k:=t); auto.
       intros. inversion H1. simpl in H5. inversion H5. subst. contradiction.
@@ -503,6 +518,13 @@ Section hyps.
       inversion H0. inversion H1. subst. constructor 2; auto.
       simpl in H7; inversion H7.
       simpl in H4; inversion H4.
+    Qed.
+
+    Lemma indist_heap_result_sym : forall res1 res2 b1 b2,
+      indist_heap_result res1 res2 b1 b2 -> indist_heap_result res2 res1 b2 b1.
+    Proof.
+      intros res1 res2 b1 b2 H. destruct res1; destruct res2; inversion H; constructor; auto.
+      apply hp_in_sym; auto.  
     Qed.
 
     Lemma high_reg_dec : forall rt r, high_reg rt r \/ ~high_reg rt r.
@@ -1266,21 +1288,21 @@ Section hyps.
       destruct Htexec' as [i' [Ui Ui']]; DiscrimateEq.
       rewrite Hpc in Ui.
       assert (exists bu', DEX_BigStepWithTypes.NormalStep kobs p se0 
-        (region (cdr m (PM_P {| unSign := m; sign := sgn |} H))) m sgn i s' rt b' u' ut' bu').
+        (region (cdr m (PM_P {| unSign := m; sign := sgn |} H))) m sgn i' s' rt b' u' ut' bu').
         elim well_types_imply_exec_intra with (kobs:=kobs) (b1:=b') (1:=H4) (3:=Ui).
         intros bu' Hassert. exists bu'. inversion Hassert.
-        inversion H1; eauto.
-      rewrite Hpc in Ui'; auto. 
+        inversion H1; eauto. rewrite <- Hpc; auto.
+(*       rewrite Hpc in Ui'; auto.  *)
       inversion_mine Hindist.
       destruct u as [pu [hu ru]].
       destruct u' as [pu' [hu' ru']].
       destruct H1 as [bu' H1]. destruct H0 as [bu H0].
       exists bu. exists bu'. split. 
-      apply indist2_intra_aux with (se:=se0) (m:=m) (sgn:=sgn) (i:=i) 
+      apply indist2_intra_aux with (se:=se0) (m:=m) (sgn:=sgn) (i:=i') 
         (s:=(pc1, (h1, r1))) (s':=(pu, (hu, ru))) (rt:=rt) (rt':=ut) 
         (H:=H); auto.
       split. 
-      apply indist2_intra_aux with (se:=se0) (m:=m) (sgn:=sgn) (i:=i) 
+      apply indist2_intra_aux with (se:=se0) (m:=m) (sgn:=sgn) (i:=i') 
         (s:=(pc2, (h2, r2))) (s':=(pu', (hu', ru'))) (rt:=rt) (rt':=ut') 
         (H:=H); auto.
       constructor.
@@ -1471,7 +1493,7 @@ Section hyps.
       elim indist2_intra with (m:=m) (se:=se m sgn) (rt:=(RT m sgn (pc s))) 
         (s:=s) (s':=s') (H0:=HPM) (ut:=ut) (ut':=ut') (b:=b) (b':=b') (u:=u) (u':=u'); auto.
       intros bu [bu' [Hborder1 [Hborder2 Hindist']]].
-      exists bu. exists bu'. repeat (split); auto.      
+      exists bu. exists bu'. repeat (split); auto.  
       apply sub_simple with (2:=Hsub'). apply tcc3.
       apply sub_simple with (2:=Hsub). apply tcc3.
       auto.
@@ -1481,11 +1503,11 @@ Section hyps.
     Lemma high_path_heap_indist_onestep_left : forall m sgn s i i' b b' j (H: P (SM _ _ m sgn)),
       (forall k:PC, region (cdr m (PM_P _ H)) s k -> ~ L.leql (se m sgn k) kobs) ->
       region (cdr m (PM_P _ H)) s (pc i) ->
-      exec m i (inl j) ->
       indist_heap i i' b b' ->
+      exec m i (inl j) ->
         indist_heap j i' b b'.
     Proof.
-      intros m sgn s i i' b b' j H k Hreg Hexec Hindist.
+      intros m sgn s i i' b b' j H k Hreg Hindist Hexec.
       inversion Hexec. inversion_mine H3. destruct i' as [pc' [h' r']].
       inversion_mine H4; try (constructor; inversion Hindist; auto).
       subst. apply ffun_extends_hp_in_new_left with (c:=c) (h:=h) (loc:=loc); auto.
@@ -1547,6 +1569,25 @@ Section hyps.
       inversion H8; auto.
       (* indist_heap *)
       apply high_path_heap_indist_onestep_left with (s:=s) (H:=H) (i:=i); auto.
+    Qed.
+
+    Lemma high_step_indist_heap_result : forall m sgn u u' b b' res res' i (H: P (SM _ _ m sgn)),
+      (forall k:PC, region (cdr m (PM_P _ H)) i k -> ~ L.leql (se m sgn k) kobs) ->
+      (forall jun : PC, ~ junc (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i jun) ->
+      region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u) ->
+      region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u') ->
+      indist_heap u u' b b' ->
+      exec m u (inr res) -> exec m u' (inr res') ->
+      indist_heap_result res res' b b'. 
+    Proof.
+      intros m sgn u u'' b b' res res' i H HHighReg Hjun Hreg Hreg' Hindist Hexec Hexec'. 
+      inversion Hexec. inversion_mine H3. 
+      inversion Hexec'. inversion_mine H3.
+      inversion H4; inversion H5; auto.
+      subst. constructor. inversion Hindist; auto.
+      rewrite H7 in H12; inversion H12.
+      rewrite H6 in H17; inversion H17.
+      subst. constructor. inversion Hindist; auto.
     Qed.
   End TypableProg.
 
@@ -1944,14 +1985,22 @@ Proof.
     (border) (border_refl) (border_trans p)
     (P p) (PM_P p) (indist2_intra kobs p cdr) (indist2_return kobs p cdr)
     (soap2_basic_intra kobs p cdr Hwfl) (sub) (sub_simple kobs p)
-    (tevalsto_high_result kobs p cdr) (tevalsto_diff_high_result' kobs p cdr ) (high_result_indist kobs p)
-    (eq_rt) (indist_morphism_proof kobs) se RT HT (changed p) (changed_high kobs p cdr se RT HT)
-    (not_changed_same kobs p cdr se RT HT) (high_reg_dec kobs) (changed_dec p) (branch_indist kobs p cdr se RT HT)
+    (tevalsto_high_result kobs p cdr) (indist_heap_result kobs p) (indist_heap_result_sym kobs p)
+    (tevalsto_diff_high_result' kobs p cdr ) (high_result_indist kobs p)
+    (eq_rt) (indist_morphism_proof kobs p) se RT HT (changed p) (changed_high kobs p cdr se RT HT)
+    (not_changed_same kobs p cdr se RT HT) (high_reg_dec kobs) (changed_dec p) 
+    (high_path_heap_indist_onestep_left kobs p cdr se RT HT) 
+    (high_path_heap_indist kobs p cdr se RT HT) 
+    (high_step_indist_heap_result kobs p cdr se)
+    (branch_indist kobs p cdr se RT HT)
     m sgn
   ). 
   elim evalsto_Tevalsto with (1:=Hevalsto1); intros p1 He1.
   elim evalsto_Tevalsto with (1:=Hevalsto2); intros p2 He2.
-  elim Hni with (6:=He1) (7:=He2); auto.
+  elim Hni with (6:=He1) (7:=He2) (b:=b1) (b':=b2); auto.
+  intros br [br' [Hborder1 [Hborder2 Hrindist]]].
+  exists br; exists br'. inversion Hrindist.
+  repeat (split; auto).
 Qed.
 
 Definition check_all_cdr 
@@ -2094,18 +2143,21 @@ Theorem correctness : forall
       (se : Method -> DEX_sign -> PC -> L.t) 
       (RT :  Method -> DEX_sign -> PC -> MapList.t L.t),
       check p se RT reg = true ->
-      forall m sgn i res1 res2 r1 r2,
+      forall m sgn i h1 h2 res1 res2 hr1 hr2 r1 r2 b1 b2,
         P p (SM _ _ m sgn) ->
         init_pc m i -> 
-        indist kobs sgn (rt0 m sgn) (rt0 m sgn) (i, r1) (i, r2) ->
-        evalsto p m (i,r1) res1 -> 
-        evalsto p m (i,r2) res2 -> 
-
-          indist_return_value kobs sgn res1 res2.
+        indist kobs p sgn (rt0 m sgn) (rt0 m sgn) b1 b2 (i, (h1,r1)) (i, (h2,r2)) ->
+        evalsto p m (i,(h1,r1)) (hr1,res1) -> 
+        evalsto p m (i,(h2,r2)) (hr2,res2) -> 
+        (exists br1, exists br2,
+          border b1 br1 /\
+          border b2 br2 /\
+          hp_in kobs (DEX_ft p) br1 br2 hr1 hr2 /\
+          indist_return_value kobs hr1 hr2 sgn res1 res2 br1 br2).
 Proof.
   intros p Hwfl kobs reg jun Hcheck se RT.
   intros Hc.
-  intros m sgn i res1 res2 r1 r2 H H0 H1 H2.
+  intros m sgn i h1 h2 res1 res2 hr1 hr2 r1 r2 b1 b2 H H0 H1 H2.
   assert (T:=check_all_cdr_correct p (reg) (jun) Hcheck).
   assert (TT:=check_correct _ _ _ _ jun T Hc).
   eapply ni_safe; eauto.
@@ -2179,7 +2231,7 @@ Definition check_m (p:DEX_ExtendedProgram) m sgn reg se RT i : bool :=
   match instructionAt m i with
     | None => false
     | Some ins =>
-      DEX_tcheck m sgn (se_get se) (selift_m reg se) (RT_get RT) i ins
+      DEX_tcheck p m sgn (se_get se) (selift_m reg se) (RT_get RT) i ins
   end.
 
 Definition check_ni (p:DEX_ExtendedProgram) reg jun se RT : bool :=
@@ -2188,19 +2240,23 @@ Definition check_ni (p:DEX_ExtendedProgram) reg jun se RT : bool :=
       check p se RT reg.
 
 Definition NI (p:DEX_ExtendedProgram) : Prop :=
-  forall kobs m sgn i r1 r2 res1 res2,
+  forall kobs m sgn i h1 h2 r1 r2 hr1 hr2 res1 res2 b1 b2,
     P p (SM _ _ m sgn) ->
     init_pc m i -> 
-    indist kobs sgn (rt0 m sgn) (rt0 m sgn) (i,r1) (i,r2) ->
-    DEX_BigStepAnnot.DEX_BigStep p.(DEX_prog) m (i,r1) (res1) -> 
-    DEX_BigStepAnnot.DEX_BigStep p.(DEX_prog) m (i,r2) (res2) -> 
-      indist_return_value kobs sgn res1 res2.
+    indist kobs p sgn (rt0 m sgn) (rt0 m sgn) b1 b2 (i,(h1,r1)) (i,(h2,r2)) ->
+    DEX_BigStepAnnot.DEX_BigStep p.(DEX_prog) m (i,(h1,r1)) (hr1,res1) -> 
+    DEX_BigStepAnnot.DEX_BigStep p.(DEX_prog) m (i,(h2,r2)) (hr2,res2) -> 
+    exists br1, exists br2,
+      border b1 br1 /\
+      border b2 br2 /\
+      hp_in kobs (DEX_ft p) br1 br2 hr1 hr2 /\
+      indist_return_value kobs hr1 hr2 sgn res1 res2 br1 br2.
 
 Theorem check_ni_correct : forall p reg jun se RT,
   check_ni p reg jun se RT = true ->
   NI p.
 Proof.
-  unfold check_ni, NI. intros p reg jun se RT HcheckTypable kobs m sgn i r1 r2 res1 res2
+  unfold check_ni, NI. intros p reg jun se RT HcheckTypable kobs m sgn i h1 h2 r1 r2 hr1 hr2 res1 res2 b1 b2 
     HPM Hinit Hindist Hstep1 Hstep2.
   destruct (andb_prop _ _ HcheckTypable) as [HcheckTypable' Hcheck].
   destruct (andb_prop _ _ HcheckTypable') as [Hwfl Hcheck_all_cdr].

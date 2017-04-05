@@ -205,6 +205,8 @@ Variable tevalsto_high_result' : forall se RT m sgn (H:PM m) s res,
   texec m H sgn (se m sgn) (pc s) (RT m sgn (pc s)) None -> high_result sgn res.
 
 Variable indist_heap_result : rstate -> rstate -> pbij -> pbij -> Prop.
+Variable indist_heap_result_sym : forall res1 res2 b1 b2, 
+  indist_heap_result res1 res2 b1 b2 -> indist_heap_result res2 res1 b2 b1.
 
 Variable tevalsto_diff_high_result : forall se RT m sgn s s' p res res' b b0 (H:PM m),
   pc s = pc s' -> 1 < p ->
@@ -213,6 +215,13 @@ Variable tevalsto_diff_high_result : forall se RT m sgn s s' p res res' b b0 (H:
   (exists br, exists br0, indist_heap_result res res' br br0 /\
     border b br /\ border b0 br0) 
   /\ high_result sgn res /\ high_result sgn res'.
+
+Variable tevalsto_diff_high_heap : forall se RT m sgn s s' p res res' b b0 (H:PM m),
+  pc s = pc s' -> 1 < p ->
+  tevalsto m H sgn (se m sgn) (RT m sgn) 1 s res -> tevalsto m H sgn (se m sgn) (RT m sgn) p s' res' -> 
+  indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) b b0 s s' ->
+  (exists br, exists br0, indist_heap_result res res' br br0 /\
+    border b br /\ border b0 br0).
 
 Variable high_result_indist : forall sgn res res0 b b0,
   indist_heap_result res res0 b b0 ->
@@ -521,7 +530,7 @@ Variable changed_high : forall m sgn s i j r (H:P (SM m sgn)) (Hpath: path m i j
   junc (cdr m (PM_P _ H)) s (pc j) ->
   changed m i j Hpath r -> 
     high_reg (RT m sgn (pc j)) r.
-Variable not_changed_same : forall m sgn i j (Hpath: path m i j) r,
+Variable not_changed_same : forall m sgn i j (Hpath: path m i j) r (H: P (SM m sgn)),
   (*(forall k:PC, region (cdr m (PM_P _ H)) s k -> ~ L.leql (se m sgn k) observable) ->
   path_in_region m (cdr m (PM_P _ H)) s i j Hpath -> *)
   ~changed m i j Hpath r -> 
@@ -530,6 +539,14 @@ Variable not_changed_same : forall m sgn i j (Hpath: path m i j) r,
 Variable high_reg_dec : forall rt r, high_reg rt r \/ ~high_reg rt r.
 Variable changed_dec : forall m i j r (p:path m i j),
   changed m i j (p) r \/ ~changed m i j (p) r. 
+
+Variable high_step_indist_heap : forall m sgn i u u' b b' v (H: P (SM m sgn)),
+  (forall k:PC, region (cdr m (PM_P _ H)) i k -> ~ L.leql (se m sgn k) observable) ->
+(*   (forall jun : PC, ~ junc (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i jun) -> *)
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u) ->
+  indist_heap u u' b b' ->
+  exec m u (inl v) -> 
+  indist_heap v u' b b'. 
 
 Variable high_path_heap_indist : forall m sgn s i i' b b' j (H:P (SM m sgn)) (Hpath: path m i j), 
   (forall k:PC, region (cdr m (PM_P _ H)) s k -> ~ L.leql (se m sgn k) observable) ->
@@ -558,6 +575,84 @@ Proof.
   apply high_path_heap_indist with (m:=m) (sgn:=sgn) (j:=j') (H:=H) (Hpath:=Hpath') (s:=s) in Hindist; auto.
 Qed.
 
+Variable high_step_indist_heap_result : forall m sgn u u' b b' res res' i (H: P (SM m sgn)),
+  (forall k:PC, region (cdr m (PM_P _ H)) i k -> ~ L.leql (se m sgn k) observable) ->
+  (forall jun : PC, ~ junc (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i jun) ->
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u) ->
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u') ->
+  indist_heap u u' b b' ->
+  exec m u (inr res) -> exec m u' (inr res') ->
+  indist_heap_result res res' b b'. 
+
+Lemma junction_indist_aux1 : forall m sgn ns u u' b b' res res' i (H: P (SM m sgn)),
+  (forall k:PC, region (cdr m (PM_P _ H)) i k -> ~ L.leql (se m sgn k) observable) ->
+  (forall jun : PC, ~ junc (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i jun) ->
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u) ->
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u') ->
+  indist_heap u u' b b' ->
+  evalsto m ns u res ->
+  evalsto m 1 u' res' ->
+  indist_heap_result res res' b b'.
+Proof.
+  intros m sgn.
+  intros ns. pattern ns. apply lt_wf_ind.
+  clear ns; intros ns Hind.
+  intros u u' b b' res res' i H Hreg Hjun Hreg1 Hreg2 Hindist Hevalsto1 Hevalsto2.
+  inversion Hevalsto1 as [s res0 Hexec | n s1 s2 res0 Hexec Hevalsto1']; subst.
+  inversion Hevalsto2 as [s' res0' Hexec' | n' s1' s2' res0' Hexec' Hevalsto2'].
+  apply high_step_indist_heap_result with (m:=m) (sgn:=sgn) (u:=u) (u':=u') (i:=i) (H:=H); auto.
+    inversion Hevalsto2'.
+  apply Hind with (u:=s2) (u':=u') (H:=H) (m0:=n) (i:=i); auto.
+  elim (soap2 (cdr m (PM_P _ H))) with i (pc u) (pc s2); auto.
+  intros. specialize Hjun with (pc s2). contradiction.
+  apply exec_step_some with (1:=PM_P _ H); auto.
+  apply high_step_indist_heap with (m:=m) (sgn:=sgn) (u:=u) (i:=i) (H:=H); auto.
+Qed.
+
+Lemma junction_indist_aux2 : forall m sgn ns ns' u u' b b' res res' i (H: P (SM m sgn)),
+  (forall k:PC, region (cdr m (PM_P _ H)) i k -> ~ L.leql (se m sgn k) observable) ->
+  (forall jun : PC, ~ junc (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i jun) ->
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u) ->
+  region (cdr m (PM_P {| unSign := m; sign := sgn |} H)) i (pc u') ->
+  indist_heap u u' b b' ->
+  evalsto m ns u res ->
+  evalsto m ns' u' res' ->
+  indist_heap_result res res' b b'.
+Proof.
+  intros m sgn.
+  intros ns ns'. pattern ns, ns'. apply my_double_ind.
+  clear ns ns'; intros ns ns' Hind.
+  intros u u' b b' res res' i H Hreg Hjun Hreg1 Hreg2 Hindist Hevalsto1 Hevalsto2.
+  inversion Hevalsto1 as [s res0 Hexec | n s1 s2 res0 Hexec Hevalsto1']; 
+  inversion Hevalsto2 as [s' res0' Hexec' | n' s1' s2' res0' Hexec' Hevalsto2']; subst.
+  apply high_step_indist_heap_result with (m:=m) (sgn:=sgn) (u:=u) (u':=u') (i:=i) (H:=H); auto.
+  (* *)
+  apply indist_heap_result_sym. 
+  apply junction_indist_aux1 with (m:=m) (sgn:=sgn) (ns:=n') (u:=s2') (u':=u) (i:=i) (H:=H); auto.
+  elim (soap2 (cdr m (PM_P _ H))) with i (pc u') (pc s2'); auto.
+  intros. specialize Hjun with (pc s2'). contradiction.
+  apply exec_step_some with (1:=PM_P _ H); auto.
+  apply high_step_indist_heap with (m:=m) (sgn:=sgn) (u:=u') (i:=i) (H:=H); auto.
+  (* *)
+  apply junction_indist_aux1 with (m:=m) (sgn:=sgn) (ns:=n) (u:=s2) (u':=u') (i:=i) (H:=H); auto.
+  elim (soap2 (cdr m (PM_P _ H))) with i (pc u) (pc s2); auto.
+  intros. specialize Hjun with (pc s2). contradiction.
+  apply exec_step_some with (1:=PM_P _ H); auto.
+  apply high_step_indist_heap with (m:=m) (sgn:=sgn) (u:=u) (i:=i) (H:=H); auto.
+  (* *)
+  apply Hind with (p:=n) (q:=n') (u:=s2) (u':=s2') (i:=i) (H:=H); auto.
+  elim (soap2 (cdr m (PM_P _ H))) with i (pc u) (pc s2); auto.
+  intros. specialize Hjun with (pc s2). contradiction.
+  apply exec_step_some with (1:=PM_P _ H); auto.
+  elim (soap2 (cdr m (PM_P _ H))) with i (pc u') (pc s2'); auto.
+  intros. specialize Hjun with (pc s2'). contradiction.
+  apply exec_step_some with (1:=PM_P _ H); auto.
+  apply high_step_indist_heap with (m:=m) (sgn:=sgn) (u:=u) (i:=i) (H:=H); auto.
+  apply indist_heap_sym.
+  apply high_step_indist_heap with (m:=m) (sgn:=sgn) (u:=u') (i:=i) (H:=H); auto.
+Qed.
+  
+
 Lemma junction_indist : forall m sgn ns ns' s s' u u' b b' bu bu' res res' i (H: P (SM m sgn)),
   indist sgn (RT m sgn (pc s)) (RT m sgn (pc s')) b b' s s' ->
   exec m s (inl u) -> exec m s' (inl u') ->
@@ -567,55 +662,60 @@ Lemma junction_indist : forall m sgn ns ns' s s' u u' b b' bu bu' res res' i (H:
   evalsto m ns u res ->
   evalsto m ns' u' res' ->
   indist sgn (RT m sgn (pc u)) (RT m sgn (pc u')) bu bu' u u' ->
-  (exists v, exists v', exists ps, exists ps', 
+  border b bu -> border b' bu' -> 
+  (exists v, exists v', exists ps, exists ps', exists bv, exists bv', 
     evalsto m ps v res /\ ps <= ns /\
     evalsto m ps' v' res' /\ ps' <= ns' /\
     junc (cdr m (PM_P _ H)) i (pc v) /\ 
     junc (cdr m (PM_P _ H)) i (pc v') /\
-    indist sgn (RT m sgn (pc v)) (RT m sgn (pc v')) bu bu' v v')
-  \/ (high_result sgn res /\ high_result sgn res'). 
+    border bu bv /\ border bu' bv' /\
+    indist sgn (RT m sgn (pc v)) (RT m sgn (pc v')) bv bv' v v')
+  \/ (exists br, exists br', border bu br /\ border bu' br' /\
+      indist_heap_result res res' br br' /\ 
+      high_result sgn res /\ high_result sgn res'). 
 Proof.
-  intros.
+  intros m sgn ns ns' s s' u u' b b' bu bu' res res' i H. intros.
   elim evalsto_path with (1:=H3) (2:=H6); 
   elim evalsto_path with (1:=H4) (2:=H7); intros.
-  left. destruct H10 as [v H10]; destruct H10 as [path H10]; destruct H9 as [v' H9]; destruct H9 as [path' H9].
+  left. destruct H12 as [v H12]; destruct H12 as [path H12]; 
+      destruct H11 as [v' H11]; destruct H11 as [path' H11].
     exists v; exists v'.
     Cleanexand.
-    exists x; exists x0. 
+    exists x; exists x0. exists bu. exists bu'.
     repeat (split; auto).
     omega. omega.
     apply indist_from_regs_heap. constructor 1.
     intros.
     elim changed_dec with (m:=m) (i:=u) (j:=v) (p:=path) (r:=r);
     elim changed_dec with (m:=m) (i:=u') (j:=v') (p:=path') (r:=r); intros; auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H19; 
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H20; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H21; 
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H22; auto.
     constructor; auto.
     constructor 1; auto. 
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H20; auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H20; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H22; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H22; auto.
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v) (j2:=pc v'); auto.
     constructor 1; auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H19; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H21; auto.
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v') (j2:=pc v); auto.
-    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H19; auto.
+    apply changed_high with (m:=m) (sgn:=sgn) (s:=i) (H:=H) in H21; auto.
     (* both are not changed *)
-    apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u') (j:=v') in H19; auto.
+    apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u') (j:=v') in H21; auto.
 (*     apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u') (j:=v') (s:=i) (b:=bu') (H:=H)in H19; auto.  *)
-    apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u) (j:=v) in H20; auto.
+    apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u) (j:=v) in H22; auto.
 (*     apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u) (j:=v) (s:=i) (b:=bu) (H:=H)in H20; auto. *)
-    inversion H19; inversion H20.
+    inversion H21; inversion H22.
     destruct high_reg_dec with (rt:=RT m sgn (pc u)) (r:=r);
     destruct high_reg_dec with (rt:=RT m sgn (pc u')) (r:=r).
-    specialize H22 with (1:=H26); specialize H24 with (1:=H25).
+    specialize H24 with (1:=H28); specialize H26 with (1:=H27).
     constructor 1; auto.
-    specialize H24 with (1:=H25).
+    specialize H26 with (1:=H27).
     constructor 1; auto.
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v) (j2:=pc v'); auto.
-    specialize H22 with (1:=H26).
+    specialize H24 with (1:=H28).
     elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v') (j2:=pc v); auto.
     constructor 1; auto.
@@ -632,11 +732,17 @@ Proof.
       (Hpath:=path) (Hpath':=path') (s:=i); auto.
     apply indist_heap_from_indist in H8; auto.
   (* one of them doesn't have a junction point *)
-  Cleanexand. specialize H9 with (pc x). contradiction.
-  Cleanexand. specialize H10 with (pc x). contradiction.
-  (* both are junction points *)
-  right.
-  split.
+  Cleanexand. specialize H11 with (pc x). contradiction.
+  Cleanexand. specialize H12 with (pc x). contradiction.
+  (* both don't have junction points *)
+  right. exists bu. exists bu'.
+  repeat (split); auto.
+    (* heap indist *)
+    apply junction_indist_aux2 with (m:=m) (sgn:=sgn) (ns:=ns) (ns':=ns') (u:=u) 
+      (u':=u') (i:=i) (H:=H); auto.
+    apply indist_heap_from_indist with (sgn:=sgn) 
+      (rt1:=(RT m sgn (pc u))) (rt2:=(RT m sgn (pc u'))); auto.
+    (* *)
   apply typable_evalsto with (1:=T m sgn H) (se:=se) (RT:=RT) in H6. 
   apply final_bighighstep_aux with (m:=m) (sgn:=sgn) (H:=H) 
     (s:=u) (i:=i) (p:=ns); auto.
@@ -655,32 +761,34 @@ Lemma junction_indist_2 : forall m sgn ns ns' s s' u u' b b' bu bu' res res' i (
   evalsto m ns u res ->
   evalsto m ns' u' res' ->
   indist sgn (RT m sgn (pc u)) (RT m sgn (pc u')) bu bu' u u' ->
-  (exists v, exists ps, 
+  border b bu -> border b' bu' ->
+  (exists v, exists ps, exists bv,
     evalsto m ps v res /\ ps <= ns /\
     junc (cdr m (PM_P _ H)) i (pc v) /\ 
-    indist sgn (RT m sgn (pc v)) (RT m sgn (pc u')) bu bu' v u').
+    border bu bv /\
+    indist sgn (RT m sgn (pc v)) (RT m sgn (pc u')) bv bu' v u').
 Proof. 
   intros.
   elim evalsto_path with (1:=H3) (2:=H6); intros.
-  destruct H9 as [v [Hpath H9]].
+  destruct H11 as [v [Hpath H11]].
   exists v.
   Cleanexand.
-  exists x. repeat (split; auto).
+  exists x. exists bu. repeat (split; auto).
   omega.
   apply indist_from_regs_heap. constructor.
   intro r.
   elim changed_dec with (m:=m) (i:=u) (j:=v) (r:=r) (p:=Hpath); intros; auto.
   constructor 1.
-  apply changed_high with (m:=m) (sgn:=sgn) (H:=H) (s:=i) in H14; auto.
-  apply changed_high with (m:=m) (sgn:=sgn) (H:=H) (s:=i) in H14; auto.
+  apply changed_high with (m:=m) (sgn:=sgn) (H:=H) (s:=i) in H16; auto.
+  apply changed_high with (m:=m) (sgn:=sgn) (H:=H) (s:=i) in H16; auto.
   elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
       (j1:=pc v) (j2:=pc u'); auto.
   (* dealing with the value when it is not changed *)
-  apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u) (j:=v) in H14; auto.
+  apply not_changed_same with (m:=m) (sgn:=sgn) (i:=u) (j:=v) in H16; auto.
   Cleanexand.
   destruct high_reg_dec with (rt:=RT m sgn (pc u)) (r:=r);
   destruct high_reg_dec with (rt:=RT m sgn (pc u')) (r:=r).
-  specialize H15 with (1:=H16).
+  specialize H17 with (1:=H18).
   constructor 1; auto.
   constructor 1; auto.
   elim junc_func with (PC:=PC) (step:=step m) (c:=cdr m (PM_P _ H)) (i:=i) 
@@ -701,7 +809,7 @@ Proof.
   (*apply indist_reg_from_indist with (r:=r) in H8.
   Cleanexand. apply indist_reg_val_sym. apply H18; auto.
   apply H14; auto.*)
-  specialize H9 with (pc u'); contradiction.
+  specialize H11 with (pc u'); contradiction.
 Qed. 
 
 Definition tni :=
@@ -729,9 +837,9 @@ Variable branch_indist : forall m sgn s s' u u' b b' (H:P (SM m sgn)),
   exec m s (inl u) ->
   exec m s' (inl u') ->
   pc u <> pc u' ->
-  exists bu, exists bu',
+  (exists bu, exists bu',
     border b bu /\ border b' bu' /\
-    indist sgn (RT m sgn (pc u)) (RT m sgn (pc u')) b b' u u'.
+    indist sgn (RT m sgn (pc u)) (RT m sgn (pc u')) bu bu' u u').
 
 Lemma ni_ind : tni.
 Proof.
@@ -750,24 +858,19 @@ Proof.
   (* *)
   subst.
   apply tevalsto_diff_high_result with (s:=s) (res:=r) (b:=b) (b0:=b') in Htevalsto'; auto.
-  inversion Htevalsto'.
-  destruct H1 as [br [br0 [Hindistres [Hborder1 Hborder2]]]]. 
-  inversion H2.
+  inversion Htevalsto' as [[br [br0 [Hindistres [Hborder1 Hborder2]]]] [HHighRes HHighRes']].
   exists br. exists br0. repeat (split); auto.
 (*   exists b. exists b'; split; auto. split; auto. *)
 (*   inversion H1. inversion H3. apply high_result_indist; auto.  *)
 (*   apply high_result_indist; auto.  *)
-  destruct n; auto. inversion H5. omega. 
+  destruct n; auto. inversion H5. omega. rewrite <- Hpc; auto. 
   (* *)
   subst.
   apply tevalsto_diff_high_result with (s:=s') (res:=r') (b:=b') (b0:=b) in Htevalsto; auto.
-  inversion Htevalsto.
-  destruct H1 as [br [br0 [Hindistres [Hborder1 Hborder2]]]]. 
-  inversion H2.
-  exists br. exists br0. repeat (split); auto.
-  exists b. exists b'; split; auto.
+  inversion Htevalsto as [[br [br0 [Hindistres [Hborder1 Hborder2]]]] [HHighRes HHighRes']].
+  exists br0. exists br. repeat (split); auto.
 (*   apply high_result_indist; auto. *)
-  destruct n; auto. inversion H1. omega.
+  destruct n; auto. inversion H1. omega. rewrite <- Hpc; auto.
   (* *)
   inversion H0; inversion H5; subst.
   elim eq_excluded_middle with PC (pc s2) (pc s3); intros.
@@ -800,16 +903,24 @@ Proof.
   elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc s2) (pc s3); try (rewrite Hpc; auto; fail); auto; intros.
   elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc s3) (pc s2); try (rewrite Hpc; auto; fail); auto; intros.
   (* both are still in the region *)
+  elim branch_indist with (m:=m) (sgn:=sgn) (s:=s) (s':=s') (u:=s2) (u':=s3) (b:=b) (b':=b'); try (rewrite <- Hpc; auto); auto.
+  intros bu [bu' [Hborder [Hborder' Hindist']]].
   elim junction_indist with (m:=m) (sgn:=sgn) (ns:=n) (ns':=n0) (s:=s) (s':=s')
-    (u:=s2) (u':=s3) (res:=r) (res':=r') (i:=pc s) (H:=H) (b:=b) (b':=b') (bu:=b) (bu':=b'); auto.
+    (u:=s2) (u':=s3) (res:=r) (res':=r') (i:=pc s) (H:=H) (b:=b) (b':=b') (bu:=bu) (bu':=bu'); auto.
   intros. Cleanexand.
   assert (pc x = pc x0) as Hpcx. apply junc_func with (step:=step m) (c:=cdr m (PM_P _ H)) (i:=pc s); auto.
-  apply Hind with (p:=x1) (q:=x2) (s:=x) (s':=x0) (r:=r) (r':=r') (H:=H); auto; try omega.
-  rewrite <- Hpcx in H18; auto.
+  elim Hind with (p:=x1) (q:=x2) (s:=x) (s':=x0) (r:=r) (r':=r') (H:=H) (b:=x3) (b':=x4); auto; try omega.
+    intros br [br' [Hborder1 [Hborder1' Hindistres]]]. exists br; exists br'; repeat (split); auto. 
+    apply border_trans with (b2:=bu); auto; apply border_trans with (b2:=x3); auto. 
+    apply border_trans with (b2:=bu'); auto; apply border_trans with (b2:=x4); auto.
+  rewrite <- Hpcx in H21; auto.
   apply typable_evalsto; auto.  
   apply typable_evalsto; auto.
   intros. 
-  inversion H7. exists b. exists b'; split; auto. 
+  destruct H7 as [br [br' [Hborder1 [Hborder1' [HindistHeapResult [HighRes HighRes']]]]]]. 
+  exists br. exists br'; repeat (split); auto.
+  apply border_trans with (b2:=bu); auto.
+  apply border_trans with (b2:=bu'); auto.
 (*   apply high_result_indist; auto. *)
   rewrite <- Hpc; auto.
   assert ((forall j:PC, (region (cdr m (PM_P _ H)) (pc s) j) -> ~ leql (se m sgn j) observable)).
@@ -819,16 +930,22 @@ Proof.
     unfold high_region. auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
-  elim branch_indist with (s:=s) (s':=s') (m:=m) (sgn:=sgn) (u:=s2) (u':=s3) (b:=b) (b':=b'); auto.
-  intros b2 [b3 [Hborder1 [Hborder2 Hindist']]]; auto. rewrite <- Hpc; auto.
+  (* elim branch_indist with (s:=s) (s':=s') (m:=m) (sgn:=sgn) (u:=s2) (u':=s3) (b:=b) (b':=b'); auto.
+  intros b2 [b3 [Hborder1 [Hborder2 Hindist']]]; auto. 
+  admit. rewrite <- Hpc; auto. *)
 (*   apply branch_indist with (s:=s) (s':=s'); auto. rewrite <- Hpc; auto. *)
   (* one region one junction *)
+  elim branch_indist with (m:=m) (sgn:=sgn) (s:=s) (s':=s') (u:=s2) (u':=s3) (b:=b) (b':=b'); try (rewrite <- Hpc; auto); auto.
+  intros bu [bu' [Hborder [Hborder' Hindist']]].
   elim junction_indist_2 with (m:=m) (sgn:=sgn) (ns:=n0) (ns':=n) (s:=s') (s':=s)
-    (u:=s3) (u':=s2) (res:=r') (res':=r) (i:=pc s) (H:=H) (b:=b') (b':=b) (bu:=b') (bu':=b); auto. 
+    (u:=s3) (u':=s2) (res:=r') (res':=r) (i:=pc s) (H:=H) (b:=b') (b':=b) (bu:=bu') (bu':=bu); auto. 
   intros. Cleanexand.
   assert (pc x = pc s2) as Hpcx. apply junc_func with (step:=step m) (c:=cdr m (PM_P _ H)) (i:=pc s); auto.
-  apply Hind with (p:=n) (q:=x0) (s:=s2) (s':=x) (r:=r) (r':=r') (H:=H); auto; try omega.
-  apply indist_sym; rewrite Hpcx in H10; auto.
+  elim Hind with (p:=n) (q:=x0) (s:=s2) (s':=x) (r:=r) (r':=r') (H:=H) (b:=bu) (b':=x1); auto; try omega.
+  intros br [br' [Hborder1 [Hborder1' Hindistres]]]. exists br; exists br'; repeat (split); auto. 
+    apply border_trans with (b2:=bu); auto. 
+    apply border_trans with (b2:=bu'); auto; apply border_trans with (b2:=x1); auto.
+  apply indist_sym; rewrite Hpcx in H13; auto.
   apply typable_evalsto; auto.  
   apply indist_sym; rewrite <- Hpc; auto.
   assert ((forall j:PC, (region (cdr m (PM_P _ H)) (pc s) j) -> ~ leql (se m sgn j) observable)).
@@ -839,17 +956,21 @@ Proof.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   elim branch_indist with (s:=s') (s':=s) (m:=m) (sgn:=sgn) (u:=s3) (u':=s2) (b:=b') (b':=b); auto.
-  intros b3 [b2 [Hborder1 [Hborder2 Hindist']]]; auto. rewrite <- Hpc; auto.
+  intros bu' [bu [Hborder1 [Hborder2 Hindist']]]; auto. 
+(*   rewrite <- Hpc; auto. *)
   (* apply branch_indist with (s:=s') (s':=s); auto.
   apply indist_sym. rewrite <- Hpc; auto. *)
-  elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc s3) (pc s2); try (rewrite H0; auto; fail); auto; intros.
+  elim (soap1 (cdr m (PM_P _ H))) with (pc s) (pc s3) (pc s2); intros; auto.
   (* one junction one region *)
   elim junction_indist_2 with (m:=m) (sgn:=sgn) (ns:=n) (ns':=n0) (s:=s) (s':=s')
-    (u:=s2) (u':=s3) (res:=r) (res':=r') (i:=pc s) (H:=H) (b:=b) (b':=b') (bu:=b) (bu':=b'); auto.
-  intros. Cleanexand.
+    (u:=s2) (u':=s3) (res:=r) (res':=r') (i:=pc s) (H:=H) (b:=b) (b':=b') (bu:=bu) (bu':=bu'); auto.
+  intros. destruct H7 as [ps [bv [Ha [Hb [Hc [Hd He]]]]]]. (*Cleanexand.*)
   assert (pc x = pc s3) as Hpcx. apply junc_func with (step:=step m) (c:=cdr m (PM_P _ H)) (i:=pc s); auto.
-  apply Hind with (p:=x0) (q:=n0) (s:=x) (s':=s3) (r:=r) (r':=r') (H:=H); auto; try omega.
-  rewrite <- Hpcx in H10; auto.
+  elim Hind with (p:=ps) (q:=n0) (s:=x) (s':=s3) (r:=r) (r':=r') (H:=H) (b:=bv) (b':=bu'); auto; try omega.
+  intros br [br' [Hborder1' [Hborder2' Hindistres]]]. exists br; exists br'; repeat (split); auto.
+    apply border_trans with (b2:=bv); auto; apply border_trans with (b2:=bu); auto .
+    apply border_trans with (b2:=bu'); auto.
+  rewrite <- Hpcx in He; auto.
   apply typable_evalsto; auto.  
   rewrite <- Hpc; auto.
   assert ((forall j:PC, (region (cdr m (PM_P _ H)) (pc s) j) -> ~ leql (se m sgn j) observable)).
@@ -859,15 +980,15 @@ Proof.
     unfold high_region; auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
   apply tevalsto_evalsto with (se:=se) (RT:=RT) (sgn:=sgn) (h:=PM_P _ H); auto.
-  elim branch_indist with (s:=s) (s':=s') (m:=m) (sgn:=sgn) (u:=s2) (u':=s3) (b:=b) (b':=b'); auto.
-  intros bu [bu' [Hborder1 [Hborder2 Hindist']]]; auto.
-  rewrite <- Hpc; auto.
+(*   rewrite <- Hpc; auto. *)
   (* apply branch_indist with (s:=s) (s':=s'); auto.
   rewrite <- Hpc; auto. *)
   (* both are junctions *)
   apply junc_func with (step:=step m) (c:=cdr m (PM_P _ H)) (i:=pc s) (j1:=pc s2) in H3; auto.
   contradiction.
   apply exec_step_some with (1:=PM_P _ H) in H16. rewrite Hpc; auto.
+  (* *) 
+  rewrite <- Hpc; apply indist_sym; auto.
 Qed.
 
 Theorem safe_ni : forall m sgn p p' s s' b b' r r',
